@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": [
+    "app/layout.tsx",
+    "app/**/page.tsx",
+    "electron/main.ts",
+    "electron/preload.ts",
+    "scripts/apply-app-constants.js",
+    "scripts/build-electron.js"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "hooks/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx,mjs}",
+    "electron/**/*.ts",
+    "scripts/**/*.{js,mjs}"
+  ],
+  "ignore": ["electron/**/*.js"],
+  "ignoreDependencies": ["@biomejs/biome"],
+  "ignoreBinaries": ["printf"]
+}

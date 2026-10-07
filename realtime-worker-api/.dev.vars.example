@@ -1,0 +1,31 @@
+DEEPGRAM_API_KEY=
+
+# Anthropic. When set, Anthropic answers by default unless the admin
+# dashboard pins another provider. ANTHROPIC_MODEL is optional.
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-opus-5-5
+
+# Optional: Gemini provider
+GOOGLE_GENERATIVE_AI_API_KEY=
+
+# AI model selection (see Gemini model list)
+GEMINI_MODEL=gemini-flash-lite-latest
+
+# Better Auth
+BETTER_AUTH_SECRET=your-random-secret-here
+BETTER_AUTH_URL=http://localhost:8787
+
+# Extra browser origins allowed to call the API with cookies (web dashboard,
+# admin panel). Comma-separated, e.g. https://app.example.com
+APP_ORIGINS=
+
+# Comma-separated emails allowed to access /api/admin/* and the /admin UI
+ADMIN_EMAILS=you@example.com
+
+CF_ACCOUNT_ID=
+CF_GATEWAY_ID=
+CF_API_TOKEN=
+
+# Quota (dry-run consumption ON; enforcement OFF until billing is ready)
+QUOTA_ENFORCEMENT=false
+QUOTA_RECORD_CONSUMPTION=true

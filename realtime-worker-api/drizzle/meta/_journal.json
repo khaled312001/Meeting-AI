@@ -1,0 +1,104 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1764352588748,
+      "tag": "0000_bizarre_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1764352600000,
+      "tag": "0001_add_is_approved",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1764400000000,
+      "tag": "0002_add_saved_notes_and_presets",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1764450000000,
+      "tag": "0003_add_admin_dashboard_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1764500000000,
+      "tag": "0004_add_admin_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1764550000000,
+      "tag": "0005_add_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1764600000000,
+      "tag": "0006_add_usage_event",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1764650000000,
+      "tag": "0007_add_user_model_params",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1764700000000,
+      "tag": "0008_add_live_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1764750000000,
+      "tag": "0009_add_support_and_announcements",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1764800000000,
+      "tag": "0010_add_quota_balance",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1764850000000,
+      "tag": "0011_add_resume_jd_to_presets",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1764900000000,
+      "tag": "0012_add_workspace_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1764950000000,
+      "tag": "0013_remove_presets_add_interview_context",
+      "breakpoints": true
+    }
+  ]
+}

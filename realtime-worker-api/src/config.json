@@ -1,0 +1,111 @@
+{
+  "sentinel": {
+    "rateLimits": {
+      "maxLoginAttemptsPerHour": 10,
+      "maxSignupsPerHour": 5,
+      "windowMs": 3600000
+    },
+    "disposableDomains": [
+      "mailinator.com",
+      "guerrillamail.com",
+      "guerrillamailblock.com",
+      "grr.la",
+      "guerrillamail.info",
+      "guerrillamail.de",
+      "tempmail.com",
+      "temp-mail.org",
+      "throwaway.email",
+      "yopmail.com",
+      "yopmail.fr",
+      "10minutemail.com",
+      "10minute.email",
+      "trashmail.com",
+      "trashmail.net",
+      "dispostable.com",
+      "mailnesia.com",
+      "maildrop.cc",
+      "fakeinbox.com",
+      "sharklasers.com",
+      "tempinbox.com",
+      "getnada.com",
+      "mohmal.com",
+      "mailcatch.com",
+      "tempr.email",
+      "discard.email",
+      "tmail.ws",
+      "harakirimail.com",
+      "mailsac.com",
+      "anonbox.net",
+      "mintemail.com",
+      "mytrashmail.com",
+      "mailexpire.com",
+      "safetymail.info",
+      "spamgourmet.com",
+      "jetable.org",
+      "incognitomail.org",
+      "mailnator.com",
+      "getairmail.com",
+      "mailforspam.com",
+      "bugmenot.com",
+      "devnullmail.com",
+      "rmqkr.net",
+      "trbvm.com",
+      "mailmetrash.com",
+      "thankyou2010.com",
+      "trashinbox.com",
+      "reallymymail.com",
+      "klzlk.com"
+    ]
+  },
+  "geminiModels": [
+    { "id": "gemini-3.7-flash", "label": "Gemini 3.7 Flash" },
+    { "id": "gemini-3.6-flash", "label": "Gemini 3.6 Flash" },
+    { "id": "gemini-3.5-flash-lite", "label": "Gemini 3.5 Flash Lite" },
+    { "id": "gemini-2.5-flash-lite", "label": "Gemini 2.5 Flash Lite" }
+  ],
+  "allowedConfigKeys": [
+    "active_provider",
+    "anthropic_model",
+    "anthropic_key",
+    "gemini_model",
+    "gemini_key",
+    "deepgram_key",
+    "custom_model_name",
+    "custom_base_url",
+    "custom_api_key",
+    "cf_account_id",
+    "cf_gateway_id",
+    "cf_api_token",
+    "model_max_output_tokens",
+    "model_temperature",
+    "model_top_p",
+    "model_thinking_budget"
+  ],
+  "modelParams": {
+    "defaults": {
+      "maxOutputTokens": 8192,
+      "temperature": 1,
+      "topP": 0.95,
+      "thinkingBudget": "off"
+    },
+    "ranges": {
+      "maxOutputTokens": { "min": 1, "max": 32768, "type": "int" },
+      "temperature": { "min": 0, "max": 2, "type": "float" },
+      "topP": { "min": 0, "max": 1, "type": "float" },
+      "thinkingBudget": { "type": "enum", "values": ["off", "low", "medium", "high"] }
+    }
+  },
+  "quota": {
+    "defaultTierForNewUsers": "legacy_unlimited",
+    "tiers": {
+      "legacy_unlimited": {
+        "monthlyAllowanceSeconds": null,
+        "monthlyAllowanceCompletions": null
+      },
+      "free_tier": {
+        "monthlyAllowanceSeconds": 3600,
+        "monthlyAllowanceCompletions": 500
+      }
+    }
+  }
+}

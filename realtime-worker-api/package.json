@@ -1,0 +1,27 @@
+{
+  "name": "realtime-worker-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "seed:dev": "node scripts/seed-dev-accounts.mjs",
+    "deploy": "wrangler deploy",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "build:node": "node scripts/build-node.mjs --static ../out"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@types/node": "^26.2.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.125.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "better-auth": "^1.7.4",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.4.3"
+  }
+}

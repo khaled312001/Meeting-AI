@@ -1,0 +1,79 @@
+import type { Session } from "electron";
+const { DEV_CSP, PROD_CSP } = require("../../lib/csp.mjs") as {
+  DEV_CSP: string;
+  PROD_CSP: string;
+};
+const { BACKEND_API_URL } = require("../../lib/backend-url.mjs") as {
+  BACKEND_API_URL: string;
+};
+
+/** Match pattern for the worker API (match patterns can't carry a port). */
+function backendUrlPattern(): string {
+  const url = new URL(BACKEND_API_URL);
+  return `${url.protocol}//${url.hostname}/*`;
+}
+
+/** Content-Security-Policy strings + wiring.
+ *
+ *  Dev needs HMR websockets and `unsafe-eval` for Next.js fast refresh;
+ *  packaged builds drop those so a renderer compromise cannot execute
+ *  eval-built code or reach arbitrary ws:// endpoints.
+ *
+ *  PostHog notes:
+ *   - PostHog lazy-loads its sub-feature scripts (recorder, web-vitals,
+ *     surveys, dead-clicks, exception-autocapture) by injecting <script>
+ *     tags pointing at `eu-assets.i.posthog.com/static/*`. Those need
+ *     `script-src`, NOT just `connect-src` — that's why the previous CSP
+ *     blocked all of them with `failed to load script [object Event]`.
+ *   - We use the wildcard `https://*.i.posthog.com` everywhere it's
+ *     referenced so a US-region fallback (`us.i.posthog.com` /
+ *     `us-assets.i.posthog.com`) still works without further edits.
+ *     This matches PostHog's own published CSP guidance. */
+
+export function pickCsp(isPackaged: boolean): string {
+  return isPackaged ? PROD_CSP : DEV_CSP;
+}
+
+/** Install the CSP injector on a session. Strips any upstream
+ *  Content-Security-Policy / CSP-Report-Only headers (case-insensitive)
+ *  before injecting Electron's own.
+ *
+ *  Next's dev server (next.config.mjs `headers()`) emits a lower-case
+ *  `content-security-policy` header that would otherwise survive — and
+ *  because browsers intersect multiple CSP sources, that upstream header
+ *  silently strips `'unsafe-eval'` from the effective policy, producing
+ *  the React dev-mode "eval() is not supported … include unsafe-eval"
+ *  warning. Stripping first guarantees Electron's CSP is the SOLE policy
+ *  on the response. */
+export function installCsp(s: Session, csp: string): void {
+  s.webRequest.onHeadersReceived((details, callback) => {
+    const sourceHeaders = details.responseHeaders ?? {};
+    const filteredHeaders: Record<string, string[] | string> = {};
+    for (const [name, value] of Object.entries(sourceHeaders)) {
+      if (/^content-security-policy(-report-only)?$/i.test(name)) continue;
+      filteredHeaders[name] = value as string[] | string;
+    }
+    filteredHeaders["Content-Security-Policy"] = [csp];
+    callback({ responseHeaders: filteredHeaders });
+  });
+}
+
+/** Inject Origin header for API requests to fix "Missing or null Origin"
+ *  errors. This is required because Electron sends "file://" or "null"
+ *  as origin for local files. */
+export function installOriginHeaderInjection(s: Session): void {
+  s.webRequest.onBeforeSendHeaders(
+    {
+      urls: [
+        backendUrlPattern(),
+        "https://*.deepgram.com/*",
+        "https://api.deepgram.com/*",
+      ],
+    },
+    (details, callback) => {
+      // Mimic development origin which is likely whitelisted server-side.
+      details.requestHeaders["Origin"] = "http://localhost:3000";
+      callback({ requestHeaders: details.requestHeaders });
+    },
+  );
+}

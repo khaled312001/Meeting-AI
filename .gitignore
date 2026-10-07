@@ -1,0 +1,69 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/.open-next/
+/out/
+
+# production
+/build/*
+!/build/
+!/build/entitlements.mac.plist
+!/build/entitlements.mac.inherit.plist
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env
+.env.*
+!.env.example
+
+# vercel
+.vercel
+
+.wrangler
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+.dev.vars
+
+# local-only reference docs (never pushed)
+/docs/local/
+
+/release-assets/
+
+# electron
+/dist
+/electron/*.js
+/electron/*.js.map
+/electron/backend-url.json
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.rpm
+
+.agents/
+skills-lock.json
+ARCHITECTURE.md
+.cursor/
+.vscode/
+/private/

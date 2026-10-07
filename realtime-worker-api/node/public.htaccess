@@ -1,0 +1,16 @@
+# Passenger/LiteSpeed serve public/ directly; give static files the same
+# security headers the Node app sets on its own responses.
+AddType application/manifest+json .webmanifest
+AddType application/x-apple-diskimage .dmg
+AddType application/vnd.microsoft.portable-executable .exe
+<IfModule mod_headers.c>
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "DENY"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+Header always set Permissions-Policy "camera=(), geolocation=(), microphone=(self), display-capture=(self), payment=()"
+# Installers always download instead of opening in the browser.
+<FilesMatch "\.(dmg|exe|zip)$">
+Header set Content-Disposition "attachment"
+</FilesMatch>
+</IfModule>

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تحميل Meeting AI</title>
+<meta name="description" content="حمّل Meeting AI لويندوز وماك — مساعد ذكي لحظي للاجتماعات والإنترفيوهات.">
+<link rel="icon" href="/icons/favicon.ico">
+<style>
+  :root {
+    --bg: #0c0a09; --card: #1c1917; --border: #292524; --text: #fafaf9;
+    --muted: #a8a29e; --accent: #3f9a6b; --accent-hover: #4aae7b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans Arabic", sans-serif;
+    display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+  }
+  main { width: 100%; max-width: 560px; }
+  .logo {
+    width: 48px; height: 48px; border-radius: 12px; background: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px;
+  }
+  h1 { font-size: 26px; margin: 18px 0 6px; }
+  p.lead { color: var(--muted); margin: 0 0 24px; line-height: 1.7; }
+  .card {
+    display: flex; align-items: center; gap: 14px; padding: 16px; margin-bottom: 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  }
+  .card .info { flex: 1; min-width: 0; }
+  .card strong { display: block; font-size: 15px; }
+  .card span { color: var(--muted); font-size: 13px; }
+  a.btn {
+    flex-shrink: 0; background: var(--accent); color: #fff; text-decoration: none;
+    padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600;
+  }
+  a.btn:hover { background: var(--accent-hover); }
+  .note {
+    margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px;
+    color: var(--muted); font-size: 13px; line-height: 1.8;
+  }
+  code {
+    direction: ltr; unicode-bidi: embed; display: inline-block; background: #0c0a09;
+    border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; color: var(--text);
+  }
+  .web { margin-top: 18px; text-align: center; font-size: 14px; }
+  .web a { color: var(--accent-hover); }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo">M</div>
+  <h1>Meeting AI</h1>
+  <p class="lead">مساعد ذكي بيسمع الاجتماع أو الإنترفيو ويطلّع الإجابة فوراً، معتمد على السي في وملفاتك.</p>
+
+  <div class="card">
+    <div class="info"><strong>Windows</strong><span>ويندوز 10 و11</span></div>
+    <a class="btn" href="https://github.com/khaled312001/Meeting-AI/releases/download/v0.17.1/MeetingAI-0.17.1-win-x64.exe">تحميل</a>
+  </div>
+  <div class="card">
+    <div class="info"><strong>Mac — Apple Silicon</strong><span>أجهزة M1 / M2 / M3 / M4</span></div>
+    <a class="btn" href="https://github.com/khaled312001/Meeting-AI/releases/download/v0.17.1/MeetingAI-0.17.1-mac-arm64.dmg">تحميل</a>
+  </div>
+  <div class="card">
+    <div class="info"><strong>Mac — Intel</strong><span>أجهزة الماك الأقدم</span></div>
+    <a class="btn" href="https://github.com/khaled312001/Meeting-AI/releases/download/v0.17.1/MeetingAI-0.17.1-mac-x64.dmg">تحميل</a>
+  </div>
+
+  <div class="note">
+    <strong style="color:var(--text)">ملاحظات التثبيت</strong><br>
+    • ويندوز: لو ظهر تحذير، اضغط More info ثم Run anyway.<br>
+    • ماك: اسحب التطبيق لـ Applications، ولو ظهرت رسالة إنه "damaged" شغّل في Terminal:<br>
+    <code>xattr -cr "/Applications/Meeting AI.app"</code><br>
+    • مش عارف نوع الماك؟ من  ← About This Mac: لو مكتوب Chip يبقى Apple Silicon، ولو Processor Intel يبقى Intel.
+  </div>
+
+  <p class="web">أو <a href="/">استخدمه من المتصفح مباشرة</a></p>
+</main>
+</body>
+</html>
