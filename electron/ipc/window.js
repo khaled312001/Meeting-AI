@@ -98,8 +98,10 @@ function registerWindowIpc(getWindow) {
             return true;
         }
     });
+    // The close button quits the app on every platform. On macOS, closing
+    // the window alone would leave it running with no Dock icon to reach it.
     electron_1.ipcMain.handle("window-close", () => {
-        getWindow()?.close();
+        electron_1.app.quit();
     });
     electron_1.ipcMain.handle("window-always-on-top", (_, flag) => {
         getWindow()?.setAlwaysOnTop(flag);

@@ -407,6 +407,17 @@ export function FocusBar({
             )}
             {isActive ? (isBusy && !live ? "Starting" : "End") : "Start"}
           </button>
+          {isElectron && (
+            <button
+              type="button"
+              onClick={() => void window.electronAPI?.windowClose()}
+              title="Close Meeting AI"
+              aria-label="Close Meeting AI"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-red-500/80 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

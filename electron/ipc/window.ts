@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, screen } from "electron";
+import { app, BrowserWindow, ipcMain, screen } from "electron";
 
 const WINDOW_FOCUS_CHANNEL = "window:focus";
 
@@ -110,8 +110,10 @@ export function registerWindowIpc(getWindow: WindowAccessor): void {
     }
   });
 
+  // The close button quits the app on every platform. On macOS, closing
+  // the window alone would leave it running with no Dock icon to reach it.
   ipcMain.handle("window-close", () => {
-    getWindow()?.close();
+    app.quit();
   });
 
   ipcMain.handle("window-always-on-top", (_, flag: boolean) => {

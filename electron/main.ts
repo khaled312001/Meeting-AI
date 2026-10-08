@@ -370,10 +370,10 @@ app.whenReady().then(async () => {
   });
 });
 
+// Quit on macOS too: the Dock icon is hidden, so a windowless app would
+// keep running with no way back to it.
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  app.quit();
 });
 
 registerWindowIpc(getMainWindow);
