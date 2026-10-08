@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 
-const MAX_RESUME_TEXT_CHARS = 6000;
-const MAX_JD_TEXT_CHARS = 4000;
-const MAX_INTERVIEW_NOTES_CHARS = 4000;
+const MAX_RESUME_TEXT_CHARS = 30_000;
+const MAX_JD_TEXT_CHARS = 20_000;
+const MAX_INTERVIEW_NOTES_CHARS = 40_000;
 
 export const interviewContextPatchSchema = z.object({
   interviewNotes: z.string().max(MAX_INTERVIEW_NOTES_CHARS).nullable().optional(),

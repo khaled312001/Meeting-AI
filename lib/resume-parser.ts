@@ -1,28 +1,92 @@
-/** Parse resume / knowledge files (txt, md, pdf, docx) into plain text. */
+/** Parse resume / knowledge files into plain text: PDF, Word, Excel,
+ *  PowerPoint, OpenDocument, RTF, HTML, EPUB, CSV/Markdown/JSON and any
+ *  other text file. */
 
-const RESUME_MAX_CHARS = 6000;
+import {
+  decodeText,
+  htmlToText,
+  looksBinary,
+  parseEpub,
+  parseOdf,
+  parsePptx,
+  parseRtf,
+  parseXlsx,
+} from "./document-formats";
 
-const ALLOWED_EXTENSIONS = new Set(["txt", "md", "pdf", "docx"]);
+const RESUME_MAX_CHARS = 30_000;
 
-export const DOCUMENT_ACCEPT =
-  ".pdf,.txt,.md,.docx,application/pdf,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+type DocumentKind =
+  | "text"
+  | "html"
+  | "pdf"
+  | "docx"
+  | "xlsx"
+  | "pptx"
+  | "odf"
+  | "rtf"
+  | "epub";
 
-const UNSUPPORTED_MESSAGE = "Unsupported file type. Use .pdf, .docx, .txt, or .md.";
+const EXTENSION_KINDS: Record<string, DocumentKind> = {
+  pdf: "pdf",
+  docx: "docx",
+  docm: "docx",
+  dotx: "docx",
+  xlsx: "xlsx",
+  xlsm: "xlsx",
+  xltx: "xlsx",
+  pptx: "pptx",
+  pptm: "pptx",
+  ppsx: "pptx",
+  potx: "pptx",
+  odt: "odf",
+  ods: "odf",
+  odp: "odf",
+  rtf: "rtf",
+  html: "html",
+  htm: "html",
+  xhtml: "html",
+  epub: "epub",
+};
 
-function extensionOf(file: File): string {
-  const fromName = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (fromName && ALLOWED_EXTENSIONS.has(fromName)) return fromName;
+/** Old binary Office formats: say what to do instead of failing vaguely. */
+const LEGACY_OFFICE: Record<string, string> = {
+  doc: ".docx",
+  xls: ".xlsx",
+  ppt: ".pptx",
+  pps: ".pptx",
+};
+
+const MIME_KINDS: Record<string, DocumentKind> = {
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "application/vnd.oasis.opendocument.text": "odf",
+  "application/vnd.oasis.opendocument.spreadsheet": "odf",
+  "application/vnd.oasis.opendocument.presentation": "odf",
+  "application/rtf": "rtf",
+  "text/rtf": "rtf",
+  "text/html": "html",
+  "application/epub+zip": "epub",
+};
+
+/** Upload pickers: no filter, since any text-based file works too. The
+ *  list of named formats is for labels. */
+export const DOCUMENT_ACCEPT = "";
+
+export const DOCUMENT_FORMATS_LABEL =
+  "PDF, Word, Excel, PowerPoint, CSV, Markdown, text, RTF, HTML, OpenDocument, EPUB";
+
+function kindOf(file: File): DocumentKind | "legacy" | "image" | "unknown" {
+  const ext = file.name.includes(".")
+    ? (file.name.split(".").pop()?.toLowerCase() ?? "")
+    : "";
+  if (EXTENSION_KINDS[ext]) return EXTENSION_KINDS[ext];
+  if (LEGACY_OFFICE[ext]) return "legacy";
   const mime = file.type.toLowerCase();
-  if (mime === "text/plain") return "txt";
-  if (mime === "text/markdown") return "md";
-  if (mime === "application/pdf") return "pdf";
-  if (
-    mime ===
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ) {
-    return "docx";
-  }
-  return fromName;
+  if (MIME_KINDS[mime]) return MIME_KINDS[mime];
+  if (mime.startsWith("image/")) return "image";
+  return "unknown";
 }
 
 async function parsePdf(file: File, maxChars: number): Promise<string> {
@@ -70,29 +134,64 @@ export async function parseDocumentFile(
   file: File,
   { maxChars }: { maxChars: number },
 ): Promise<ParsedDocument> {
-  const ext = extensionOf(file);
-  if (!ALLOWED_EXTENSIONS.has(ext)) throw new Error(UNSUPPORTED_MESSAGE);
+  const kind = kindOf(file);
+  if (kind === "legacy") {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    throw new Error(
+      `Old .${ext} files can't be read. Open it and save it as ${LEGACY_OFFICE[ext]}, then upload again.`,
+    );
+  }
+  if (kind === "image") {
+    throw new Error(
+      "Images have no text to read. Upload the document itself, or paste its text.",
+    );
+  }
 
+  const bytes = () => file.arrayBuffer().then((b) => new Uint8Array(b));
   let text: string;
-  switch (ext) {
-    case "txt":
-    case "md":
-      text = await file.text();
-      break;
+  switch (kind) {
     case "pdf":
       text = await parsePdf(file, maxChars);
       break;
     case "docx":
       text = await parseDocx(file);
       break;
-    default:
-      throw new Error(UNSUPPORTED_MESSAGE);
+    case "xlsx":
+      text = parseXlsx(await bytes(), maxChars);
+      break;
+    case "pptx":
+      text = parsePptx(await bytes(), maxChars);
+      break;
+    case "odf":
+      text = parseOdf(await bytes(), maxChars);
+      break;
+    case "epub":
+      text = parseEpub(await bytes(), maxChars);
+      break;
+    case "rtf":
+      text = parseRtf(decodeText(await bytes()));
+      break;
+    case "html":
+      text = htmlToText(decodeText(await bytes()));
+      break;
+    default: {
+      // Markdown, CSV, JSON, code, subtitles… anything that is text.
+      const data = await bytes();
+      if (looksBinary(data)) {
+        throw new Error(
+          `Can't read text from “${file.name}”. Supported: ${DOCUMENT_FORMATS_LABEL}, or any text file.`,
+        );
+      }
+      text = decodeText(data);
+    }
   }
 
   text = text.replace(/\u0000/g, "").trim();
   if (!text) {
     throw new Error(
-      "Could not extract text from that file. Scanned PDFs need OCR first.",
+      kind === "pdf"
+        ? "This PDF has no selectable text (it's a scan). Paste the text instead, or export it from the original document."
+        : "No readable text found in that file.",
     );
   }
 

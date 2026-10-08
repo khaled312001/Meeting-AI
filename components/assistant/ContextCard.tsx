@@ -185,7 +185,6 @@ export const ContextCard = memo(function ContextCard({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 className="hidden"
                 onChange={(e) => void handleFileChange(e)}
               />

@@ -118,6 +118,40 @@ function registerToggleOverlayShortcut() {
   });
 }
 
+/** Shortcuts that work while the meeting app has focus: answer, clear the
+ *  answer, switch Auto / Manual, and nudge the overlay around the screen. */
+const SHORTCUT_ACTIONS: Record<string, string> = {
+  "CommandOrControl+Alt+Enter": "answer",
+  "CommandOrControl+Alt+Backspace": "clear-answer",
+  "CommandOrControl+Alt+M": "toggle-mode",
+};
+const MOVE_STEP = 40;
+
+function registerMeetingShortcuts() {
+  for (const [accelerator, action] of Object.entries(SHORTCUT_ACTIONS)) {
+    globalShortcut.register(accelerator, () => {
+      const w = mainWindow;
+      if (!w || w.isDestroyed()) return;
+      if (!w.isVisible()) w.show();
+      w.webContents.send("shortcut:action", action);
+    });
+  }
+  const moves: Record<string, [number, number]> = {
+    Up: [0, -MOVE_STEP],
+    Down: [0, MOVE_STEP],
+    Left: [-MOVE_STEP, 0],
+    Right: [MOVE_STEP, 0],
+  };
+  for (const [key, [dx, dy]] of Object.entries(moves)) {
+    globalShortcut.register(`CommandOrControl+Alt+${key}`, () => {
+      const w = mainWindow;
+      if (!w || w.isDestroyed()) return;
+      const [x, y] = w.getPosition();
+      w.setPosition(x + dx, y + dy);
+    });
+  }
+}
+
 async function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const iconPath = resolveIconPath();
@@ -324,6 +358,7 @@ app.whenReady().then(async () => {
 
   registerCaptureAndAskShortcut(getMainWindow);
   registerToggleOverlayShortcut();
+  registerMeetingShortcuts();
 
   // No Dock icon / Cmd-Tab entry on macOS: both show up in a shared screen.
   if (process.platform === "darwin") app.dock?.hide();

@@ -38,6 +38,7 @@ import {
   MicSwitch,
 } from "@/components/LiveControls";
 import { Kbd } from "@/components/ui/Kbd";
+import { useWindowDrag } from "@/hooks/useWindowDrag";
 import { cn } from "@/lib/utils";
 import { LoadingDots } from "./LoadingDots";
 
@@ -45,8 +46,6 @@ import { LoadingDots } from "./LoadingDots";
 export const focusGlass =
   "border border-white/10 bg-[rgba(18,20,26,0.72)] shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl";
 
-const dragStyle = { WebkitAppRegion: "drag" } as React.CSSProperties;
-const noDragStyle = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
 
 function PillButton({
   onClick,
@@ -176,6 +175,8 @@ export function FocusBar({
     meSpeaking,
   } = useTranscription();
   const { answerMode } = useAssistantSession();
+  // Grab any empty part of either pill to move the window.
+  const { onPointerDown: startDrag } = useWindowDrag();
 
   const live = sessionState === "live";
   const latest = transcriptionSegments[transcriptionSegments.length - 1];
@@ -228,27 +229,25 @@ export function FocusBar({
       <div
         data-clickable
         data-window-chrome
+        onPointerDown={isElectron ? startDrag : undefined}
         className={cn(
           // Above the panels below so the ⋮ menu drops over them; wraps
           // into two lines on narrow (phone) screens.
           "relative z-30 flex max-w-full flex-wrap items-center justify-center gap-0.5 rounded-[22px] p-1",
+          isElectron && "cursor-grab active:cursor-grabbing",
           focusGlass,
         )}
       >
         {isElectron && (
           <span
-            title="Drag to move"
-            style={dragStyle}
-            className="inline-flex h-7 w-5 shrink-0 cursor-grab items-center justify-center text-text-tertiary"
+            title="Drag to move (or Ctrl+Alt+arrow keys)"
+            className="inline-flex h-7 w-6 shrink-0 items-center justify-center rounded-full text-text-secondary hover:bg-white/10"
           >
-            <GripVertical className="h-3.5 w-3.5" />
+            <GripVertical className="h-4 w-4" />
           </span>
         )}
 
-        <div
-          style={noDragStyle}
-          className="flex min-w-0 flex-wrap items-center justify-center gap-0.5"
-        >
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-0.5">
           {isLoading ? (
             <PillButton onClick={onStop} title="Stop this answer" active>
               <LoadingDots color="bg-sky-300" />
@@ -257,12 +256,12 @@ export function FocusBar({
           ) : (
             <PillButton
               onClick={onAnswer}
-              disabled={!transcribedText.trim()}
               title={
                 answerMode === "auto"
-                  ? "Answer now (questions are also answered on their own)"
-                  : "Answer the latest question"
+                  ? "Answer now — questions are also answered on their own (Ctrl+Alt+Enter from any app)"
+                  : "Answer the latest question (Ctrl+Alt+Enter from any app)"
               }
+              className="bg-accent/15 text-accent-text hover:bg-accent/25"
             >
               <Sparkles className="h-3.5 w-3.5 text-accent-text" />
               Answer
@@ -415,8 +414,10 @@ export function FocusBar({
       {showStatusRow && (
         <div
           data-clickable
+          onPointerDown={isElectron ? startDrag : undefined}
           className={cn(
             "flex w-full max-w-[680px] items-center gap-2 rounded-full py-1 pl-3 pr-1",
+            isElectron && "cursor-grab active:cursor-grabbing",
             focusGlass,
           )}
         >
@@ -455,10 +456,10 @@ export function FocusBar({
             onClick={onClearTranscription}
             disabled={!transcribedText.trim()}
             title="Clear the transcript"
-            className="text-text-secondary"
+            className="border border-white/15 bg-white/[0.06] text-text-primary hover:border-white/25 hover:bg-white/15"
           >
             <Eraser className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Clear</span>
+            <span className="hidden sm:inline">Clear text</span>
             <Kbd
               keys={["Mod", "Shift", "⌫"]}
               size="xs"

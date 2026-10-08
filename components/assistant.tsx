@@ -11,6 +11,7 @@ import { useTranscription } from "@/components/TranscriptionContext";
 import { useClientReady } from "@/hooks/useClientReady";
 import { useAssistantSubmit } from "@/hooks/useAssistantSubmit";
 import { useAutoAnswer } from "@/hooks/useAutoAnswer";
+import { useMeetingShortcuts } from "@/hooks/useMeetingShortcuts";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { useInterviewContext } from "@/components/InterviewContextProvider";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
@@ -60,6 +61,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     pastAnswers,
     clearAnswers,
     answerMode,
+    setAnswerMode,
     answerAt,
     answerKind,
   } = useAssistantSession();
@@ -119,6 +121,16 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     const { question, replace } = takeQuestion();
     void generateNow({ question: question || undefined, replace });
   }, [generateNow, isLoading, takeQuestion]);
+
+  // Ctrl/⌘+Alt shortcuts from any app (desktop).
+  useMeetingShortcuts(isActive, {
+    answer: answerNow,
+    clearAnswer: () => {
+      stop();
+      clearAnswers();
+    },
+    toggleMode: () => setAnswerMode(answerMode === "auto" ? "manual" : "auto"),
+  });
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {

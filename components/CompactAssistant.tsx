@@ -15,6 +15,7 @@ import { useSharedAskChat } from "@/components/AskChatProvider";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
 import { useAskMic } from "@/hooks/useAskMic";
 import { useAutoAnswer } from "@/hooks/useAutoAnswer";
+import { useMeetingShortcuts } from "@/hooks/useMeetingShortcuts";
 import { useTab } from "@/components/TabContext";
 import { useMicPushToTalk } from "@/hooks/useMicPushToTalk";
 import { dbg } from "@/lib/debug";
@@ -75,6 +76,7 @@ export function CompactAssistant({
     pastAnswers,
     clearAnswers,
     answerMode,
+    setAnswerMode,
     answerAt,
     answerKind,
   } = useAssistantSession();
@@ -212,7 +214,13 @@ export function CompactAssistant({
   /** Manual Answer: the question heard since the last answer, word for
    *  word (or the last one again). Falls back to the whole transcript. */
   const answerNow = useCallback(() => {
-    if (isLoading || !transcribedText.trim()) return;
+    if (isLoading) return;
+    if (!transcribedText.trim()) {
+      setError(
+        "Nothing heard yet — press Start to listen, then Answer (or type in Chat).",
+      );
+      return;
+    }
     const { question, replace } = takeQuestion();
     setAskMode(false);
     void generate(FLAGS.ASSISTANT, undefined, {
@@ -220,6 +228,19 @@ export function CompactAssistant({
       replace,
     });
   }, [generate, isLoading, takeQuestion, transcribedText]);
+
+  const clearAnswer = () => {
+    abortGeneration();
+    clearAnswers();
+    setError(null);
+  };
+
+  // Ctrl/⌘+Alt shortcuts from any app (desktop).
+  useMeetingShortcuts(compactMode, {
+    answer: answerNow,
+    clearAnswer,
+    toggleMode: () => setAnswerMode(answerMode === "auto" ? "manual" : "auto"),
+  });
 
   const handleCaptureScreen = useCallback(async (autoSend = false) => {
     if (!window.electronAPI?.screen) return;
@@ -577,7 +598,7 @@ export function CompactAssistant({
           activeFlag={activeFlag}
           expanded={outputExpanded}
           onToggleExpanded={() => setOutputExpanded((x) => !x)}
-          onClear={clearAnswers}
+          onClear={clearAnswer}
           chatUserLabel={
             session?.user ? sessionDisplayName(session.user) : undefined
           }

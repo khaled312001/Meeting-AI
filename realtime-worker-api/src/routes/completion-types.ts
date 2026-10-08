@@ -26,7 +26,8 @@ export const MAX_MESSAGES_PER_REQUEST = 24;
 export const MAX_CHAT_MESSAGE_CHARS = 8000;
 
 export const MAX_PROMPT_CHARS = 32_000;
-export const MAX_BG_CHARS = 16_000;
+/** Notes + resume + job description, labelled (see lib/prompt-context.ts). */
+export const MAX_BG_CHARS = 100_000;
 export const MAX_QUESTION_CHARS = 6_000;
 export const MAX_MY_ANSWER_CHARS = 8_000;
 /** Earlier answers sent with a live answer for follow-up context. */

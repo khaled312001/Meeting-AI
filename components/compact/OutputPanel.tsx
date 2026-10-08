@@ -12,6 +12,7 @@ import {
   Minimize2,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   X,
 } from "lucide-react";
 import posthog from "posthog-js";
@@ -200,10 +201,11 @@ export function OutputPanel({
               <button
                 type="button"
                 onClick={onClear}
-                title="Clear answers"
-                className="inline-flex h-6 items-center rounded-md px-2 text-[11px] font-medium text-text-tertiary transition-colors hover:bg-white/10 hover:text-text-primary"
+                title="Clear the answers (Ctrl+Alt+Backspace from any app)"
+                className="ml-1 inline-flex h-7 items-center gap-1.5 rounded-full border border-red-400/35 bg-red-500/10 px-3 text-[12px] font-semibold text-red-200 transition-colors hover:border-red-400/60 hover:bg-red-500/25"
               >
-                Clear
+                <Trash2 className="h-3.5 w-3.5" />
+                Clear answer
               </button>
             )}
             {onToggleExpanded && (

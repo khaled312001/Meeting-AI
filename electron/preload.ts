@@ -37,10 +37,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
     options?: { forward?: boolean },
   ) => ipcRenderer.invoke("window-set-ignore-mouse-events", ignore, options),
   windowFocus: () => ipcRenderer.invoke("window-focus"),
+  windowSetPosition: (x: number, y: number) =>
+    ipcRenderer.send("window-set-position", x, y),
+  windowSetHitRects: (
+    rects: Array<{ x: number; y: number; width: number; height: number }> | null,
+  ) => ipcRenderer.send("window-set-hit-rects", rects),
   onWindowFocus: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on("window:focus", handler);
     return () => ipcRenderer.removeListener("window:focus", handler);
+  },
+  onShortcut: (callback: (action: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, action: string) =>
+      callback(action);
+    ipcRenderer.on("shortcut:action", handler);
+    return () => ipcRenderer.removeListener("shortcut:action", handler);
   },
   appQuit: () => ipcRenderer.invoke("app-quit"),
   appRelaunch: () => ipcRenderer.invoke("app-relaunch"),
@@ -90,7 +101,12 @@ export interface ElectronAPI {
     options?: { forward?: boolean },
   ) => Promise<void>;
   windowFocus: () => Promise<void>;
+  windowSetPosition: (x: number, y: number) => void;
+  windowSetHitRects: (
+    rects: Array<{ x: number; y: number; width: number; height: number }> | null,
+  ) => void;
   onWindowFocus?: (callback: () => void) => () => void;
+  onShortcut?: (callback: (action: string) => void) => () => void;
   appQuit: () => Promise<void>;
   appRelaunch: () => Promise<void>;
   updaterGetVersion: () => Promise<string>;

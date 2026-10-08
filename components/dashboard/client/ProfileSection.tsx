@@ -11,9 +11,9 @@ import { DOCUMENT_ACCEPT, parseResumeFile } from "@/lib/resume-parser";
 import { formatNumber, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const RESUME_MAX = 6000;
-const JD_MAX = 4000;
-const NOTES_MAX = 4000;
+const RESUME_MAX = 30_000;
+const JD_MAX = 20_000;
+const NOTES_MAX = 40_000;
 
 interface Draft {
   resumeText: string | null;

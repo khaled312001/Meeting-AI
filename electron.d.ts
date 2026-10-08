@@ -41,7 +41,16 @@ export interface ElectronAPI {
     options?: { forward?: boolean },
   ) => Promise<void>;
   windowFocus?: () => Promise<void>;
+  /** Move the window (screen coordinates) — focus-mode bar dragging. */
+  windowSetPosition?: (x: number, y: number) => void;
+  /** Focus-mode click-through: where the controls are (window CSS px);
+   *  null turns click-through off. */
+  windowSetHitRects?: (
+    rects: Array<{ x: number; y: number; width: number; height: number }> | null,
+  ) => void;
   onWindowFocus?: (callback: () => void) => () => void;
+  /** System-wide shortcuts: "answer" | "clear-answer" | "toggle-mode". */
+  onShortcut?: (callback: (action: string) => void) => () => void;
   appQuit: () => Promise<void>;
   appRelaunch: () => Promise<void>;
   updaterGetVersion?: () => Promise<string>;

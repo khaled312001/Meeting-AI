@@ -36,7 +36,11 @@ import {
   setKnowledgeEnabled,
   type KnowledgeDoc,
 } from "@/lib/knowledge";
-import { DOCUMENT_ACCEPT, parseDocumentFile } from "@/lib/resume-parser";
+import {
+  DOCUMENT_ACCEPT,
+  DOCUMENT_FORMATS_LABEL,
+  parseDocumentFile,
+} from "@/lib/resume-parser";
 import { formatCompact, formatNumber, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -202,8 +206,8 @@ export function KnowledgeSection() {
               {atDocLimit ? "File limit reached — delete a file to add more" : "Drop files here or click to browse"}
             </span>
             <span className="mt-1 text-xs text-text-tertiary">
-              PDF, Word (.docx), Markdown or text · up to {formatCompact(limits?.maxDocChars ?? 200_000)} characters
-              each
+              {DOCUMENT_FORMATS_LABEL} or any text file · up to{" "}
+              {formatCompact(limits?.maxDocChars ?? 200_000)} characters each
             </span>
           </button>
 
