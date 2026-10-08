@@ -14,8 +14,7 @@ export type UpdaterStatus =
   | { type: "downloaded"; version: string }
   | { type: "error"; message: string };
 
-const LATEST_RELEASE_URL =
-  "https://github.com/khaled312001/Meeting-AI/releases/latest";
+const LATEST_RELEASE_URL = "https://interprova.com/download/";
 
 /**
  * Off in this fork: `build.publish` in package.json still points at the
@@ -102,10 +101,10 @@ export function initAutoUpdater(
       const fallbackOptions = {
         type: "warning" as const,
         title: "Auto-update unavailable",
-        message: "Download the latest release from GitHub instead.",
+        message: "Download the latest version from the download page instead.",
         detail:
           "In-app updates require a signed build. Homebrew users can run: brew upgrade --cask meeting-ai",
-        buttons: ["Open GitHub Releases", "Dismiss"],
+        buttons: ["Open download page", "Dismiss"],
         defaultId: 0,
         cancelId: 1,
       };

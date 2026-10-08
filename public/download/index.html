@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>تحميل Meeting AI</title>
 <meta name="description" content="حمّل Meeting AI لويندوز وماك — مساعد ذكي لحظي للاجتماعات والإنترفيوهات.">
-<link rel="icon" href="/icons/favicon.ico">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%233f9a6b%27/%3E%3Ctext x=%2716%27 y=%2722%27 font-size=%2718%27 font-family=%27sans-serif%27 font-weight=%27700%27 fill=%27white%27 text-anchor=%27middle%27%3EM%3C/text%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #0c0a09; --card: #1c1917; --border: #292524; --text: #fafaf9;
@@ -36,6 +36,20 @@
     padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600;
   }
   a.btn:hover { background: var(--accent-hover); }
+  .card.mine { border-color: var(--accent); }
+  .card .tag {
+    display: none; margin-inline-start: 6px; padding: 1px 8px; border-radius: 999px;
+    background: rgba(63,154,107,.18); color: var(--accent-hover); font-size: 11px; font-weight: 600;
+  }
+  .card.mine .tag { display: inline-block; }
+  .status { min-height: 22px; margin: 4px 0 0; color: var(--accent-hover); font-size: 13px; }
+  .partner {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-top: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px;
+    color: var(--muted); font-size: 13px; text-decoration: none;
+  }
+  .partner strong { color: var(--text); font-size: 14px; }
+  .partner:hover { border-color: var(--accent); }
   .note {
     margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px;
     color: var(--muted); font-size: 13px; line-height: 1.8;
@@ -54,18 +68,19 @@
   <h1>Meeting AI</h1>
   <p class="lead">مساعد ذكي بيسمع الاجتماع أو الإنترفيو ويطلّع الإجابة فوراً، معتمد على السي في وملفاتك.</p>
 
-  <div class="card">
-    <div class="info"><strong>Windows</strong><span>ويندوز 10 و11</span></div>
-    <a class="btn" href="https://github.com/khaled312001/Meeting-AI/releases/download/v0.18.1/MeetingAI-0.18.1-win-x64.exe">تحميل</a>
+  <div class="card" data-os="win">
+    <div class="info"><strong>Windows<span class="tag">مناسب لجهازك</span></strong><span>ويندوز 10 و11 · <bdi>189 MB</bdi></span></div>
+    <a class="btn" href="https://interprova.com/download/v0.18.1/MeetingAI-0.18.1-win-x64.exe" download>تحميل</a>
   </div>
-  <div class="card">
-    <div class="info"><strong>Mac — Apple Silicon</strong><span>أجهزة M1 / M2 / M3 / M4</span></div>
-    <a class="btn" href="https://github.com/khaled312001/Meeting-AI/releases/download/v0.18.1/MeetingAI-0.18.1-mac-arm64.dmg">تحميل</a>
+  <div class="card" data-os="mac-arm">
+    <div class="info"><strong>Mac — Apple Silicon<span class="tag">مناسب لجهازك</span></strong><span>أجهزة M1 / M2 / M3 / M4 · <bdi>236 MB</bdi></span></div>
+    <a class="btn" href="https://interprova.com/download/v0.18.1/MeetingAI-0.18.1-mac-arm64.dmg" download>تحميل</a>
   </div>
-  <div class="card">
-    <div class="info"><strong>Mac — Intel</strong><span>أجهزة الماك الأقدم</span></div>
-    <a class="btn" href="https://github.com/khaled312001/Meeting-AI/releases/download/v0.18.1/MeetingAI-0.18.1-mac-x64.dmg">تحميل</a>
+  <div class="card" data-os="mac-intel">
+    <div class="info"><strong>Mac — Intel<span class="tag">مناسب لجهازك</span></strong><span>أجهزة الماك الأقدم · <bdi>240 MB</bdi></span></div>
+    <a class="btn" href="https://interprova.com/download/v0.18.1/MeetingAI-0.18.1-mac-x64.dmg" download>تحميل</a>
   </div>
+  <p class="status" id="status" role="status"></p>
 
   <div class="note">
     <strong style="color:var(--text)">ملاحظات التثبيت</strong><br>
@@ -75,7 +90,37 @@
     • مش عارف نوع الماك؟ من  ← About This Mac: لو مكتوب Chip يبقى Apple Silicon، ولو Processor Intel يبقى Intel.
   </div>
 
+  <a class="partner" href="https://interprova.com/" target="_blank" rel="noopener">
+    <span><strong>InterProva</strong><br>منصة التدريب على الإنترفيوهات</span>
+    <span aria-hidden="true">←</span>
+  </a>
+
   <p class="web">أو <a href="/">استخدمه من المتصفح مباشرة</a></p>
 </main>
+<script>
+  // Mark the build for this device, and confirm the download started.
+  (function () {
+    var ua = navigator.userAgent;
+    var os = /Windows/i.test(ua) ? "win" : /Mac/i.test(ua) ? "mac" : "";
+    var pick = os === "win" ? "win" : "";
+    if (os === "mac") {
+      pick = "mac-arm";
+      try {
+        var gl = document.createElement("canvas").getContext("webgl");
+        var dbg = gl && gl.getExtension("WEBGL_debug_renderer_info");
+        var gpu = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : "";
+        if (/Intel/i.test(gpu)) pick = "mac-intel";
+      } catch (e) {}
+    }
+    var mine = pick && document.querySelector('.card[data-os="' + pick + '"]');
+    if (mine) mine.classList.add("mine");
+    var status = document.getElementById("status");
+    document.querySelectorAll("a.btn").forEach(function (a) {
+      a.addEventListener("click", function () {
+        status.textContent = "جاري التحميل… الملف هيظهر في التنزيلات عندك.";
+      });
+    });
+  })();
+</script>
 </body>
 </html>
