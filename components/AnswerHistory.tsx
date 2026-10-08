@@ -6,6 +6,7 @@
 import { memo } from "react";
 import SafeMarkdown from "@/components/SafeMarkdown";
 import { AnswerSources } from "@/components/AnswerSources";
+import { AnswerHeader } from "@/components/AnswerHeader";
 import type { PastAnswer } from "@/components/AssistantSessionProvider";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +30,12 @@ export const AnswerHistory = memo(function AnswerHistory({
           key={a.id}
           dir="auto"
           className={cn(
-            "border-b border-border-subtle/40 opacity-75",
+            "border-b border-border-subtle/40 opacity-75 transition-opacity hover:opacity-100",
             compact ? "pb-2 mb-2" : "pb-4 mb-4",
+            a.kind === "review" && "border-l-2 border-l-amber-300/50 pl-2",
           )}
         >
+          <AnswerHeader kind={a.kind} at={a.at} text={a.text} />
           <div className={proseClassName}>
             <SafeMarkdown>{a.text}</SafeMarkdown>
           </div>

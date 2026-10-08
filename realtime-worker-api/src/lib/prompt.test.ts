@@ -5,6 +5,7 @@ import {
   appendKnowledgeToBackground,
   buildAnthropicBackground,
   buildAnthropicSystemPrompt,
+  buildLiveTurn,
 } from "./prompt.js";
 
 test("appendKnowledgeToBackground returns bg unchanged without docs", () => {
@@ -36,6 +37,35 @@ test("buildAnthropicBackground wraps text and skips blanks", () => {
 
 test("buildAnthropicSystemPrompt selects per-flag instructions", () => {
   assert.match(buildAnthropicSystemPrompt("assistant"), /\*\*Question:\*\*/);
+  assert.match(buildAnthropicSystemPrompt("review"), /exactly: OK/);
   assert.match(buildAnthropicSystemPrompt("summarizer"), /Summarize/);
   assert.match(buildAnthropicSystemPrompt("ask-ai"), /Ask AI/);
+});
+
+test("buildAnthropicSystemPrompt fixes the language and its labels", () => {
+  const ar = buildAnthropicSystemPrompt("assistant", "ar");
+  assert.match(ar, /\*\*السؤال:\*\*/);
+  assert.match(ar, /in Arabic/);
+  assert.match(buildAnthropicSystemPrompt("assistant", "de"), /\*\*Antwort:\*\*/);
+  assert.match(buildAnthropicSystemPrompt("review", "de"), /\*\*Hinweise:\*\*/);
+  assert.match(buildAnthropicSystemPrompt("summarizer", "en"), /in English only/);
+});
+
+test("buildLiveTurn includes question, earlier answers and my answer", () => {
+  const answer = buildLiveTurn(
+    { transcript: "t", question: "q?", previousAnswers: ["a1", " "] },
+    "answer",
+  );
+  assert.match(answer, /<question>\nq\?\n<\/question>/);
+  assert.match(
+    answer,
+    /<earlier_answers>\n<answer>\na1\n<\/answer>\n<\/earlier_answers>/,
+  );
+  assert.doesNotMatch(answer, /<my_answer>/);
+  const review = buildLiveTurn(
+    { transcript: "t", question: "q?", myAnswer: "mine" },
+    "review",
+  );
+  assert.match(review, /<my_answer>\nmine\n<\/my_answer>/);
+  assert.doesNotMatch(review, /<earlier_answers>/);
 });

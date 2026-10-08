@@ -3,6 +3,7 @@
 export const APP_SESSION_KEYS = {
   completion: "app-assistant-completion",
   pastAnswers: "app-assistant-past-answers",
+  answerMeta: "app-assistant-answer-meta",
   flag: "app-assistant-flag",
   outputMode: "app-assistant-output-mode",
   askChat: "app-ask-chat-messages",

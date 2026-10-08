@@ -6,6 +6,7 @@
 import { overlayInput } from "@/components/compact/compactTextStyles";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { focusGlass } from "./FocusBar";
 
 interface CompactContextDrawerProps {
   bg: string;
@@ -21,15 +22,24 @@ export function CompactContextDrawer({
   return (
     <div
       data-clickable
-      className="app-toolbar space-y-1 border-t border-border-subtle px-3 py-2"
+      className={cn(
+        "mx-auto mt-1.5 w-[calc(100%-1rem)] max-w-[860px] space-y-1.5 rounded-2xl px-3 py-2",
+        focusGlass,
+      )}
     >
+      <p className="text-[11px] font-semibold text-text-primary">
+        Notes for this meeting
+        <span className="ml-1.5 font-normal text-text-tertiary">
+          saved automatically · used in every answer
+        </span>
+      </p>
       {hasSavedResumeOrJd && (
         <p className="text-[10px] text-accent-text">
-          Saved resume and job description are included automatically.
+          Your resume, job description and enabled knowledge files are used too.
         </p>
       )}
       <Textarea
-        placeholder="Optional: paste JD, resume or topic context for higher-quality answers…"
+        placeholder="Topics, facts to mention, things to avoid…"
         className={cn(
           "max-h-[120px] min-h-[64px] resize-none text-xs leading-relaxed",
           overlayInput,

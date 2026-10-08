@@ -16,6 +16,14 @@ export interface StreamCompletionParams {
   onCitation?: (citation: AnswerCitation) => void;
   /** Send the user's knowledge files with the request (default true). */
   useKnowledge?: boolean;
+  /** Meeting language — answers are written in it. */
+  lang?: string;
+  /** The exact question to answer (live answers). */
+  question?: string;
+  /** Earlier answers, oldest first, so follow-ups stay consistent. */
+  previousAnswers?: string[];
+  /** What the user said aloud (reviews). */
+  myAnswer?: string;
   resolveErrorMessage?: (
     response: Response,
     defaultMessage: string,
@@ -32,6 +40,10 @@ export async function streamCompletion({
   onChunk,
   onCitation,
   useKnowledge,
+  lang,
+  question,
+  previousAnswers,
+  myAnswer,
 }: StreamCompletionParams): Promise<void> {
   const response = await ricFetch("/api/completion", {
     method: "POST",
@@ -41,6 +53,10 @@ export async function streamCompletion({
       prompt,
       ...(image !== undefined ? { image } : {}),
       ...(useKnowledge !== undefined ? { useKnowledge } : {}),
+      ...(lang ? { lang } : {}),
+      ...(question ? { question } : {}),
+      ...(previousAnswers?.length ? { previousAnswers } : {}),
+      ...(myAnswer ? { myAnswer } : {}),
     }),
     signal,
   });

@@ -38,10 +38,29 @@ import {
   persistSegments,
 } from "@/lib/transcription/transcript-persistence";
 import { endLiveSession, trackEvent } from "@/lib/session-tracking";
+import {
+  DEFAULT_MEETING_LANGUAGE,
+  type MeetingLanguage,
+  readMeetingLanguage,
+  writeMeetingLanguage,
+} from "@/lib/meeting-language";
 import type { TranscriptionSegment } from "@/lib/types";
 
 interface TranscriptionContextValue {
+  /** Finalized speech; once the mic is in play, one labeled line per turn
+   *  ("Interviewer: …" / "Me: …"). */
   transcribedText: string;
+  /** Finalized speech from the other side only. */
+  interviewerText: string;
+  /** Finalized speech from the user's microphone only. */
+  myText: string;
+  /** Words from the other side are being heard right now. */
+  interviewerSpeaking: boolean;
+  /** Words from the user's microphone are being heard right now. */
+  meSpeaking: boolean;
+  /** Transcribe the user's microphone too (applies from the next start). */
+  includeMic: boolean;
+  setIncludeMic: (on: boolean) => void;
   transcriptionSegments: TranscriptionSegment[];
   sessionState: SessionState;
   errorMessage: string | null;
@@ -59,6 +78,38 @@ interface TranscriptionContextValue {
   getTranscribedText: () => string;
   /** True when the last transcript was restored from local storage. */
   hasRestoredTranscript: boolean;
+  /** Language the meeting is held in — transcription and answers use it. */
+  language: MeetingLanguage;
+  /** Switch language; a live session restarts in the new language. */
+  setLanguage: (language: MeetingLanguage) => void;
+}
+
+const MIC_STORAGE_KEY = "meeting-ai-include-mic";
+
+const SPEAKER_LABEL = { them: "Interviewer", me: "Me" } as const;
+
+/** Prompt texts from the finalized segments. Labels appear only once the
+ *  user's mic is part of the transcript; until then it reads as before. */
+function buildTranscriptTexts(segments: TranscriptionSegment[]) {
+  const finals = segments.filter((s) => s.isFinal && s.text.trim());
+  const join = (list: TranscriptionSegment[]) =>
+    list.map((s) => s.text.trim()).join(" ");
+  const interviewerText = join(finals.filter((s) => s.source !== "me"));
+  const myText = join(finals.filter((s) => s.source === "me"));
+  if (!myText) return { transcribedText: interviewerText, interviewerText, myText };
+
+  const lines: string[] = [];
+  let current: "them" | "me" | null = null;
+  for (const s of finals) {
+    const who = s.source === "me" ? "me" : "them";
+    if (who === current) {
+      lines[lines.length - 1] += ` ${s.text.trim()}`;
+    } else {
+      lines.push(`${SPEAKER_LABEL[who]}: ${s.text.trim()}`);
+      current = who;
+    }
+  }
+  return { transcribedText: lines.join("\n"), interviewerText, myText };
 }
 
 const TranscriptionContext = createContext<TranscriptionContextValue | null>(
@@ -74,18 +125,45 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
   const [transcriptionSegments, setTranscriptionSegments] = useState<
     TranscriptionSegment[]
   >([]);
-  // Prompt text = finalized speech only; the in-progress interim line is
+  // Prompt text = finalized speech only; the in-progress interim lines are
   // display-only so partial words are never duplicated into answers.
-  const transcribedText = useMemo(
-    () =>
-      transcriptionSegments
-        .filter((s) => s.isFinal)
-        .map((s) => s.text.trim())
-        .filter(Boolean)
-        .join(" "),
+  const { transcribedText, interviewerText, myText } = useMemo(
+    () => buildTranscriptTexts(transcriptionSegments),
     [transcriptionSegments],
   );
+  const interviewerSpeaking = transcriptionSegments.some(
+    (s) => !s.isFinal && s.source !== "me",
+  );
+  const meSpeaking = transcriptionSegments.some(
+    (s) => !s.isFinal && s.source === "me",
+  );
+  const [includeMic, setIncludeMicState] = useState(true);
+  const includeMicRef = useRef(includeMic);
+  includeMicRef.current = includeMic;
+  useEffect(() => {
+    try {
+      setIncludeMicState(localStorage.getItem(MIC_STORAGE_KEY) !== "off");
+    } catch {
+      /* storage unavailable — keep the default */
+    }
+  }, []);
+  const setIncludeMic = useCallback((on: boolean) => {
+    setIncludeMicState(on);
+    try {
+      localStorage.setItem(MIC_STORAGE_KEY, on ? "on" : "off");
+    } catch {
+      /* storage unavailable — applies for this session */
+    }
+  }, []);
   const [hasRestoredTranscript, setHasRestoredTranscript] = useState(false);
+  const [language, setLanguageState] = useState<MeetingLanguage>(
+    DEFAULT_MEETING_LANGUAGE,
+  );
+  const languageRef = useRef(language);
+  languageRef.current = language;
+  useEffect(() => {
+    setLanguageState(readMeetingLanguage());
+  }, []);
 
   // Mirror of `transcribedText` for read-at-submit consumers — keeps
   // their callbacks stable without subscribing them to token updates.
@@ -119,6 +197,8 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
 
     const handle = await startDeepgramSession({
       isElectron: !!isElectron,
+      language: languageRef.current,
+      includeMic: includeMicRef.current,
       // Unique across launches: restored segments keep their old ids.
       nextSegmentId: () =>
         `segment-${Date.now().toString(36)}-${segmentCounterRef.current++}`,
@@ -129,6 +209,10 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
         setSessionState(s);
       },
       onError: (msg) => {
+        if (sessionIdRef.current !== thisSession) return;
+        setErrorMessage(msg);
+      },
+      onWarning: (msg) => {
         if (sessionIdRef.current !== thisSession) return;
         setErrorMessage(msg);
       },
@@ -194,6 +278,18 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
 
   const dismissError = useCallback(() => setErrorMessage(null), []);
 
+  const setLanguage = useCallback(
+    (next: MeetingLanguage) => {
+      if (next === languageRef.current) return;
+      languageRef.current = next;
+      setLanguageState(next);
+      writeMeetingLanguage(next);
+      // A running session keeps its audio and re-listens in the new language.
+      sessionHandleRef.current?.switchLanguage(next);
+    },
+    [],
+  );
+
   // Restore the persisted transcript tail once on mount so a relaunch
   // keeps recent context. Restored segments feed both the display and the
   // Assistant prompt text.
@@ -230,6 +326,12 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
   const value = useMemo<TranscriptionContextValue>(
     () => ({
       transcribedText,
+      interviewerText,
+      myText,
+      interviewerSpeaking,
+      meSpeaking,
+      includeMic,
+      setIncludeMic,
       transcriptionSegments,
       sessionState,
       errorMessage,
@@ -244,9 +346,17 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       dismissError,
       getTranscribedText,
       hasRestoredTranscript,
+      language,
+      setLanguage,
     }),
     [
       transcribedText,
+      interviewerText,
+      myText,
+      interviewerSpeaking,
+      meSpeaking,
+      includeMic,
+      setIncludeMic,
       transcriptionSegments,
       sessionState,
       errorMessage,
@@ -261,6 +371,8 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       dismissError,
       getTranscribedText,
       hasRestoredTranscript,
+      language,
+      setLanguage,
     ],
   );
 

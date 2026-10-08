@@ -22,10 +22,14 @@ import {
   appendKnowledgeToBackground,
   buildAskAiPrompt,
   buildAnthropicBackground,
-  buildAnthropicAssistantTurn,
   buildAnthropicSystemPrompt,
+  buildLiveTurn,
   buildPrompt,
+  buildReviewPrompt,
   buildSummarizerPrompt,
+  isMeetingLanguage,
+  type LiveTurn,
+  type MeetingLanguage,
 } from "../lib/prompt";
 import { recordUsage, startUsage } from "../usage";
 import { getDb } from "../db";
@@ -38,7 +42,11 @@ import {
   MAX_CHAT_MESSAGE_CHARS,
   MAX_KNOWLEDGE_FALLBACK_CHARS,
   MAX_MESSAGES_PER_REQUEST,
+  MAX_MY_ANSWER_CHARS,
+  MAX_PREVIOUS_ANSWER_CHARS,
+  MAX_PREVIOUS_ANSWERS,
   MAX_PROMPT_CHARS,
+  MAX_QUESTION_CHARS,
   parseImageDataUrls,
   type CompletionRequestBody,
   type WireMessage,
@@ -116,6 +124,15 @@ export async function handleCompletion(
   ) {
     return jsonResponse({ error: "useKnowledge must be a boolean" }, 400);
   }
+  const liveError = validateLiveFields(payload);
+  if (liveError) return liveError;
+  const lang: MeetingLanguage | undefined = isMeetingLanguage(payload.lang)
+    ? payload.lang
+    : undefined;
+  if (payload.flag === FLAGS.REVIEW && !payload.myAnswer?.trim()) {
+    return jsonResponse({ error: "myAnswer is required for a review" }, 400);
+  }
+
   if (payload.image !== undefined) {
     if (typeof payload.image === "string") {
       // single data URL — fine
@@ -168,7 +185,9 @@ export async function handleCompletion(
   let knowledgeDocs: KnowledgeDocForPrompt[] = [];
   if (
     payload.useKnowledge !== false &&
-    (payload.flag === FLAGS.ASSISTANT || payload.flag === FLAGS.ASK_AI)
+    (payload.flag === FLAGS.ASSISTANT ||
+      payload.flag === FLAGS.REVIEW ||
+      payload.flag === FLAGS.ASK_AI)
   ) {
     try {
       knowledgeDocs = await loadEnabledKnowledgeDocs(env, trackedUser.id);
@@ -188,6 +207,7 @@ export async function handleCompletion(
           knowledgeDocs,
           MAX_KNOWLEDGE_FALLBACK_CHARS,
         ),
+        lang,
       );
 
   const knowledgeChars = knowledgeDocs.reduce(
@@ -299,14 +319,16 @@ export async function handleCompletion(
   // for Ask AI and Assistant regardless of global/per-user budget;
   // Summarizer keeps the admin-configured behavior.
   const effectiveParams =
-    payload.flag === FLAGS.ASK_AI || payload.flag === FLAGS.ASSISTANT
+    payload.flag === FLAGS.ASK_AI ||
+    payload.flag === FLAGS.ASSISTANT ||
+    payload.flag === FLAGS.REVIEW
       ? { ...modelParams, thinkingBudget: "off" as const }
       : modelParams;
 
   const completionFn = useAnthropic
     ? streamAnthropicCompletion({
         messages: wireMessages,
-        system: buildAnthropicSystemPrompt(payload.flag),
+        system: buildAnthropicSystemPrompt(payload.flag, lang),
         background:
           payload.flag === FLAGS.SUMMARIZER
             ? null
@@ -383,6 +405,67 @@ export async function handleCompletion(
       Connection: "keep-alive",
     },
   });
+}
+
+/** Optional live-answer fields: types and sizes. */
+function validateLiveFields(payload: CompletionRequestBody): Response | null {
+  if (payload.lang !== undefined && typeof payload.lang !== "string") {
+    return jsonResponse({ error: "lang must be a string" }, 400);
+  }
+  const text: Array<["question" | "myAnswer", number]> = [
+    ["question", MAX_QUESTION_CHARS],
+    ["myAnswer", MAX_MY_ANSWER_CHARS],
+  ];
+  for (const [field, max] of text) {
+    const value: unknown = payload[field];
+    if (value === undefined) continue;
+    if (typeof value !== "string") {
+      return jsonResponse({ error: `${field} must be a string` }, 400);
+    }
+    if (value.length > max) {
+      return jsonResponse(
+        { error: `${field} exceeds ${max} characters` },
+        413,
+      );
+    }
+  }
+  const prev: unknown = payload.previousAnswers;
+  if (prev !== undefined) {
+    if (!Array.isArray(prev) || !prev.every((a) => typeof a === "string")) {
+      return jsonResponse(
+        { error: "previousAnswers must be an array of strings" },
+        400,
+      );
+    }
+    if (prev.length > MAX_PREVIOUS_ANSWERS) {
+      return jsonResponse(
+        { error: `previousAnswers exceeds ${MAX_PREVIOUS_ANSWERS} entries` },
+        413,
+      );
+    }
+    if (prev.some((a: string) => a.length > MAX_PREVIOUS_ANSWER_CHARS)) {
+      return jsonResponse(
+        {
+          error: `each previous answer must be at most ${MAX_PREVIOUS_ANSWER_CHARS} characters`,
+        },
+        413,
+      );
+    }
+  }
+  return null;
+}
+
+/** The live-turn pieces of an Assistant / Review request. */
+function liveTurn(
+  payload: CompletionRequestBody,
+  transcript: string,
+): LiveTurn {
+  return {
+    transcript,
+    question: payload.question,
+    previousAnswers: payload.previousAnswers,
+    myAnswer: payload.myAnswer,
+  };
 }
 
 function validateChatMessages(
@@ -464,6 +547,7 @@ function buildWireMessages(
   hasChatHistory: boolean,
   basePrompt: string,
   bg: string | undefined,
+  lang: MeetingLanguage | undefined,
 ): WireMessage[] {
   const wireMessages: WireMessage[] = [];
   if (hasChatHistory) {
@@ -471,7 +555,7 @@ function buildWireMessages(
       const m = payload.messages![i];
       let text = m.text;
       if (i === 0 && m.role === "user" && payload.flag === FLAGS.ASSISTANT) {
-        text = buildPrompt(bg, text);
+        text = buildPrompt(bg, { transcript: text }, lang);
       } else if (
         i === 0 &&
         m.role === "user" &&
@@ -485,11 +569,13 @@ function buildWireMessages(
   } else {
     let text = basePrompt;
     if (payload.flag === FLAGS.ASSISTANT) {
-      text = buildPrompt(bg, basePrompt);
+      text = buildPrompt(bg, liveTurn(payload, basePrompt), lang);
+    } else if (payload.flag === FLAGS.REVIEW) {
+      text = buildReviewPrompt(bg, liveTurn(payload, basePrompt), lang);
     } else if (payload.flag === FLAGS.ASK_AI) {
       text = buildAskAiPrompt(bg, basePrompt);
     } else if (payload.flag === FLAGS.SUMMARIZER) {
-      text = buildSummarizerPrompt(basePrompt);
+      text = buildSummarizerPrompt(basePrompt, lang);
     }
     const msgImages = parseImageDataUrls(payload.image);
     wireMessages.push({ role: "user", text, images: msgImages });
@@ -505,8 +591,25 @@ function buildAnthropicWireMessages(
   hasChatHistory: boolean,
   basePrompt: string,
 ): WireMessage[] {
+  if (
+    !hasChatHistory &&
+    (payload.flag === FLAGS.ASSISTANT || payload.flag === FLAGS.REVIEW)
+  ) {
+    return [
+      {
+        role: "user",
+        text: buildLiveTurn(
+          liveTurn(payload, basePrompt),
+          payload.flag === FLAGS.REVIEW ? "review" : "answer",
+        ),
+        images: parseImageDataUrls(payload.image),
+      },
+    ];
+  }
   const wrap = (text: string) =>
-    payload.flag === FLAGS.ASSISTANT ? buildAnthropicAssistantTurn(text) : text;
+    payload.flag === FLAGS.ASSISTANT
+      ? buildLiveTurn({ transcript: text }, "answer")
+      : text;
   if (hasChatHistory) {
     return payload.messages!.map((m) => ({
       role: m.role,

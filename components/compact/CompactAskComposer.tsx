@@ -4,6 +4,7 @@
  *  Assistant/Summarize stay in the toolbar above; this is for typed/chat Ask AI. */
 
 import { ImageIcon, Plus, Send, X } from "lucide-react";
+import { focusGlass } from "./FocusBar";
 import posthog from "posthog-js";
 import type { RefObject } from "react";
 import { AskListeningBanner } from "@/components/ask/AskListeningBanner";
@@ -59,7 +60,10 @@ export function CompactAskComposer({
   return (
     <div
       data-clickable
-      className="app-toolbar flex flex-col gap-1.5 border-t border-border-subtle/40 px-2.5 py-1.5"
+      className={cn(
+        "mx-auto mt-1.5 flex w-[calc(100%-1rem)] max-w-[860px] flex-col gap-1.5 rounded-2xl px-2.5 py-1.5",
+        focusGlass,
+      )}
     >
       {chat.messages.length > 0 && (
         <div className="flex items-center justify-between gap-2">

@@ -17,6 +17,8 @@ import {
 import { FLAGS } from "@/lib/types";
 import { addCitation } from "@/lib/citations";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
+import { useTranscription } from "@/components/TranscriptionContext";
+import { isQuietReview, type LiveAnswerOptions } from "@/lib/live-answer";
 import {
   isVisionScreenshotDataUrl,
   VISION_FALLBACK_PROMPT,
@@ -37,7 +39,11 @@ interface UseCompactGenerateArgs {
 }
 
 export interface CompactGenerateHandle {
-  generate: (flag: FLAGS, customPrompt?: string) => Promise<void>;
+  generate: (
+    flag: FLAGS,
+    customPrompt?: string,
+    opts?: LiveAnswerOptions,
+  ) => Promise<void>;
   abort: () => void;
   controllerRef: React.MutableRefObject<AbortController | null>;
 }
@@ -55,7 +61,9 @@ export function useCompactGenerate({
   setOutputMode,
 }: UseCompactGenerateArgs): CompactGenerateHandle {
   const controllerRef = useRef<AbortController | null>(null);
-  const { setCitations, startNewAnswer } = useAssistantSession();
+  const { setCitations, startNewAnswer, getRememberedAnswers } =
+    useAssistantSession();
+  const { language } = useTranscription();
 
   const abort = useCallback(() => {
     if (controllerRef.current) {
@@ -67,7 +75,7 @@ export function useCompactGenerate({
   }, [setActiveFlag, setIsLoading]);
 
   const generate = useCallback(
-    async (flag: FLAGS, customPrompt?: string) => {
+    async (flag: FLAGS, customPrompt?: string, opts: LiveAnswerOptions = {}) => {
       if (isLoading || controllerRef.current) return;
       const isTypedAsk = customPrompt !== undefined;
       let prompt = (customPrompt ?? transcribedText).trim();
@@ -96,11 +104,16 @@ export function useCompactGenerate({
         return;
       }
 
+      const isReview = flag === FLAGS.REVIEW;
       setError(null);
-      startNewAnswer();
+      // A review only takes the answer slot once it has something to say.
+      const previousAnswers = isReview
+        ? getRememberedAnswers()
+        : startNewAnswer({ replace: opts.replace });
+      let shown = !isReview;
       setIsLoading(true);
       setActiveFlag(flag);
-      setOutputCollapsed(false);
+      if (!isReview) setOutputCollapsed(false);
       setOutputMode("transcript");
       controllerRef.current = new AbortController();
 
@@ -139,6 +152,10 @@ export function useCompactGenerate({
             bg,
             prompt,
             image: imagePayload,
+            lang: language,
+            question: opts.question,
+            previousAnswers,
+            myAnswer: opts.myAnswer,
             signal: controllerRef.current.signal,
             resolveErrorMessage: (response, defaultMessage) => {
               if (
@@ -156,6 +173,12 @@ export function useCompactGenerate({
                 dbg("ask-completion", "first token at", firstTokenMs, "ms");
               }
               acc += text;
+              if (!shown) {
+                if (isQuietReview(acc)) return;
+                startNewAnswer({ kind: "review" });
+                setOutputCollapsed(false);
+                shown = true;
+              }
               flusher.schedule();
             },
             onCitation: (citation) =>
@@ -183,7 +206,7 @@ export function useCompactGenerate({
             sseEvents,
             "events received)",
           );
-        } else if (err instanceof Error) {
+        } else if (err instanceof Error && !isReview) {
           console.error("Stream error:", err);
           dbg("ask-completion", "FAILED:", err.message);
           setError(humanizeStreamError(err));
@@ -198,7 +221,9 @@ export function useCompactGenerate({
     [
       attachedImages,
       bg,
+      getRememberedAnswers,
       isLoading,
+      language,
       setActiveFlag,
       setCitations,
       setCompletion,

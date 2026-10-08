@@ -16,6 +16,8 @@ import { createStreamFlusher } from "@/lib/stream-flush";
 import { FLAGS } from "@/lib/types";
 import { addCitation } from "@/lib/citations";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
+import { useTranscription } from "@/components/TranscriptionContext";
+import { isQuietReview, type LiveAnswerOptions } from "@/lib/live-answer";
 
 interface UseAssistantSubmitArgs {
   flag: FLAGS;
@@ -32,8 +34,10 @@ export interface AssistantSubmitHandle {
   error: Error | null;
   setError: (err: Error | null) => void;
   submit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
-  /** Answer the current transcript now (auto-answer). */
-  generateNow: () => Promise<void>;
+  /** Answer now — the given question, or the whole transcript. */
+  generateNow: (opts?: LiveAnswerOptions) => Promise<void>;
+  /** Notes on the answer the user just gave aloud. */
+  reviewNow: (opts: LiveAnswerOptions) => Promise<void>;
   /** Summarize the conversation so far (one-off). */
   summarizeNow: () => Promise<void>;
   stop: (e?: React.MouseEvent<HTMLButtonElement>) => void;
@@ -46,8 +50,14 @@ export function useAssistantSubmit({
   bg,
   getTranscribedText,
 }: UseAssistantSubmitArgs): AssistantSubmitHandle {
-  const { completion, setCompletion, setCitations, startNewAnswer } =
-    useAssistantSession();
+  const {
+    completion,
+    setCompletion,
+    setCitations,
+    startNewAnswer,
+    getRememberedAnswers,
+  } = useAssistantSession();
+  const { language } = useTranscription();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const [canRegenerate, setCanRegenerate] = useState(false);
@@ -81,15 +91,25 @@ export function useAssistantSubmit({
   }, []);
 
   const runCompletion = useCallback(
-    async (runFlag: FLAGS, runBg: string, prompt: string) => {
+    async (
+      runFlag: FLAGS,
+      runBg: string,
+      prompt: string,
+      opts: LiveAnswerOptions = {},
+    ) => {
       if (isLoading || controller.current) return;
       if (!prompt.trim()) {
         setError(new Error(humanizeHttpStatus(0, { kind: "no-input" })));
         return;
       }
 
+      const isReview = runFlag === FLAGS.REVIEW;
       setError(null);
-      startNewAnswer();
+      // A review only takes the answer slot once it has something to say.
+      const previousAnswers = isReview
+        ? getRememberedAnswers()
+        : startNewAnswer({ replace: opts.replace });
+      let shown = !isReview;
       setIsLoading(true);
       controller.current = new AbortController();
 
@@ -110,9 +130,18 @@ export function useAssistantSubmit({
             flag: runFlag,
             bg: runBg,
             prompt,
+            lang: language,
+            question: opts.question,
+            previousAnswers,
+            myAnswer: opts.myAnswer,
             signal: controller.current.signal,
             onChunk: (text) => {
               acc += text;
+              if (!shown) {
+                if (isQuietReview(acc)) return;
+                startNewAnswer({ kind: "review" });
+                shown = true;
+              }
               flusher.schedule();
             },
             onCitation: (citation) =>
@@ -125,7 +154,7 @@ export function useAssistantSubmit({
         lastFailedRef.current = null;
         setCanRegenerate(false);
       } catch (err: unknown) {
-        if (!isAbortError(err)) {
+        if (!isAbortError(err) && !isReview) {
           console.error("Stream error:", err);
           setError(new Error(humanizeStreamError(err)));
           posthog.captureException(err);
@@ -141,7 +170,14 @@ export function useAssistantSubmit({
         controller.current = null;
       }
     },
-    [isLoading, setCitations, setCompletion, startNewAnswer],
+    [
+      getRememberedAnswers,
+      isLoading,
+      language,
+      setCitations,
+      setCompletion,
+      startNewAnswer,
+    ],
   );
 
   const submit = useCallback(
@@ -154,8 +190,15 @@ export function useAssistantSubmit({
   );
 
   const generateNow = useCallback(
-    () => runCompletion(flag, bg, getTranscribedText()),
-    [bg, flag, runCompletion, getTranscribedText],
+    (opts?: LiveAnswerOptions) =>
+      runCompletion(FLAGS.ASSISTANT, bg, getTranscribedText(), opts),
+    [bg, runCompletion, getTranscribedText],
+  );
+
+  const reviewNow = useCallback(
+    (opts: LiveAnswerOptions) =>
+      runCompletion(FLAGS.REVIEW, bg, getTranscribedText(), opts),
+    [bg, runCompletion, getTranscribedText],
   );
 
   const summarizeNow = useCallback(
@@ -177,6 +220,7 @@ export function useAssistantSubmit({
     setError,
     submit,
     generateNow,
+    reviewNow,
     summarizeNow,
     stop,
     regenerate,

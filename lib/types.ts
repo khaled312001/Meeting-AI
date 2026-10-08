@@ -2,6 +2,8 @@ export enum FLAGS {
   ASSISTANT = "assistant",
   SUMMARIZER = "summarizer",
   ASK_AI = "ask-ai",
+  /** Notes on the answer the user just gave aloud. */
+  REVIEW = "review",
 }
 
 /** A passage from one of the user's knowledge files that Anthropic cited. */
@@ -62,9 +64,14 @@ export interface TranscriptionSegment {
   endTime: number;
   confidence?: number;
   speaker?: number;
+  /** Who spoke: "them" = the meeting (computer audio), "me" = the user's
+   *  microphone. Missing on transcripts saved before the split. */
+  source?: TranscriptSource;
   isFinal: boolean;
   timestamp: string;
 }
+
+export type TranscriptSource = "them" | "me";
 
 export type SupportAuthorType = "user" | "admin";
 

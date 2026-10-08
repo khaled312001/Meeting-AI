@@ -10,7 +10,7 @@ import {
   PinOff,
   Minus,
   Plus,
-  Rows3,
+  Focus,
   Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -133,7 +133,8 @@ export default function TitleBar() {
     void saveContext().finally(() => setCompactMode(!compactMode));
   };
 
-  if (!isElectron) {
+  // Focus mode brings its own floating bar (move, back, menu, close).
+  if (!isElectron || compactMode) {
     return null;
   }
 
@@ -217,8 +218,8 @@ export default function TitleBar() {
             onClick={toggleCompactMode}
             title={
               compactMode
-                ? "Exit compact mode (full layout)"
-                : "Enter compact mode"
+                ? "Back to the full view"
+                : "Focus mode"
             }
           >
             {compactMode ? (
@@ -227,7 +228,7 @@ export default function TitleBar() {
                 <span className="text-[10px] font-medium">Full</span>
               </>
             ) : (
-              <Rows3 className="h-3 w-3" />
+              <Focus className="h-3 w-3" />
             )}
           </Button>
 

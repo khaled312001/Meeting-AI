@@ -26,18 +26,31 @@ export function TranscriptionLine({
   className,
 }: TranscriptionLineProps) {
   const final = isFinal || segment.isFinal;
+  const isMe = segment.source === "me";
   return (
     <div
       className={cn(
         "flex items-baseline gap-2.5 px-2.5 py-1.5 break-words transition-colors",
         overlayTextBlock,
         overlayTextShadow,
+        isMe && "bg-emerald-500/[0.07]",
         className,
       )}
     >
-      <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-tertiary">
-        {formatTime(segment.startTime)}
-      </span>
+      {segment.source ? (
+        <span
+          className={cn(
+            "w-[68px] shrink-0 text-[10px] font-semibold uppercase tracking-wide",
+            isMe ? "text-emerald-300" : "text-sky-300",
+          )}
+        >
+          {isMe ? "Me" : "Interviewer"}
+        </span>
+      ) : (
+        <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-tertiary">
+          {formatTime(segment.startTime)}
+        </span>
+      )}
       {/* dir="auto": Arabic lines read right-to-left, others left-to-right. */}
       <span
         dir="auto"

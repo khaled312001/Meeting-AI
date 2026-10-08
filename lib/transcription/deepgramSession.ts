@@ -1,14 +1,18 @@
-/** Plain-TS Deepgram live session for the system-audio interview pipeline.
+/** Plain-TS Deepgram live session for the meeting transcript.
  *
  *  Owns the full media + WS lifecycle so the React provider can stay a
  *  thin wrapper. The caller drives state via the supplied callbacks
- *  (`onState`, `onError`, `onSegments`, ...) and receives back a
- *  `{ stop }` handle. `stop()` is idempotent and tears down everything
- *  the session opened.
+ *  (`onState`, `onError`, `onSegments`, ...) and receives back a handle.
+ *  `stop()` is idempotent and tears down everything the session opened.
  *
- *  Two Deepgram streams hear the same audio — multilingual ("multi") and
- *  Arabic — and `LanguageArbiter` keeps whichever matches the speaker, so
- *  any of those languages is detected automatically.
+ *  Two channels, each with its own Deepgram stream:
+ *  - "them": the meeting — system audio (loopback on desktop, the share
+ *    picker in browsers).
+ *  - "me": the user's microphone, optional. Lines the mic only picked up
+ *    from the speakers (the other side, echoed) are dropped.
+ *
+ *  Both transcribe in the one meeting language the user picked, so a turn
+ *  is never split across languages.
  *
  *  On unexpected WebSocket drops while live, re-mints a key and reconnects
  *  with exponential backoff before surfacing a fatal error. */
@@ -23,12 +27,7 @@ import {
   startDeepgramLiveConnection,
   type DeepgramLiveConnection,
 } from "@/lib/transcription/deepgramLiveConnection";
-import {
-  type FinalChunk,
-  LanguageArbiter,
-  STREAM_LANGS,
-  type StreamLang,
-} from "@/lib/transcription/languageArbiter";
+import type { MeetingLanguage } from "@/lib/meeting-language";
 import posthog from "posthog-js";
 import { ricFetch } from "@/lib/ric-fetch";
 import {
@@ -36,7 +35,11 @@ import {
   startLiveSession,
   trackEvent,
 } from "@/lib/session-tracking";
-import type { TranscriptionSegment, TranscriptionWord } from "@/lib/types";
+import type {
+  TranscriptSource,
+  TranscriptionSegment,
+  TranscriptionWord,
+} from "@/lib/types";
 
 export type SessionState =
   | "idle"
@@ -57,18 +60,37 @@ type SegmentsUpdater = (prev: TranscriptionSegment[]) => TranscriptionSegment[];
 
 export interface DeepgramSessionCallbacks {
   isElectron: boolean;
+  language: MeetingLanguage;
+  /** Also transcribe the user's microphone as "me". */
+  includeMic: boolean;
   nextSegmentId: () => string;
   onState: (state: SessionState) => void;
   onError: (message: string) => void;
+  /** Non-fatal problem worth showing (e.g. the mic could not be opened). */
+  onWarning?: (message: string) => void;
   /** Apply a change to the displayed segments (adds, replacements and the
-   *  single in-progress interim line). */
+   *  in-progress interim lines). */
   onSegments: (update: SegmentsUpdater) => void;
 }
 
 export interface DeepgramSessionHandle {
   stop: () => void;
+  /** Re-open transcription in another language on the same audio. */
+  switchLanguage: (language: MeetingLanguage) => void;
   getLiveSessionId: () => string | null;
 }
+
+interface Channel {
+  source: TranscriptSource;
+  media: MediaStream;
+  interimId: string;
+  connection: DeepgramLiveConnection | null;
+  recorder: MediaRecorder | null;
+}
+
+/** Recent meeting lines kept to spot mic echo of the speakers. */
+const ECHO_WINDOW_MS = 12_000;
+const ECHO_OVERLAP = 0.6;
 
 async function mintDeepgramKey(sessionId: string): Promise<string> {
   const res = await ricFetch(
@@ -91,6 +113,7 @@ function toSegment(
   text: string,
   words: TranscriptionWord[],
   isFinal: boolean,
+  source: TranscriptSource,
   speaker?: number,
 ): TranscriptionSegment {
   return {
@@ -104,30 +127,73 @@ function toSegment(
         ? words.reduce((acc, w) => acc + (w.confidence ?? 0), 0) / words.length
         : 0,
     speaker,
+    source,
     isFinal,
     timestamp: new Date().toISOString(),
   };
+}
+
+const normalizeWords = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+/** Share of `mine` words that also appear in `theirs`. */
+function overlap(mine: string[], theirs: Set<string>): number {
+  if (mine.length === 0) return 0;
+  return mine.filter((w) => theirs.has(w)).length / mine.length;
+}
+
+async function captureMeetingAudio(): Promise<MediaStream> {
+  // The desktop app answers this with loopback audio in the main process,
+  // so no picker appears there. Browsers only expose system audio through
+  // the share picker; the Chromium hints preselect "Entire screen" with
+  // system audio on. Raw audio: echo cancellation / noise suppression hurt
+  // call audio.
+  const media = await navigator.mediaDevices.getDisplayMedia({
+    video: { displaySurface: "monitor" },
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      suppressLocalAudioPlayback: false,
+    },
+    systemAudio: "include",
+    windowAudio: "system",
+    selfBrowserSurface: "exclude",
+    monitorTypeSurfaces: "include",
+    surfaceSwitching: "exclude",
+  } as DisplayMediaStreamOptions);
+  media.getVideoTracks().forEach((track) => track.stop());
+  if (media.getAudioTracks().length === 0) {
+    media.getTracks().forEach((t) => t.stop());
+    throw new Error("No audio track available");
+  }
+  return media;
 }
 
 /** Start a Deepgram live transcription session. */
 export async function startDeepgramSession(
   callbacks: DeepgramSessionCallbacks,
 ): Promise<DeepgramSessionHandle> {
-  const { isElectron, nextSegmentId, onState, onError, onSegments } =
+  const { isElectron, includeMic, nextSegmentId, onState, onError, onSegments } =
     callbacks;
+  let language = callbacks.language;
 
-  let connections: Partial<Record<StreamLang, DeepgramLiveConnection>> = {};
-  let mediaRecorder: MediaRecorder | null = null;
-  let mediaStream: MediaStream | null = null;
+  const channels: Channel[] = [];
   let liveSessionId: string | null = null;
   let stale = false;
   let currentState: SessionState = "idle";
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let hasStartedOnce = false;
-
-  const arbiter = new LanguageArbiter();
-  const interimId = `${nextSegmentId()}-interim`;
+  // Bumped per teardown so a connect still in flight knows it was replaced.
+  let connectionGen = 0;
+  const baseId = nextSegmentId();
+  /** Recent meeting words, for dropping mic lines that only echo them. */
+  const recentThem: Array<{ at: number; words: string[] }> = [];
 
   function setState(s: SessionState) {
     currentState = s;
@@ -141,41 +207,36 @@ export async function startDeepgramSession(
     }
   }
 
-  function stopRecorder() {
-    if (mediaRecorder) {
-      try {
-        mediaRecorder.stop();
-      } catch {
-        /* already stopped */
-      }
-      mediaRecorder = null;
+  function stopRecorder(ch: Channel) {
+    if (!ch.recorder) return;
+    try {
+      ch.recorder.stop();
+    } catch {
+      /* already stopped */
     }
+    ch.recorder = null;
   }
 
-  function clearInterim() {
-    onSegments((prev) => prev.filter((s) => s.id !== interimId));
-  }
-
-  function teardownMedia() {
-    stopRecorder();
-    if (mediaStream) {
-      mediaStream.getTracks().forEach((track) => track.stop());
-      mediaStream = null;
-    }
+  function clearInterims() {
+    const ids = new Set(channels.map((c) => c.interimId));
+    onSegments((prev) => prev.filter((s) => !ids.has(s.id)));
   }
 
   function teardownConnections() {
-    for (const conn of Object.values(connections)) {
-      if (conn) closeDeepgramLive(conn);
+    connectionGen++;
+    for (const ch of channels) {
+      stopRecorder(ch);
+      if (ch.connection) closeDeepgramLive(ch.connection);
+      ch.connection = null;
     }
-    connections = {};
   }
 
   function teardown() {
     clearReconnectTimer();
-    teardownMedia();
     teardownConnections();
-    clearInterim();
+    clearInterims();
+    for (const ch of channels) ch.media.getTracks().forEach((t) => t.stop());
+    channels.length = 0;
     setState("idle");
   }
 
@@ -185,28 +246,34 @@ export async function startDeepgramSession(
     teardown();
   }
 
+  function switchLanguage(next: MeetingLanguage) {
+    if (next === language) return;
+    language = next;
+    if (stale || !liveSessionId || channels.length === 0) return;
+    clearReconnectTimer();
+    teardownConnections();
+    clearInterims();
+    reconnectAttempt = 0;
+    void reconnectLive("language_change");
+  }
+
   const handle: DeepgramSessionHandle = {
     stop,
+    switchLanguage,
     getLiveSessionId: () => liveSessionId,
   };
 
-  function applyFinal(chunk: FinalChunk) {
-    const change = arbiter.addFinal(chunk);
-    if (change.add.length === 0 && change.remove.length === 0) return;
-    const remove = new Set([...change.remove, interimId]);
-    const added = change.add.map((c) =>
-      toSegment(c.id, c.text, c.words, true, c.speaker),
-    );
-    onSegments((prev) => {
-      const kept = prev.filter((s) => !remove.has(s.id));
-      const known = new Set(kept.map((s) => s.id));
-      return [...kept, ...added.filter((s) => !known.has(s.id))];
-    });
+  function isEcho(text: string): boolean {
+    const now = Date.now();
+    while (recentThem.length > 0 && now - recentThem[0].at > ECHO_WINDOW_MS)
+      recentThem.shift();
+    const theirs = new Set(recentThem.flatMap((r) => r.words));
+    return overlap(normalizeWords(text), theirs) >= ECHO_OVERLAP;
   }
 
-  function bindMessageHandler(conn: DeepgramLiveConnection, lang: StreamLang) {
+  function bindMessageHandler(ch: Channel, conn: DeepgramLiveConnection) {
     conn.on("message", (data: unknown) => {
-      if (stale || connections[lang] !== conn) return;
+      if (stale || ch.connection !== conn) return;
       if (!isDeepgramResultsMessage(data)) return;
 
       const alt = data.channel?.alternatives?.[0];
@@ -222,59 +289,69 @@ export async function startDeepgramSession(
         confidence: w.confidence,
         speaker,
       }));
+      const dropInterim = (prev: TranscriptionSegment[]) =>
+        prev.filter((s) => s.id !== ch.interimId);
 
       if (data.is_final) {
         if (text === "") return;
-        applyFinal({
-          id: nextSegmentId(),
-          lang,
-          start: words[0]?.start ?? 0,
-          end: words[words.length - 1]?.end ?? 0,
+        if (ch.source === "them") {
+          recentThem.push({ at: Date.now(), words: normalizeWords(text) });
+        } else if (isEcho(text)) {
+          onSegments(dropInterim);
+          return;
+        }
+        const final = toSegment(
+          nextSegmentId(),
           text,
           words,
-          confidence:
-            words.reduce((acc, w) => acc + (w.confidence ?? 0), 0) /
-            words.length,
+          true,
+          ch.source,
           speaker,
-        });
+        );
+        onSegments((prev) => [...dropInterim(prev), final]);
         return;
       }
 
-      // One live "typing" line, from the stream currently trusted.
-      if (lang !== arbiter.active) return;
+      // One live "typing" line per channel for the words still being heard.
       if (text === "") {
-        clearInterim();
+        onSegments(dropInterim);
         return;
       }
-      const interim = toSegment(interimId, text, words, false, speaker);
-      onSegments((prev) => [...prev.filter((s) => s.id !== interimId), interim]);
+      const interim = toSegment(
+        ch.interimId,
+        text,
+        words,
+        false,
+        ch.source,
+        speaker,
+      );
+      onSegments((prev) => [...dropInterim(prev), interim]);
     });
   }
 
-  /** Fresh recorder per connection pair: each Deepgram stream must receive
-   *  the container header that only the first chunk carries. */
-  function startRecorder(media: MediaStream) {
-    stopRecorder();
+  /** Fresh recorder per connection: a new Deepgram stream must receive the
+   *  container header that only the first chunk carries. */
+  function startRecorder(ch: Channel) {
+    stopRecorder(ch);
     if (stale) return;
-    const recorder = new MediaRecorder(media);
-    mediaRecorder = recorder;
+    const recorder = new MediaRecorder(ch.media);
+    ch.recorder = recorder;
     recorder.ondataavailable = (e) => {
       if (stale || e.data.size === 0) return;
-      for (const conn of Object.values(connections)) {
-        try {
-          conn?.sendMedia(e.data);
-        } catch {
-          /* connection gone */
-        }
+      try {
+        ch.connection?.sendMedia(e.data);
+      } catch {
+        /* connection gone */
       }
     };
     recorder.start(250);
 
-    if (!hasStartedOnce) {
+    if (!hasStartedOnce && ch.source === "them") {
       hasStartedOnce = true;
       posthog.capture("recording_started", {
         platform: isElectron ? "electron" : "browser",
         capture_mode: isElectron ? "system_audio_loopback" : "screen_share_audio",
+        with_mic: channels.length > 1,
       });
       trackEvent("recording_start", {
         sessionId: liveSessionId,
@@ -284,7 +361,7 @@ export async function startDeepgramSession(
   }
 
   function scheduleReconnect(reason: string) {
-    if (stale || !liveSessionId || !mediaStream) return;
+    if (stale || !liveSessionId || channels.length === 0) return;
     if (reconnectTimer !== null) return;
     if (reconnectAttempt >= DEEPGRAM_RECONNECT_MAX_ATTEMPTS) {
       onError(
@@ -297,9 +374,8 @@ export async function startDeepgramSession(
       return;
     }
 
-    stopRecorder();
     teardownConnections();
-    clearInterim();
+    clearInterims();
     setState("reconnecting");
     const delay = deepgramReconnectDelayMs(reconnectAttempt);
     reconnectAttempt++;
@@ -310,59 +386,58 @@ export async function startDeepgramSession(
     }, delay);
   }
 
-  async function openConnections(apiKey: string, media: MediaStream) {
-    arbiter.reset();
-    const opened = new Set<StreamLang>();
-    const pair: Partial<Record<StreamLang, DeepgramLiveConnection>> = {};
-    for (const lang of STREAM_LANGS) {
-      pair[lang] = await connectDeepgramLive(apiKey, { language: lang });
+  async function openConnection(ch: Channel, apiKey: string, gen: number) {
+    const conn = await connectDeepgramLive(apiKey, { language });
+    if (stale || gen !== connectionGen || ch.connection !== null) {
+      closeDeepgramLive(conn);
+      return;
     }
-    connections = pair;
+    ch.connection = conn;
+    bindMessageHandler(ch, conn);
 
-    for (const lang of STREAM_LANGS) {
-      const conn = pair[lang]!;
-      bindMessageHandler(conn, lang);
-
-      conn.on("open", () => {
-        if (stale) {
-          closeDeepgramLive(conn);
-          return;
-        }
-        opened.add(lang);
-        if (opened.size < STREAM_LANGS.length) return;
+    conn.on("open", () => {
+      if (stale || ch.connection !== conn) {
+        closeDeepgramLive(conn);
+        return;
+      }
+      if (ch.source === "them") {
         reconnectAttempt = 0;
         setState("live");
-        startRecorder(media);
-      });
+      }
+      startRecorder(ch);
+    });
 
-      const onDrop = (reason: string) => {
-        if (connections[lang] !== conn || stale) return;
-        if (currentState === "live" || currentState === "reconnecting") {
-          scheduleReconnect(reason);
-          return;
-        }
-        teardownConnections();
-      };
-      conn.on("close", () => onDrop("websocket_closed"));
-      conn.on("error", (error) => {
-        console.error(`Deepgram (${lang}) connection error:`, error);
-        onDrop("websocket_error");
-      });
+    const onDrop = (reason: string) => {
+      if (ch.connection !== conn || stale) return;
+      if (currentState === "live" || currentState === "reconnecting") {
+        scheduleReconnect(reason);
+        return;
+      }
+      teardownConnections();
+    };
+    conn.on("close", () => onDrop("websocket_closed"));
+    conn.on("error", (error) => {
+      console.error(`Deepgram (${ch.source}) connection error:`, error);
+      onDrop("websocket_error");
+    });
 
-      startDeepgramLiveConnection(conn);
-    }
+    startDeepgramLiveConnection(conn);
+  }
+
+  async function openConnections(apiKey: string) {
+    const gen = connectionGen;
+    await Promise.all(channels.map((ch) => openConnection(ch, apiKey, gen)));
   }
 
   async function reconnectLive(reason: string) {
-    if (stale || !liveSessionId || !mediaStream) return;
+    if (stale || !liveSessionId || channels.length === 0) return;
     const sid = liveSessionId;
-    const media = mediaStream;
 
     setState("reconnecting");
     try {
       const apiKey = await mintDeepgramKey(sid);
       if (stale) return;
-      await openConnections(apiKey, media);
+      await openConnections(apiKey);
     } catch (e) {
       console.error("Deepgram reconnect failed:", e);
       if (stale) return;
@@ -372,32 +447,9 @@ export async function startDeepgramSession(
 
   setState("fetching-key");
 
-  let media: MediaStream;
+  let meeting: MediaStream;
   try {
-    // System audio only (never the mic). The desktop app answers this with
-    // loopback audio in the main process, so no picker appears there.
-    // Browsers only expose system audio through the share picker; the
-    // Chromium hints preselect "Entire screen" with system audio on.
-    // Raw audio: echo cancellation / noise suppression hurt call audio.
-    media = await navigator.mediaDevices.getDisplayMedia({
-      video: { displaySurface: "monitor" },
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-        suppressLocalAudioPlayback: false,
-      },
-      systemAudio: "include",
-      windowAudio: "system",
-      selfBrowserSurface: "exclude",
-      monitorTypeSurfaces: "include",
-      surfaceSwitching: "exclude",
-    } as DisplayMediaStreamOptions);
-    media.getVideoTracks().forEach((track) => track.stop());
-    if (media.getAudioTracks().length === 0) {
-      media.getTracks().forEach((t) => t.stop());
-      throw new Error("No audio track available");
-    }
+    meeting = await captureMeetingAudio();
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     const hint = isElectron
@@ -407,17 +459,57 @@ export async function startDeepgramSession(
     setState("idle");
     return handle;
   }
-
   if (stale) {
-    media.getTracks().forEach((t) => t.stop());
+    meeting.getTracks().forEach((t) => t.stop());
     return handle;
   }
-  mediaStream = media;
+  channels.push({
+    source: "them",
+    media: meeting,
+    interimId: `${baseId}-interim-them`,
+    connection: null,
+    recorder: null,
+  });
+
+  if (includeMic) {
+    try {
+      // Echo cancellation on: keeps the speakers out of the mic as much as
+      // the device allows; what still leaks through is dropped as echo.
+      const mic = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      if (stale) {
+        mic.getTracks().forEach((t) => t.stop());
+      } else {
+        channels.push({
+          source: "me",
+          media: mic,
+          interimId: `${baseId}-interim-me`,
+          connection: null,
+          recorder: null,
+        });
+      }
+    } catch (error) {
+      console.warn("Microphone unavailable, transcribing the meeting only:", error);
+      callbacks.onWarning?.(
+        "Your microphone could not be opened, so only the other side is transcribed.",
+      );
+    }
+  }
+  if (stale) {
+    teardown();
+    return handle;
+  }
 
   const live = await startLiveSession({
     surface: isElectron ? "electron" : "web",
     metadata: {
       capture_mode: isElectron ? "system_audio_loopback" : "screen_share_audio",
+      with_mic: channels.length > 1,
     },
   });
   if (stale) {
@@ -439,7 +531,7 @@ export async function startDeepgramSession(
       teardown();
       return handle;
     }
-    await openConnections(apiKey, media);
+    await openConnections(apiKey);
   } catch (e) {
     console.error("Failed to start Deepgram session:", e);
     onError("Failed to connect to transcription service. Please try again.");

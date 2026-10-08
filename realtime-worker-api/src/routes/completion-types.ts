@@ -6,6 +6,8 @@ export enum FLAGS {
   ASSISTANT = "assistant",
   SUMMARIZER = "summarizer",
   ASK_AI = "ask-ai",
+  /** Notes on the answer the candidate just gave aloud. */
+  REVIEW = "review",
 }
 
 /** Hard cap on attached images per /api/completion call. Keeps per-request
@@ -25,6 +27,11 @@ export const MAX_CHAT_MESSAGE_CHARS = 8000;
 
 export const MAX_PROMPT_CHARS = 32_000;
 export const MAX_BG_CHARS = 16_000;
+export const MAX_QUESTION_CHARS = 6_000;
+export const MAX_MY_ANSWER_CHARS = 8_000;
+/** Earlier answers sent with a live answer for follow-up context. */
+export const MAX_PREVIOUS_ANSWERS = 10;
+export const MAX_PREVIOUS_ANSWER_CHARS = 2_000;
 
 /** Knowledge-file budget folded into the plain-text background for
  *  providers without document blocks (Gemini, OpenAI-compatible). Anthropic
@@ -57,6 +64,14 @@ export interface CompletionRequestBody {
   /** Include the user's enabled knowledge files (Assistant / Ask AI only).
    *  Defaults to true. */
   useKnowledge?: boolean;
+  /** Meeting language ("ar" | "en" | "de"); live answers are written in it. */
+  lang?: string;
+  /** The exact question to answer (Assistant / Review). */
+  question?: string;
+  /** Earlier answers in this meeting, oldest first (Assistant / Review). */
+  previousAnswers?: string[];
+  /** What the candidate said aloud (Review). */
+  myAnswer?: string;
 }
 
 export interface InlineImage {

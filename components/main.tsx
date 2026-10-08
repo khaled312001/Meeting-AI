@@ -25,7 +25,7 @@ import { sessionDisplayName } from "@/lib/session-display";
 import { useEffect, useState, useCallback, useLayoutEffect } from "react";
 import { useTab } from "@/components/TabContext";
 import { useInterviewContext } from "@/components/InterviewContextProvider";
-import { Mic, Minimize2 } from "lucide-react";
+import { Focus, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function MainPage() {
@@ -173,12 +173,12 @@ export default function MainPage() {
                 variant="secondary"
                 size="sm"
                 onClick={() => setCompactModePersisted(true)}
-                title="Compact layout (picture-in-picture style)"
-                aria-label="Switch to compact mode"
+                title="Focus mode: a small floating bar with the answers"
+                aria-label="Switch to focus mode"
                 className="gap-1.5"
               >
-                <Minimize2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span className="hidden lg:inline">Compact</span>
+                <Focus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span className="hidden lg:inline">Focus</span>
               </Button>
             </div>
           </nav>
@@ -194,7 +194,12 @@ export default function MainPage() {
       )}
 
       <main className="min-h-0 flex-1 overflow-hidden">
-        <div className={cn("h-full min-h-0", isElectron ? "pt-8" : "")}>
+        <div
+          className={cn(
+            "h-full min-h-0",
+            isElectron && !compactMode ? "pt-8" : "",
+          )}
+        >
           <div
             className={cn(
               "flex h-full min-h-0 flex-col",

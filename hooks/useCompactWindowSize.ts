@@ -1,6 +1,6 @@
 "use client";
 
-/** Resize the Electron window whenever compact mode toggles.
+/** Resize the Electron window whenever focus (compact) mode toggles.
  *
  *  Locks resizability while compact so the user can't drag-stretch the
  *  toolbar to full height. Height is computed from visible panels so
@@ -11,50 +11,44 @@ import { useEffect } from "react";
 const COMPACT_WINDOW_WIDTH = 980;
 const FULL_WINDOW = { width: 1180, height: 640 } as const;
 
-/** Toolbar-only idle height. */
-export const COMPACT_HEIGHT_IDLE = 64;
-const COMPACT_HEIGHT_TRANSCRIPT = 140;
-const COMPACT_HEIGHT_COMPOSER = 120;
-const COMPACT_HEIGHT_COMPOSER_IMAGES = 168;
-const COMPACT_HEIGHT_OUTPUT = 300;
-/** Unified compact height whenever output (Assistant, Summarize, or Ask AI) is visible. */
-const COMPACT_HEIGHT_OUTPUT_COMPOSER = 420;
-const COMPACT_HEIGHT_CONTEXT_EXTRA = 80;
+/** Focus mode: just the top pill. */
+export const COMPACT_HEIGHT_IDLE = 54;
+/** The listening / live-line pill under it. */
+const COMPACT_HEIGHT_STATUS_ROW = 42;
+const COMPACT_HEIGHT_COMPOSER = 68;
+const COMPACT_HEIGHT_COMPOSER_IMAGES = 116;
+const COMPACT_HEIGHT_OUTPUT = 340;
+const COMPACT_HEIGHT_OUTPUT_EXPANDED = 560;
+const COMPACT_HEIGHT_CONTEXT = 176;
+/** Room for the ⋮ menu to drop down without being cut off. */
+const COMPACT_HEIGHT_MENU_MIN = 330;
 
 export type CompactLayoutState = {
   showContext: boolean;
   askMode: boolean;
   hasVisibleOutput: boolean;
-  hasTranscript: boolean;
+  hasStatusRow: boolean;
   hasAttachedImages: boolean;
+  outputExpanded: boolean;
+  menuOpen: boolean;
 };
 
-/** Derive pixel height from which compact panels are open. */
+/** Derive pixel height from which focus-mode panels are open. */
 export function resolveCompactHeight(state: CompactLayoutState): number {
-  const {
-    showContext,
-    askMode,
-    hasVisibleOutput,
-    hasTranscript,
-    hasAttachedImages,
-  } = state;
-
   let height = COMPACT_HEIGHT_IDLE;
-
-  if (hasVisibleOutput) {
-    height = COMPACT_HEIGHT_OUTPUT_COMPOSER;
-  } else if (askMode) {
-    height = hasAttachedImages
+  if (state.hasStatusRow) height += COMPACT_HEIGHT_STATUS_ROW;
+  if (state.showContext) height += COMPACT_HEIGHT_CONTEXT;
+  if (state.askMode) {
+    height += state.hasAttachedImages
       ? COMPACT_HEIGHT_COMPOSER_IMAGES
       : COMPACT_HEIGHT_COMPOSER;
-  } else if (hasTranscript) {
-    height = COMPACT_HEIGHT_TRANSCRIPT;
   }
-
-  if (showContext) {
-    height += COMPACT_HEIGHT_CONTEXT_EXTRA;
+  if (state.hasVisibleOutput) {
+    height += state.outputExpanded
+      ? COMPACT_HEIGHT_OUTPUT_EXPANDED
+      : COMPACT_HEIGHT_OUTPUT;
   }
-
+  if (state.menuOpen) height = Math.max(height, COMPACT_HEIGHT_MENU_MIN);
   return height;
 }
 

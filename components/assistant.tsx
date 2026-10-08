@@ -48,10 +48,21 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     clearTranscription,
     getTranscribedText,
     hasRestoredTranscript,
-    transcribedText,
+    interviewerText,
+    myText,
+    interviewerSpeaking,
+    meSpeaking,
     sessionState,
   } = useTranscription();
-  const { flag, citations, pastAnswers, clearAnswers } = useAssistantSession();
+  const {
+    flag,
+    citations,
+    pastAnswers,
+    clearAnswers,
+    answerMode,
+    answerAt,
+    answerKind,
+  } = useAssistantSession();
   const {
     ref: transcriptionBoxRef,
     showLatest,
@@ -73,8 +84,8 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     completion,
     isLoading,
     error,
-    submit,
     generateNow,
+    reviewNow,
     summarizeNow,
     stop,
     regenerate,
@@ -85,13 +96,38 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     getTranscribedText,
   });
 
-  useAutoAnswer({
-    enabled: isActive,
+  const auto = isActive && answerMode === "auto";
+  const { takeQuestion } = useAutoAnswer({
+    enabled: auto,
+    reviewEnabled: auto,
     isLive: sessionState === "live",
     isBusy: isLoading,
-    transcript: transcribedText,
-    onTrigger: () => void generateNow(),
+    transcript: interviewerText,
+    hasInterim: interviewerSpeaking,
+    myTranscript: myText,
+    meSpeaking,
+    onTrigger: ({ question, replace }) => void generateNow({ question, replace }),
+    onReview: ({ question, myAnswer }) =>
+      void reviewNow({ question, myAnswer }),
+    onInterrupt: () => stop(),
   });
+
+  /** Manual Answer: the question heard since the last answer, word for
+   *  word (or the last one again). Falls back to the whole transcript. */
+  const answerNow = useCallback(() => {
+    if (isLoading) return;
+    const { question, replace } = takeQuestion();
+    void generateNow({ question: question || undefined, replace });
+  }, [generateNow, isLoading, takeQuestion]);
+
+  const handleSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      answerNow();
+    },
+    [answerNow],
+  );
 
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -196,7 +232,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
         formRef={formRef}
         isLoadingGenerate={isLoading}
         onSummarize={() => void summarizeNow()}
-        onSubmit={submit}
+        onSubmit={handleSubmit}
         onStop={stop}
       />
 
@@ -217,6 +253,9 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
             completion={completion}
             citations={citations}
             pastAnswers={pastAnswers}
+            answerAt={answerAt}
+            answerKind={answerKind}
+            isGenerating={isLoading}
             onSave={handleSave}
             onClear={clearAnswers}
           />

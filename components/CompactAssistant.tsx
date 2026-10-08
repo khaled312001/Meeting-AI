@@ -25,9 +25,9 @@ import {
 } from "@/lib/vision-screenshot";
 import { CompactAskComposer } from "./compact/CompactAskComposer";
 import { CompactContextDrawer } from "./compact/CompactContextDrawer";
-import { CompactLiveTranscript } from "./compact/CompactLiveTranscript";
-import { CompactToolbar } from "./compact/CompactToolbar";
+import { FocusBar } from "./compact/FocusBar";
 import { OutputPanel } from "./compact/OutputPanel";
+import { SCREEN_PROMPT } from "@/lib/live-answer";
 import { useCompactGenerate } from "./compact/useCompactGenerate";
 import {
   resolveCompactHeight,
@@ -52,8 +52,17 @@ export function CompactAssistant({
 }: CompactAssistantProps) {
   const { interviewNotes, resumeText, jobDescription, setInterviewNotes } =
     useInterviewContext();
-  const { transcribedText, clearTranscription, sessionState } =
-    useTranscription();
+  const {
+    transcribedText,
+    interviewerText,
+    myText,
+    interviewerSpeaking,
+    meSpeaking,
+    isActive: isListening,
+    language,
+    clearTranscription,
+    sessionState,
+  } = useTranscription();
   const { compactMode } = useTab();
   const {
     completion,
@@ -65,6 +74,9 @@ export function CompactAssistant({
     setOutputMode,
     pastAnswers,
     clearAnswers,
+    answerMode,
+    answerAt,
+    answerKind,
   } = useAssistantSession();
   const [askMode, setAskMode] = useState<boolean>(false);
   const [askInput, setAskInput] = useState<string>("");
@@ -73,6 +85,8 @@ export function CompactAssistant({
   const [error, setError] = useState<string | null>(null);
   const [showContext, setShowContext] = useState<boolean>(false);
   const [outputCollapsed, setOutputCollapsed] = useState<boolean>(false);
+  const [outputExpanded, setOutputExpanded] = useState<boolean>(false);
+  const [menuOpen, setMenuOpen] = useState<boolean>(false);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
@@ -176,15 +190,38 @@ export function CompactAssistant({
   );
 
   // Stays quiet while the user is typing an Ask AI question.
-  useAutoAnswer({
-    enabled: compactMode && !askMode,
+  const auto = compactMode && !askMode && answerMode === "auto";
+  const { takeQuestion } = useAutoAnswer({
+    enabled: auto,
+    reviewEnabled: auto,
     isLive: sessionState === "live",
     isBusy: isLoading,
-    transcript: transcribedText,
-    onTrigger: () => handleGenerate(FLAGS.ASSISTANT),
+    transcript: interviewerText,
+    hasInterim: interviewerSpeaking,
+    myTranscript: myText,
+    meSpeaking,
+    onTrigger: ({ question, replace }) => {
+      setAskMode(false);
+      void generate(FLAGS.ASSISTANT, undefined, { question, replace });
+    },
+    onReview: ({ question, myAnswer }) =>
+      void generate(FLAGS.REVIEW, undefined, { question, myAnswer }),
+    onInterrupt: () => abortGeneration(),
   });
 
-  const handleCaptureScreen = useCallback(async () => {
+  /** Manual Answer: the question heard since the last answer, word for
+   *  word (or the last one again). Falls back to the whole transcript. */
+  const answerNow = useCallback(() => {
+    if (isLoading || !transcribedText.trim()) return;
+    const { question, replace } = takeQuestion();
+    setAskMode(false);
+    void generate(FLAGS.ASSISTANT, undefined, {
+      question: question || undefined,
+      replace,
+    });
+  }, [generate, isLoading, takeQuestion, transcribedText]);
+
+  const handleCaptureScreen = useCallback(async (autoSend = false) => {
     if (!window.electronAPI?.screen) return;
     if (attachedImages.length >= MAX_IMAGES) {
       setError(
@@ -204,6 +241,14 @@ export function CompactAssistant({
           );
           return;
         }
+        if (autoSend) {
+          // Answer what is on screen right away, in the meeting language.
+          setOutputMode("chat");
+          setOutputCollapsed(false);
+          posthog.capture("screen_answered", { surface: "focus" });
+          void send({ text: SCREEN_PROMPT[language], images: [dataUrl] });
+          return;
+        }
         appendImage(dataUrl);
         setAskMode(true);
         posthog.capture("screen_attached_to_question", {
@@ -221,7 +266,7 @@ export function CompactAssistant({
     } finally {
       setIsCapturing(false);
     }
-  }, [appendImage, attachedImages.length]);
+  }, [appendImage, attachedImages.length, language, send, setOutputMode]);
 
   // Abort any in-flight completion stream when the surface unmounts (user
   // toggles compact off / closes the app). Without this, the SSE reader
@@ -361,25 +406,26 @@ export function CompactAssistant({
       if (modKey && (e.key === "Enter" || e.key === "Return")) {
         // Let the Ask drawer handle Enter / Mod+Enter for chat submit.
         if (isTypingInInput) return;
-        if (!transcribedText.trim()) return;
-        const wantSummarize = e.shiftKey;
-        const wantFlag = wantSummarize ? FLAGS.SUMMARIZER : FLAGS.ASSISTANT;
-        if (isLoading) {
-          if (activeFlag === wantFlag) {
-            e.preventDefault();
-            dbg("ask-ui", "Mod+Enter while streaming → stop");
-            abortGeneration();
-          }
+        e.preventDefault();
+        if (e.shiftKey) {
+          dbg("ask-ui", "Mod+Shift+Enter → Screenshot answer");
+          if (isElectron) void handleCaptureScreen(true);
           return;
         }
+        if (isLoading) {
+          dbg("ask-ui", "Mod+Enter while streaming → stop");
+          abortGeneration();
+          return;
+        }
+        dbg("ask-ui", "Mod+Enter → Answer");
+        answerNow();
+        return;
+      }
+
+      if (modKey && e.shiftKey && e.key === "Backspace") {
+        if (isTypingInInput) return;
         e.preventDefault();
-        dbg(
-          "ask-ui",
-          wantSummarize
-            ? "Mod+Shift+Enter → Summarize"
-            : "Mod+Enter → Ask (Assistant)",
-        );
-        void handleGenerate(wantFlag);
+        clearTranscription();
         return;
       }
 
@@ -393,11 +439,12 @@ export function CompactAssistant({
     return () => window.removeEventListener("keydown", handler);
   }, [
     abortGeneration,
-    activeFlag,
-    handleGenerate,
+    answerNow,
+    clearTranscription,
+    handleCaptureScreen,
+    isElectron,
     isLoading,
     toggleAskComposer,
-    transcribedText,
   ]);
 
   const handleSave = useCallback(() => {
@@ -444,18 +491,14 @@ export function CompactAssistant({
     chatError !== null;
   const hasVisibleOutput = hasOutput && !outputCollapsed;
 
-  const showLiveTranscript =
-    transcribedText.trim().length > 0 &&
-    !askMode &&
-    !hasVisibleOutput &&
-    !showContext;
-
   const compactLayout: CompactLayoutState = {
     showContext,
     askMode,
     hasVisibleOutput,
-    hasTranscript: showLiveTranscript,
+    hasStatusRow: isListening || transcribedText.trim().length > 0,
     hasAttachedImages: attachedImages.length > 0,
+    outputExpanded,
+    menuOpen,
   };
   const compactHeight = resolveCompactHeight(compactLayout);
 
@@ -465,35 +508,30 @@ export function CompactAssistant({
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-transparent">
-      <CompactToolbar
-        askMic={askMic}
-        ptt={ptt}
-        isLoading={isLoading}
-        activeFlag={activeFlag}
-        transcribedText={transcribedText}
-        attachedImages={attachedImages}
-        maxImages={MAX_IMAGES}
+      <FocusBar
         isElectron={isElectron}
+        isLoading={isLoading}
         isCapturing={isCapturing}
         askMode={askMode}
         showContext={showContext}
+        menuOpen={menuOpen}
         hasContextAttached={contextAttached}
         hasOutput={hasOutput}
         outputCollapsed={outputCollapsed}
         completion={completion}
-        onGenerate={(f) => handleGenerate(f)}
+        onAnswer={answerNow}
         onStop={stop}
-        onCaptureScreen={() => void handleCaptureScreen()}
-        onToggleAskMode={toggleAskComposer}
+        onScreenshot={() => void handleCaptureScreen(true)}
+        onToggleChat={toggleAskComposer}
         onToggleContext={() => setShowContext((s) => !s)}
+        onToggleMenu={setMenuOpen}
         onToggleOutputCollapsed={() => setOutputCollapsed((c) => !c)}
+        onSummarize={() => handleGenerate(FLAGS.SUMMARIZER)}
         onSave={handleSave}
         onClearTranscription={clearTranscription}
         onClearAll={clearAll}
-        onExitCompact={onExitCompact}
+        onExitFocus={onExitCompact}
       />
-
-      {showLiveTranscript && <CompactLiveTranscript text={transcribedText} />}
 
       {showContext && (
         <CompactContextDrawer
@@ -532,9 +570,14 @@ export function CompactAssistant({
           completion={completion}
           citations={citations}
           pastAnswers={pastAnswers}
-          isGenerating={isLoading}
+          answerAt={answerAt}
+          answerKind={answerKind}
+          isGenerating={isLoading && activeFlag !== FLAGS.REVIEW}
           error={error}
           activeFlag={activeFlag}
+          expanded={outputExpanded}
+          onToggleExpanded={() => setOutputExpanded((x) => !x)}
+          onClear={clearAnswers}
           chatUserLabel={
             session?.user ? sessionDisplayName(session.user) : undefined
           }

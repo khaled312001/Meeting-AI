@@ -11,7 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { AnswerSources } from "@/components/AnswerSources";
 import { AnswerHistory } from "@/components/AnswerHistory";
-import type { PastAnswer } from "@/components/AssistantSessionProvider";
+import type {
+  AnswerKind,
+  PastAnswer,
+} from "@/components/AssistantSessionProvider";
+import { AnswerHeader } from "@/components/AnswerHeader";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import type { AnswerCitation } from "@/lib/types";
 
@@ -23,6 +27,10 @@ interface OutputCardProps {
   citations?: AnswerCitation[];
   /** Earlier answers kept above the current one. */
   pastAnswers?: PastAnswer[];
+  /** When the current answer was started, and what it is. */
+  answerAt?: number | null;
+  answerKind?: AnswerKind;
+  isGenerating?: boolean;
   onSave: () => void;
   onClear?: () => void;
 }
@@ -31,6 +39,9 @@ export const OutputCard = memo(function OutputCard({
   completion,
   citations = [],
   pastAnswers = [],
+  answerAt = null,
+  answerKind = "answer",
+  isGenerating = false,
   onSave,
   onClear,
 }: OutputCardProps) {
@@ -38,7 +49,7 @@ export const OutputCard = memo(function OutputCard({
   const { ref, showLatest, handleScroll, scrollToLatest } = useStickToBottom(
     `${pastAnswers.length}:${completion.length}`,
   );
-  const isEmpty = !completion && pastAnswers.length === 0;
+  const isEmpty = !completion && pastAnswers.length === 0 && !isGenerating;
 
   return (
     <div
@@ -91,19 +102,40 @@ export const OutputCard = memo(function OutputCard({
               Ready when you are
             </p>
             <p className="mt-1 text-xs text-text-tertiary">
-              Start listening — answers appear on their own when the speaker
-              pauses.
+              Pick the meeting language and start listening. In Auto mode
+              each question is answered as soon as the speaker finishes; in
+              Manual mode press Answer.
             </p>
           </div>
         ) : (
           <div className={`${compactTextSurface} ${overlayTextShadow}`}>
             <AnswerHistory answers={pastAnswers} proseClassName={PROSE} />
-            {completion && (
-              <div dir="auto" className={PROSE}>
-                <SafeMarkdown>{completion}</SafeMarkdown>
+            {completion ? (
+              <div
+                dir="auto"
+                className={
+                  answerKind === "review"
+                    ? "border-l-2 border-l-amber-300/50 pl-2"
+                    : undefined
+                }
+              >
+                <AnswerHeader
+                  kind={answerKind}
+                  at={answerAt}
+                  live={isGenerating}
+                  text={completion}
+                />
+                <div className={PROSE}>
+                  <SafeMarkdown>{completion}</SafeMarkdown>
+                </div>
                 <AnswerSources citations={citations} className="not-prose mt-4" />
               </div>
-            )}
+            ) : isGenerating ? (
+              <p className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
+                Writing the answer…
+              </p>
+            ) : null}
           </div>
         )}
       </div>

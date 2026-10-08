@@ -3,13 +3,22 @@
 /** Context toolbar on the full Assistant surface. */
 
 import dynamic from "next/dynamic";
-import { ChevronDown, FileText, Loader2, Upload, X, Zap } from "lucide-react";
+import {
+  ChevronDown,
+  FileText,
+  Loader2,
+  Sparkles,
+  Upload,
+  X,
+} from "lucide-react";
 import { memo, type ChangeEvent, type RefObject } from "react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/Kbd";
+import { LiveControls } from "@/components/LiveControls";
 import { hasAttachedContext } from "@/lib/prompt-context";
 import { parseResumeFile } from "@/lib/resume-parser";
 import { cn } from "@/lib/utils";
@@ -125,8 +134,10 @@ export const ContextCard = memo(function ContextCard({
             )}
           </div>
 
-          {/* Answers are always automatic: they start when the speaker pauses. */}
-          <div className="ml-auto flex items-center gap-2">
+          <LiveControls className="ml-auto" />
+
+          {/* Auto mode answers on its own; Answer works in both modes. */}
+          <div className="flex items-center gap-2">
             {isLoadingGenerate ? (
               <Button
                 type="button"
@@ -140,10 +151,16 @@ export const ContextCard = memo(function ContextCard({
                 Answering… Stop
               </Button>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-text-tertiary">
-                <Zap className="h-3.5 w-3.5 text-accent-text" />
-                Auto answers
-              </span>
+              <Button
+                type="submit"
+                size="sm"
+                title="Answer the latest question now (Enter)"
+                className="h-8 gap-1.5 text-[11px]"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Answer
+                <Kbd keys="↵" size="xs" className="hidden md:inline-flex" />
+              </Button>
             )}
           </div>
         </div>
