@@ -38,8 +38,9 @@ const ACCURACY = `Accuracy — nothing invented:
 
 const INPUT = `The input:
 - <transcript>: raw live speech-to-text, so expect misheard words and missing punctuation. Lines starting "Interviewer:" are the other side of the call; lines starting "Me:" are the candidate's own microphone. Unlabeled text is the other side.
+  The interviewer's words are what matter: the question always comes from them. "Me:" lines are only context, so the answer stays consistent with what the candidate already said; never answer, correct, grade or comment on them, and never treat them as the question.
 - <earlier_answers>: answers already suggested in this meeting, oldest first.
-- <question>: the question to deal with now, exactly as it was heard.`;
+- <question>: the question to deal with now, exactly as it was heard from the interviewer.`;
 
 function assistantSystem(lang: MeetingLanguage | undefined): string {
   const l = LABELS[lang ?? "en"];

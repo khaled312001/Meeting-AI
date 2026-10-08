@@ -56,9 +56,7 @@ export function CompactAssistant({
   const {
     transcribedText,
     interviewerText,
-    myText,
     interviewerSpeaking,
-    meSpeaking,
     isActive: isListening,
     language,
     clearTranscription,
@@ -195,19 +193,14 @@ export function CompactAssistant({
   const auto = compactMode && !askMode && answerMode === "auto";
   const { takeQuestion } = useAutoAnswer({
     enabled: auto,
-    reviewEnabled: auto,
     isLive: sessionState === "live",
     isBusy: isLoading,
     transcript: interviewerText,
     hasInterim: interviewerSpeaking,
-    myTranscript: myText,
-    meSpeaking,
     onTrigger: ({ question, replace }) => {
       setAskMode(false);
       void generate(FLAGS.ASSISTANT, undefined, { question, replace });
     },
-    onReview: ({ question, myAnswer }) =>
-      void generate(FLAGS.REVIEW, undefined, { question, myAnswer }),
     onInterrupt: () => abortGeneration(),
   });
 

@@ -50,9 +50,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     getTranscribedText,
     hasRestoredTranscript,
     interviewerText,
-    myText,
     interviewerSpeaking,
-    meSpeaking,
     sessionState,
   } = useTranscription();
   const {
@@ -87,7 +85,6 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     isLoading,
     error,
     generateNow,
-    reviewNow,
     summarizeNow,
     stop,
     regenerate,
@@ -101,16 +98,11 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
   const auto = isActive && answerMode === "auto";
   const { takeQuestion } = useAutoAnswer({
     enabled: auto,
-    reviewEnabled: auto,
     isLive: sessionState === "live",
     isBusy: isLoading,
     transcript: interviewerText,
     hasInterim: interviewerSpeaking,
-    myTranscript: myText,
-    meSpeaking,
     onTrigger: ({ question, replace }) => void generateNow({ question, replace }),
-    onReview: ({ question, myAnswer }) =>
-      void reviewNow({ question, myAnswer }),
     onInterrupt: () => stop(),
   });
 
