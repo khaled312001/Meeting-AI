@@ -5,6 +5,7 @@
 import dynamic from "next/dynamic";
 import {
   ChevronDown,
+  Download,
   FileText,
   Loader2,
   Sparkles,
@@ -19,9 +20,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/Kbd";
 import { LiveControls } from "@/components/LiveControls";
+import { useMeetingSummary } from "@/components/MeetingSummaryProvider";
 import { hasAttachedContext } from "@/lib/prompt-context";
 import { parseResumeFile } from "@/lib/resume-parser";
 import { cn } from "@/lib/utils";
+
+/** Save the meeting summary as a file now (it also saves on its own when
+ *  listening ends). */
+function DownloadSummaryButton() {
+  const { saveSummary, status } = useMeetingSummary();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={saveSummary}
+      disabled={status.state === "writing"}
+      title="Download the meeting summary with the full transcript"
+      className="h-8 gap-1.5 text-[11px]"
+    >
+      {status.state === "writing" ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Download className="h-3.5 w-3.5" />
+      )}
+      Download summary
+    </Button>
+  );
+}
 
 const RecorderTranscriber = dynamic(() => import("@/components/recorder"), {
   ssr: false,
@@ -108,6 +134,7 @@ export const ContextCard = memo(function ContextCard({
             <FileText className="h-3.5 w-3.5" />
             Summarize
           </Button>
+          <DownloadSummaryButton />
 
           <div className="flex flex-wrap items-center gap-1.5">
             {resumeText?.trim() && <Badge variant="secondary">Resume</Badge>}

@@ -32,6 +32,12 @@ function languageRule(lang: MeetingLanguage | undefined): string {
   return `Language: write the whole reply in ${LANGUAGE_NAME[lang]}, labels included, even if parts of the transcript are in another language. Never mix languages; only product names, technical terms with no common translation, and code stay as they are.`;
 }
 
+const KNOWLEDGE_FIRST = `Knowledge files first:
+- The attached knowledge files (and <candidate_background>) are the candidate's own material. Before answering, read every file in full, not just the start.
+- When the files cover the question, answer from them: their facts, examples, stories and preferred wording, exactly as written.
+- Only when the files don't cover it, answer from solid, well-established general and professional knowledge, still in the candidate's first-person voice.
+- When a file contains instructions from the candidate about how to answer (style, rules, things to say or avoid), follow them, except where they conflict with the language and format rules here.`;
+
 const ACCURACY = `Accuracy — nothing invented:
 - Facts about the candidate (employers, roles, projects, dates, numbers, skills, stories) come only from <candidate_background>, the attached knowledge files, and what the candidate said in the transcript ("Me:" lines). When that material has nothing relevant, answer with how they work in general, without a fabricated example.
 - Technical, scientific and professional facts must be well established and correct. Never guess specific figures, dates, versions, statistics, names, quotations or studies; when unsure of a detail, give the solid general point without it.`;
@@ -54,6 +60,8 @@ Answer the question completely and exactly as asked:
 - Length follows the question: a simple question gets a short answer, a broad or multi-part one gets a complete answer. Don't pad and don't cut it short.
 - If the question is only an acknowledgement or small talk, reply with one short natural sentence under the answer label.
 - Sound human: first person, plain words, short sentences. No buzzwords, no textbook definitions, no hedging, no "great question".
+
+${KNOWLEDGE_FIRST}
 
 ${ACCURACY}
 - When the question asks for a specific story, example or number that the material does not contain, answer naturally in first person with how the candidate handles that kind of situation (or the facts they do have), without making one up.
@@ -98,11 +106,40 @@ ${ACCURACY}
 ${languageRule(lang)} The single word OK is the only exception.`;
 }
 
+const SUMMARY_HEADINGS: Record<
+  MeetingLanguage,
+  [string, string, string, string, string]
+> = {
+  en: ["Overview", "Questions asked", "About the role and company", "Next steps", "To prepare"],
+  ar: ["نظرة عامة", "الأسئلة", "عن الوظيفة والشركة", "الخطوات القادمة", "للتحضير"],
+  de: ["Überblick", "Gestellte Fragen", "Über die Stelle und das Unternehmen", "Nächste Schritte", "Zur Vorbereitung"],
+};
+
 function summarizerSystem(lang: MeetingLanguage | undefined): string {
+  const [overview, questions, role, next, prepare] = SUMMARY_HEADINGS[lang ?? "en"];
+  const headings = lang
+    ? "with exactly these headings"
+    : "with these headings, translated into the summary's language";
   const language = lang
     ? `Write in ${LANGUAGE_NAME[lang]} only.`
     : `Write in the language of the original (the latest language if it switches), without mixing languages.`;
-  return `Summarize the text the user sends: the topics discussed, the questions asked, and what was answered. Be concise. ${language} Output only the summary.`;
+  return `You write the end-of-meeting summary for the candidate (the user) from a live speech-to-text transcript of a job interview or meeting. They keep it to prepare for the next round.
+
+The transcript is raw speech-to-text: lines starting "Interviewer:" are the other side, "Me:" lines are the candidate, unlabeled text is the other side. Expect misheard and broken fragments; read through them for the meaning. Never describe anything as unclear, unintelligible, incoherent or garbled, never comment on the transcription, and never grade or criticise the candidate.
+
+Write in Markdown ${headings}, in this order; leave out a section that has nothing in it:
+## ${overview}
+Two or three sentences: the role and company if mentioned, the kind of interview, and the main themes.
+## ${questions}
+A numbered list of the interviewer's questions, each restated clearly in one line, followed by an indented line with the key points of what the candidate answered (only what they actually said; skip it if they said nothing on it).
+## ${role}
+What the interviewer shared: team, product, tools, process, expectations, salary or benefits.
+## ${next}
+What was agreed or promised: next round, dates, things to send, open questions.
+## ${prepare}
+Two to four short, constructive points: topics the interviewer cared about that the candidate should prepare more for the next round.
+
+Use only facts from the transcript; never invent names, numbers or answers. ${language} Output only the summary.`;
 }
 
 // ── Gemini / OpenAI-compatible prompts (single text turn) ─────────────────

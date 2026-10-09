@@ -50,6 +50,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     getTranscribedText,
     hasRestoredTranscript,
     interviewerText,
+    myText,
     interviewerSpeaking,
     sessionState,
   } = useTranscription();
@@ -102,6 +103,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     isBusy: isLoading,
     transcript: interviewerText,
     hasInterim: interviewerSpeaking,
+    myTranscript: myText,
     onTrigger: ({ question, replace }) => void generateNow({ question, replace }),
     onInterrupt: () => stop(),
   });

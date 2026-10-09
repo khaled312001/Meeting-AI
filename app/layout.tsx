@@ -6,6 +6,7 @@ import { TabProvider } from "@/components/TabContext";
 import { TranscriptionProvider } from "@/components/TranscriptionContext";
 import { InterviewContextProvider } from "@/components/InterviewContextProvider";
 import { AssistantSessionProvider } from "@/components/AssistantSessionProvider";
+import { MeetingSummaryProvider } from "@/components/MeetingSummaryProvider";
 import { AskChatProvider } from "@/components/AskChatProvider";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import { GoogleTagManager } from "@next/third-parties/google";
@@ -80,10 +81,12 @@ export default function RootLayout({
                 <TranscriptionProvider>
                   <InterviewContextProvider>
                     <AssistantSessionProvider>
-                      <AskChatProvider>
-                        <TitleBar />
-                        {children}
-                      </AskChatProvider>
+                      <MeetingSummaryProvider>
+                        <AskChatProvider>
+                          <TitleBar />
+                          {children}
+                        </AskChatProvider>
+                      </MeetingSummaryProvider>
                     </AssistantSessionProvider>
                   </InterviewContextProvider>
                 </TranscriptionProvider>

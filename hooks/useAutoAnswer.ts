@@ -29,15 +29,21 @@ interface UseAutoAnswerArgs {
   transcript: string;
   /** The other side is still being heard (not finalized yet). */
   hasInterim: boolean;
+  /** Finalized speech from the user's microphone: when the user starts
+   *  replying, the question is over, so the answer comes at once. */
+  myTranscript?: string;
   onTrigger: (trigger: AutoAnswerTrigger) => void;
   /** Stop the answer that is streaming now. */
   onInterrupt: () => void;
 }
 
-/** Pause after a question mark before answering. */
-const QUESTION_PAUSE_MS = 500;
+/** Pause after a question mark before answering. Interviewers often stop
+ *  mid-question to think, so this has to outlast a short breath. */
+const QUESTION_PAUSE_MS = 1500;
 /** Pause after speech that does not end in a question mark. */
-const SENTENCE_PAUSE_MS = 1000;
+const SENTENCE_PAUSE_MS = 2500;
+/** Words the user must say before their reply counts as "question over". */
+const REPLY_MIN_WORDS = 3;
 const MIN_WORDS = 3;
 /** Speech this soon after an answer started continues the same question. */
 const CONTINUE_WINDOW_MS = 2500;
@@ -46,6 +52,19 @@ const CONTINUE_MIN_WORDS = 3;
 
 const wordCount = (text: string) =>
   text.split(/\s+/).filter(Boolean).length;
+const words = (text: string) =>
+  text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+
+/** The user's words are their own reply, not the interviewer's voice
+ *  picked up by the microphone (speakers instead of headphones). */
+function isOwnReply(mine: string, theirs: string): boolean {
+  const own = words(mine);
+  if (own.length < REPLY_MIN_WORDS) return false;
+  const heard = new Set(words(theirs));
+  const shared = own.filter((w) => heard.has(w)).length;
+  return shared / own.length < 0.6;
+}
+
 const endsWithQuestion = (text: string) => /[?؟]\s*["'»”)]*\s*$/.test(text);
 
 export function useAutoAnswer({
@@ -54,6 +73,7 @@ export function useAutoAnswer({
   isBusy,
   transcript,
   hasInterim,
+  myTranscript = "",
   onTrigger,
   onInterrupt,
 }: UseAutoAnswerArgs) {
@@ -76,6 +96,11 @@ export function useAutoAnswer({
   onTriggerRef.current = onTrigger;
   const onInterruptRef = useRef(onInterrupt);
   onInterruptRef.current = onInterrupt;
+
+  /** Where the user's own speech stood when the current question began. */
+  const myStartAt = useRef(0);
+  const myTranscriptRef = useRef(myTranscript);
+  myTranscriptRef.current = myTranscript;
 
   const transcriptRef = useRef(transcript);
   transcriptRef.current = transcript;
@@ -124,8 +149,10 @@ export function useAutoAnswer({
     }
     if (!enabled) return;
     const fresh = transcript.slice(answeredUpTo.current).trim();
-    if ((fresh || hasInterim) && speechStartedAt.current === 0)
+    if ((fresh || hasInterim) && speechStartedAt.current === 0) {
       speechStartedAt.current = Date.now();
+      myStartAt.current = myTranscriptRef.current.length;
+    }
 
     // Did the speaker carry on with the question just answered?
     if (fresh && triggeredAt.current > 0 && !continuing.current) {
@@ -143,12 +170,14 @@ export function useAutoAnswer({
       (wordCount(fresh) >= 1 && endsWithQuestion(fresh));
     if (!enough) return;
 
+    // The user started replying: the interviewer is done, answer now.
+    const replying = isOwnReply(myTranscript.slice(myStartAt.current), fresh);
     const timer = setTimeout(
       () => onTriggerRef.current(take(transcript)),
-      endsWithQuestion(fresh) ? QUESTION_PAUSE_MS : SENTENCE_PAUSE_MS,
+      replying ? 0 : endsWithQuestion(fresh) ? QUESTION_PAUSE_MS : SENTENCE_PAUSE_MS,
     );
     return () => clearTimeout(timer);
-  }, [enabled, isLive, isBusy, hasInterim, transcript, take]);
+  }, [enabled, isLive, isBusy, hasInterim, transcript, myTranscript, take]);
 
   /** For the manual Answer button: the speech not answered yet, or the
    *  last question again when nothing new was said. */

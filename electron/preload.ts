@@ -54,6 +54,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("shortcut:action", handler);
   },
   appQuit: () => ipcRenderer.invoke("app-quit"),
+  saveSummaryPdf: (html: string, baseName: string) =>
+    ipcRenderer.invoke("summary:save-pdf", html, baseName),
+  openSavedFile: (file: string) => ipcRenderer.invoke("summary:open", file),
+  showSavedFile: (file: string) => ipcRenderer.invoke("summary:show", file),
   appRelaunch: () => ipcRenderer.invoke("app-relaunch"),
   updaterGetVersion: () => ipcRenderer.invoke("updater:get-version"),
   updaterGetStatus: () => ipcRenderer.invoke("updater:get-status"),
@@ -108,6 +112,9 @@ export interface ElectronAPI {
   onWindowFocus?: (callback: () => void) => () => void;
   onShortcut?: (callback: (action: string) => void) => () => void;
   appQuit: () => Promise<void>;
+  saveSummaryPdf: (html: string, baseName: string) => Promise<string>;
+  openSavedFile: (file: string) => Promise<boolean>;
+  showSavedFile: (file: string) => Promise<boolean>;
   appRelaunch: () => Promise<void>;
   updaterGetVersion: () => Promise<string>;
   updaterGetStatus: () => Promise<UpdaterStatusPayload>;

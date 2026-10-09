@@ -52,6 +52,11 @@ export interface ElectronAPI {
   /** System-wide shortcuts: "answer" | "clear-answer" | "toggle-mode". */
   onShortcut?: (callback: (action: string) => void) => () => void;
   appQuit: () => Promise<void>;
+  /** Render a meeting summary (HTML) to a PDF in Downloads; returns its path. */
+  saveSummaryPdf?: (html: string, baseName: string) => Promise<string>;
+  /** Open / reveal a file saved by saveSummaryPdf. */
+  openSavedFile?: (file: string) => Promise<boolean>;
+  showSavedFile?: (file: string) => Promise<boolean>;
   appRelaunch: () => Promise<void>;
   updaterGetVersion?: () => Promise<string>;
   updaterGetStatus?: () => Promise<UpdaterStatusPayload>;

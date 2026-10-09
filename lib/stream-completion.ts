@@ -4,6 +4,19 @@ import { parseSseStream } from "@/lib/sse";
 import { FLAGS, type AnswerCitation } from "@/lib/types";
 
 const SSE_CLIENT_BUFFER_MAX = 1_000_000;
+/** Server prompt limits (realtime-worker-api completion-types). Live
+ *  answers send the latest part of the transcript; the question itself
+ *  travels separately, so older talk can be dropped. */
+const MAX_PROMPT_CHARS = 30_000;
+const MAX_SUMMARY_PROMPT_CHARS = 195_000;
+
+/** The end of `text`, at most `max` characters, starting on a line. */
+function tail(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(-max);
+  const nl = cut.indexOf("\n");
+  return nl > 0 && nl < 2000 ? cut.slice(nl + 1) : cut;
+}
 
 export interface StreamCompletionParams {
   flag: FLAGS;
@@ -50,7 +63,10 @@ export async function streamCompletion({
     body: JSON.stringify({
       bg,
       flag,
-      prompt,
+      prompt: tail(
+        prompt,
+        flag === FLAGS.SUMMARIZER ? MAX_SUMMARY_PROMPT_CHARS : MAX_PROMPT_CHARS,
+      ),
       ...(image !== undefined ? { image } : {}),
       ...(useKnowledge !== undefined ? { useKnowledge } : {}),
       ...(lang ? { lang } : {}),

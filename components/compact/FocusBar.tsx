@@ -13,7 +13,9 @@ import {
   BookmarkPlus,
   Camera,
   ChevronDown,
+  CheckCircle2,
   ChevronUp,
+  Download,
   Eraser,
   FileText,
   GripVertical,
@@ -23,6 +25,7 @@ import {
   Minus,
   MoreVertical,
   Play,
+  RotateCcw,
   Settings2,
   Sparkles,
   Square,
@@ -32,6 +35,7 @@ import {
 import { type ReactNode, useEffect, useRef } from "react";
 import { useTranscription } from "@/components/TranscriptionContext";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
+import { useMeetingSummary } from "@/components/MeetingSummaryProvider";
 import {
   AnswerModeSwitch,
   LanguageSwitch,
@@ -46,6 +50,43 @@ import { LoadingDots } from "./LoadingDots";
 export const focusGlass =
   "border border-white/10 bg-[rgba(18,20,26,0.72)] shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl";
 
+
+/** Meeting summary status in the bar: written, then saved (click opens). */
+function SummaryChip() {
+  const { status, saveSummary, openSummary } = useMeetingSummary();
+  if (status.state === "idle") return null;
+  if (status.state === "writing") {
+    return (
+      <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-accent/15 px-3 text-[12px] font-semibold text-accent-text">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Summary…
+      </span>
+    );
+  }
+  if (status.state === "error") {
+    return (
+      <PillButton
+        onClick={saveSummary}
+        title={`${status.message} Click to try again.`}
+        className="border border-red-400/35 bg-red-500/10 text-red-200 hover:bg-red-500/20"
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+        Summary failed
+      </PillButton>
+    );
+  }
+  return (
+    <PillButton
+      onClick={openSummary}
+      disabled={status.file === null}
+      title={status.file ? `Open ${status.name} (saved to Downloads)` : `Downloaded ${status.name}`}
+      className="border border-emerald-400/35 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
+    >
+      <CheckCircle2 className="h-3.5 w-3.5" />
+      Summary saved
+    </PillButton>
+  );
+}
 
 function PillButton({
   onClick,
@@ -186,6 +227,7 @@ export function FocusBar({
       ? "me"
       : null;
   const showStatusRow = isActive || transcribedText.trim().length > 0;
+  const { saveSummary, status: summaryStatus } = useMeetingSummary();
 
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -348,6 +390,15 @@ export function FocusBar({
                   { disabled: isLoading || !transcribedText.trim() },
                 )}
                 {menuItem(
+                  <Download className="h-3.5 w-3.5" />,
+                  "Download meeting summary",
+                  saveSummary,
+                  {
+                    disabled:
+                      summaryStatus.state === "writing" || !transcribedText.trim(),
+                  },
+                )}
+                {menuItem(
                   <BookmarkPlus className="h-3.5 w-3.5" />,
                   "Save answer to notes",
                   onSave,
@@ -463,6 +514,7 @@ export function FocusBar({
           >
             {latest?.text ?? "Waiting for the first words…"}
           </span>
+          <SummaryChip />
           <PillButton
             onClick={onClearTranscription}
             disabled={!transcribedText.trim()}

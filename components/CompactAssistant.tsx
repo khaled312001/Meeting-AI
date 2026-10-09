@@ -56,6 +56,7 @@ export function CompactAssistant({
   const {
     transcribedText,
     interviewerText,
+    myText,
     interviewerSpeaking,
     isActive: isListening,
     language,
@@ -197,6 +198,7 @@ export function CompactAssistant({
     isBusy: isLoading,
     transcript: interviewerText,
     hasInterim: interviewerSpeaking,
+    myTranscript: myText,
     onTrigger: ({ question, replace }) => {
       setAskMode(false);
       void generate(FLAGS.ASSISTANT, undefined, { question, replace });

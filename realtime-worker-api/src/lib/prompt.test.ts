@@ -38,7 +38,7 @@ test("buildAnthropicBackground wraps text and skips blanks", () => {
 test("buildAnthropicSystemPrompt selects per-flag instructions", () => {
   assert.match(buildAnthropicSystemPrompt("assistant"), /\*\*Question:\*\*/);
   assert.match(buildAnthropicSystemPrompt("review"), /exactly: OK/);
-  assert.match(buildAnthropicSystemPrompt("summarizer"), /Summarize/);
+  assert.match(buildAnthropicSystemPrompt("summarizer"), /end-of-meeting summary/);
   assert.match(buildAnthropicSystemPrompt("ask-ai"), /Ask AI/);
 });
 

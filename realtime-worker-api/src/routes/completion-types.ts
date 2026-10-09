@@ -26,6 +26,8 @@ export const MAX_MESSAGES_PER_REQUEST = 24;
 export const MAX_CHAT_MESSAGE_CHARS = 8000;
 
 export const MAX_PROMPT_CHARS = 32_000;
+/** End-of-meeting summaries read the whole transcript. */
+export const MAX_SUMMARY_PROMPT_CHARS = 200_000;
 /** Notes + resume + job description, labelled (see lib/prompt-context.ts). */
 export const MAX_BG_CHARS = 100_000;
 export const MAX_QUESTION_CHARS = 6_000;

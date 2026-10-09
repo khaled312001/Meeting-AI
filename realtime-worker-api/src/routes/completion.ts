@@ -46,6 +46,7 @@ import {
   MAX_PREVIOUS_ANSWER_CHARS,
   MAX_PREVIOUS_ANSWERS,
   MAX_PROMPT_CHARS,
+  MAX_SUMMARY_PROMPT_CHARS,
   MAX_QUESTION_CHARS,
   parseImageDataUrls,
   type CompletionRequestBody,
@@ -96,9 +97,11 @@ export async function handleCompletion(
   if (!basePrompt) {
     return jsonResponse({ error: "prompt is required" }, 400);
   }
-  if (basePrompt.length > MAX_PROMPT_CHARS) {
+  const maxPrompt =
+    payload.flag === FLAGS.SUMMARIZER ? MAX_SUMMARY_PROMPT_CHARS : MAX_PROMPT_CHARS;
+  if (basePrompt.length > maxPrompt) {
     return jsonResponse(
-      { error: `prompt exceeds ${MAX_PROMPT_CHARS} characters` },
+      { error: `prompt exceeds ${maxPrompt} characters` },
       413,
     );
   }

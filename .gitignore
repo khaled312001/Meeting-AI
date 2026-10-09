@@ -67,3 +67,8 @@ ARCHITECTURE.md
 .cursor/
 .vscode/
 /private/
+
+# Voice notes and other personal media
+*.ogg
+*.opus
+*.m4a
