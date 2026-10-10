@@ -15,6 +15,7 @@ import { useClickThrough } from "@/hooks/useClickThrough";
 import {
   useCompactWindowSize,
   COMPACT_HEIGHT_IDLE,
+  COMPACT_WINDOW_WIDTH,
 } from "@/hooks/useCompactWindowSize";
 import { useNotes } from "@/hooks/useNotes";
 import { useExport } from "@/hooks/useExport";
@@ -35,6 +36,7 @@ export default function MainPage() {
   const { data: session } = authClient.useSession();
   const [isElectron, setIsElectron] = useState(false);
   const [compactHeight, setCompactHeight] = useState(COMPACT_HEIGHT_IDLE);
+  const [compactWidth, setCompactWidth] = useState(COMPACT_WINDOW_WIDTH);
 
   const {
     notes,
@@ -67,7 +69,7 @@ export default function MainPage() {
     setActiveTab,
     onError: setCaptureError,
   });
-  useCompactWindowSize(compactMode, compactHeight);
+  useCompactWindowSize(compactMode, compactHeight, compactWidth);
 
   useEffect(() => {
     if (!compactMode) setCompactHeight(COMPACT_HEIGHT_IDLE);
@@ -282,6 +284,7 @@ export default function MainPage() {
               addInSavedData={({ data, tag }) => handleSaveNote(data, tag)}
               onExitCompact={() => setCompactModePersisted(false)}
               onCompactHeightChange={setCompactHeight}
+              onCompactWidthChange={setCompactWidth}
             />
           </div>
         </div>

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { copyText } from "@/lib/copy-text";
 import { cn } from "@/lib/utils";
 import { formatCompact } from "@/lib/format";
 
@@ -867,7 +868,8 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
       variant="outline"
       size="sm"
       onClick={() => {
-        void navigator.clipboard?.writeText(text).then(() => {
+        void copyText(text).then((ok) => {
+          if (!ok) return;
           setCopied(true);
           window.setTimeout(() => setCopied(false), 1500);
         });

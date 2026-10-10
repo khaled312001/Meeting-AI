@@ -19,7 +19,6 @@ import { useAskScreenshotBridge } from "@/components/ask/useAskScreenshotBridge"
 import { AskMicDebugHud } from "@/components/ui/AskMicDebugHud";
 import { Button } from "@/components/ui/button";
 import { ChatThread } from "@/components/ui/ChatThread";
-import { Input } from "@/components/ui/input";
 import { formatShortcut, Kbd } from "@/components/ui/Kbd";
 import { LevelMeter } from "@/components/ui/LevelMeter";
 import { useSharedAskChat } from "@/components/AskChatProvider";
@@ -32,6 +31,7 @@ import { trackEvent } from "@/lib/session-tracking";
 import { sessionDisplayName, sessionUserTitle } from "@/lib/session-display";
 import { authClient } from "@/lib/auth-client";
 import { MAX_IMAGES } from "@/lib/constant";
+import { askRows } from "@/components/compact/CompactAskComposer";
 import { cn } from "@/lib/utils";
 import {
   overlayErrorBlock,
@@ -55,7 +55,7 @@ export function QuestionAssistant({
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
@@ -469,13 +469,22 @@ export function QuestionAssistant({
           <form
             ref={formRef}
             onSubmit={handleSubmit}
-            className="flex items-center gap-1.5 rounded-lg border border-border-subtle/50 bg-transparent p-1.5"
+            className="flex items-end gap-1.5 rounded-lg border border-border-subtle/50 bg-transparent p-1.5"
           >
             <div className="relative min-w-0 flex-1">
-              <Input
+              {/* Multi-line so pasted questions keep their lines; Enter
+                  sends, Shift+Enter adds a line. */}
+              <textarea
                 ref={inputRef}
+                rows={askRows(question)}
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    formRef.current?.requestSubmit();
+                  }
+                }}
                 placeholder={
                   askMic.state === "recording"
                     ? "Listening… speak your question"
@@ -485,11 +494,11 @@ export function QuestionAssistant({
                 }
                 disabled={isLoading}
                 className={cn(
-                  "h-9 border-0 bg-transparent pl-3 text-xs shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
+                  "custom-scrollbar block w-full resize-none border-0 bg-transparent py-2.5 pl-3 text-xs leading-4 text-text-primary shadow-none placeholder:text-text-tertiary focus-visible:outline-none disabled:opacity-50",
                   isElectron ? "pr-24" : "pr-16",
                 )}
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <div className="absolute bottom-1.5 right-2 flex items-center gap-1">
                 {/* Press-and-hold mic — walkie-talkie UX. Pointer down arms
                     the recording, pointer up auto-submits, drag-off / window
                     blur cancels. The same gesture is bound globally as

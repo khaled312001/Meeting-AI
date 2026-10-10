@@ -57,6 +57,8 @@ export interface ElectronAPI {
   /** Open / reveal a file saved by saveSummaryPdf. */
   openSavedFile?: (file: string) => Promise<boolean>;
   showSavedFile?: (file: string) => Promise<boolean>;
+  /** Copy through the main process (works while the window isn't focused). */
+  copyText?: (text: string) => Promise<boolean>;
   appRelaunch: () => Promise<void>;
   updaterGetVersion?: () => Promise<string>;
   updaterGetStatus?: () => Promise<UpdaterStatusPayload>;

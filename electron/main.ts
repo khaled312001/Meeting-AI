@@ -103,8 +103,8 @@ function hideFromScreenCapture(win: BrowserWindow) {
   }
 }
 
-/** The overlay has no taskbar / Dock entry, so a global shortcut is how the
- *  user brings it back after hiding it. */
+/** A hidden overlay has no window to click, so a global shortcut brings it
+ *  back (the taskbar / Dock icon does too). */
 function registerToggleOverlayShortcut() {
   globalShortcut.register("CommandOrControl+Shift+Space", () => {
     const w = mainWindow;
@@ -185,8 +185,9 @@ async function createWindow() {
       sandbox: true,
       backgroundThrottling: false,
     },
-    // No taskbar button: a shared screen would show it.
-    skipTaskbar: true,
+    // Taskbar button + Alt-Tab entry so a minimized window can be found
+    // again. Content protection keeps the window itself out of screen shares.
+    skipTaskbar: false,
     show: false,
   });
 
@@ -204,6 +205,9 @@ async function createWindow() {
     try {
       mainWindow.setVisibleOnAllWorkspaces(true, {
         visibleOnFullScreen: true,
+        // Otherwise macOS turns the app into an accessory and drops the
+        // Dock icon / Cmd-Tab entry.
+        skipTransformProcessType: true,
       });
     } catch {
       // Not supported on this macOS version
@@ -361,18 +365,22 @@ app.whenReady().then(async () => {
   registerToggleOverlayShortcut();
   registerMeetingShortcuts();
 
-  // No Dock icon / Cmd-Tab entry on macOS: both show up in a shared screen.
-  if (process.platform === "darwin") app.dock?.hide();
+  // Dock icon + Cmd-Tab entry on macOS, so a minimized window can be found.
+  if (process.platform === "darwin") void app.dock?.show();
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    const w = mainWindow;
+    if (!w || w.isDestroyed()) {
       createWindow();
+      return;
     }
+    if (w.isMinimized()) w.restore();
+    if (!w.isVisible()) w.show();
+    w.focus();
   });
 });
 
-// Quit on macOS too: the Dock icon is hidden, so a windowless app would
-// keep running with no way back to it.
+// Quit on macOS too: the close button means "quit" in both views.
 app.on("window-all-closed", () => {
   app.quit();
 });

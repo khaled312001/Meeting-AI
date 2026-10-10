@@ -5,7 +5,8 @@
  *  Header: what is shown (Answer / Notes on your answer / Chat) with the
  *  time it was written, feedback, copy, Clear and expand. Body: earlier
  *  answers above the current one (auto-scrolls to the newest; scroll up to
- *  read older ones), or the Ask AI chat thread. */
+ *  read older ones), or the Ask AI chat thread. The bottom edge, right edge
+ *  and corner can be dragged to size it. */
 
 import {
   Maximize2,
@@ -16,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import posthog from "posthog-js";
-import { useEffect, useState } from "react";
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import SafeMarkdown from "@/components/SafeMarkdown";
 import { ChatThread } from "@/components/ui/ChatThread";
 import type { ChatMessage } from "@/hooks/useAskChat";
@@ -29,6 +30,8 @@ import type {
   AnswerKind,
   PastAnswer,
 } from "@/components/AssistantSessionProvider";
+import type { AnswerPanelSize } from "@/hooks/useAnswerPanelSize";
+import { COMPACT_WINDOW_WIDTH } from "@/hooks/useCompactWindowSize";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { cn } from "@/lib/utils";
 import { focusGlass } from "./FocusBar";
@@ -65,7 +68,22 @@ interface OutputPanelProps {
   onDismissError?: () => void;
   /** Shown above user bubbles in compact Ask AI thread. */
   chatUserLabel?: string;
+  /** The size the user dragged the panel to; the window follows it. */
+  size?: AnswerPanelSize;
+  onResize?: (size: AnswerPanelSize) => void;
+  /** The drag ended (remember the size). */
+  onResizeEnd?: (size: AnswerPanelSize) => void;
 }
+
+/** Panel width that puts its right edge at window x `right`. The panel is
+ *  centered, 8px in from each side, in a window at least
+ *  COMPACT_WINDOW_WIDTH wide that grows to the right. */
+function widthForRightEdge(right: number): number {
+  const centered = 2 * (right - COMPACT_WINDOW_WIDTH / 2);
+  return centered + 16 <= COMPACT_WINDOW_WIDTH ? centered : right - 8;
+}
+
+type ResizeEdge = "bottom" | "right" | "corner";
 
 function ErrorRow({
   message,
@@ -116,6 +134,9 @@ export function OutputPanel({
   onClear,
   onDismissError,
   chatUserLabel,
+  size,
+  onResize,
+  onResizeEnd,
 }: OutputPanelProps) {
   // Follow new answers, unless the user scrolled up to read an older one.
   const { ref, showLatest, handleScroll, scrollToLatest } = useStickToBottom(
@@ -129,6 +150,41 @@ export function OutputPanel({
     setVote(value);
     posthog.capture("answer_feedback", { value, kind: answerKind });
   };
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const startResize = (e: ReactPointerEvent<HTMLDivElement>, edge: ResizeEdge) => {
+    if (!size || !onResize || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    // Keep the grip where it was grabbed, not jumped to the cursor.
+    const fromRight = (panelRef.current?.getBoundingClientRect().right ?? e.clientX) - e.clientX;
+    const startY = e.clientY;
+    const start = size;
+    let latest = start;
+    let frame = 0;
+    const move = (ev: PointerEvent) => {
+      latest = {
+        width: edge === "bottom" ? start.width : widthForRightEdge(ev.clientX + fromRight),
+        height: edge === "right" ? start.height : start.height + ev.clientY - startY,
+      };
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => onResize(latest));
+    };
+    const end = () => {
+      cancelAnimationFrame(frame);
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", end);
+      handle.removeEventListener("pointercancel", end);
+      onResize(latest);
+      onResizeEnd?.(latest);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  };
+  const resizable = !!size && !!onResize;
 
   const isChat = outputMode === "chat";
   const title = isChat
@@ -148,9 +204,12 @@ export function OutputPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 pt-1.5">
       <div
+        ref={panelRef}
         data-clickable
+        style={size ? { width: size.width } : undefined}
         className={cn(
-          "relative mx-auto flex min-h-[96px] w-full max-w-[860px] flex-1 flex-col overflow-hidden rounded-2xl",
+          "relative mx-auto flex min-h-[96px] w-full flex-1 flex-col overflow-hidden rounded-2xl animate-panel-in",
+          size ? "max-w-full" : "max-w-[860px]",
           focusGlass,
         )}
       >
@@ -258,8 +317,10 @@ export function OutputPanel({
                 <ErrorRow message={error} onDismiss={onDismissError} />
               ) : completion ? (
                 <div
+                  key={answerAt ?? "answer"}
                   dir="auto"
                   className={cn(
+                    "animate-answer-in",
                     answerKind === "review" &&
                       "border-l-2 border-l-amber-300/50 pl-2",
                   )}
@@ -289,6 +350,41 @@ export function OutputPanel({
           >
             Latest ↓
           </button>
+        )}
+
+        {resizable && (
+          <>
+            <div
+              aria-hidden
+              title="Drag to resize"
+              onPointerDown={(e) => startResize(e, "bottom")}
+              className="absolute inset-x-6 bottom-0 h-2 cursor-ns-resize"
+            />
+            <div
+              aria-hidden
+              title="Drag to resize"
+              onPointerDown={(e) => startResize(e, "right")}
+              className="absolute inset-y-6 right-0 w-2 cursor-ew-resize"
+            />
+            <div
+              aria-hidden
+              title="Drag to resize"
+              onPointerDown={(e) => startResize(e, "corner")}
+              className="group absolute bottom-0 right-0 flex h-5 w-5 cursor-nwse-resize items-end justify-end p-1"
+            >
+              <svg
+                viewBox="0 0 10 10"
+                className="h-2.5 w-2.5 text-text-tertiary transition-colors group-hover:text-text-primary"
+              >
+                <path
+                  d="M9 3 3 9M9 6.5 6.5 9"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+          </>
         )}
       </div>
     </div>

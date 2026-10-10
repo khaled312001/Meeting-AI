@@ -22,6 +22,7 @@ import {
   appendKnowledgeToBackground,
   buildAskAiPrompt,
   buildAnthropicBackground,
+  buildSummaryContext,
   buildAnthropicSystemPrompt,
   buildLiveTurn,
   buildPrompt,
@@ -334,7 +335,7 @@ export async function handleCompletion(
         system: buildAnthropicSystemPrompt(payload.flag, lang),
         background:
           payload.flag === FLAGS.SUMMARIZER
-            ? null
+            ? buildSummaryContext(payload.bg)
             : buildAnthropicBackground(payload.bg),
         docs: knowledgeDocs,
         model: cfg.anthropicModel,
@@ -578,7 +579,7 @@ function buildWireMessages(
     } else if (payload.flag === FLAGS.ASK_AI) {
       text = buildAskAiPrompt(bg, basePrompt);
     } else if (payload.flag === FLAGS.SUMMARIZER) {
-      text = buildSummarizerPrompt(basePrompt, lang);
+      text = buildSummarizerPrompt(basePrompt, lang, bg);
     }
     const msgImages = parseImageDataUrls(payload.image);
     wireMessages.push({ role: "user", text, images: msgImages });

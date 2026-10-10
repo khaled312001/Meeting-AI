@@ -139,8 +139,18 @@ What was agreed or promised: next round, dates, things to send, open questions.
 ## ${prepare}
 Two to four short, constructive points: topics the interviewer cared about that the candidate should prepare more for the next round.
 
+This summary covers one interview for one job. A <job_context> block, when present, holds the job description and the candidate's notes for this interview: use it to name the role and company correctly and to make "${prepare}" specific to this job. It is reference only: the questions, answers, next steps and everything said come only from the transcript.
+
 Use only facts from the transcript; never invent names, numbers or answers. ${language} Output only the summary.`;
 }
+
+/** Ask AI: pasted interview questions mean the candidate is practising. */
+const PRACTICE_QUESTIONS = `Interview practice: when the message is one or more interview questions (pasted or typed, for example the questions expected in an upcoming interview, often a numbered list), treat it as practice and answer each one as the candidate would say it in the interview:
+- Answer every question, in the order given. With more than one, write each question in bold on its own line, then its answer under it.
+- First person, plain spoken words, ready to say aloud; no preamble, no coaching notes and no comments about the question.
+- Knowledge files first: the attached knowledge files and the candidate's background are their own material. When they cover a question, answer from them (their facts, examples, stories and preferred wording), and follow any instructions in them about how to answer. Only where they don't cover it, use solid general and professional knowledge.
+- Never invent facts about the candidate (employers, projects, numbers, stories) that the material doesn't support.
+- Write in the language of the questions.`;
 
 // ── Gemini / OpenAI-compatible prompts (single text turn) ─────────────────
 
@@ -179,10 +189,24 @@ ${bg?.trim() || "None provided"}
 ${buildLiveTurn(turn, "review")}`;
 }
 
-export function buildSummarizerPrompt(text: string, lang?: MeetingLanguage) {
+export function buildSummarizerPrompt(
+  text: string,
+  lang?: MeetingLanguage,
+  bg?: string,
+) {
+  const context = buildSummaryContext(bg);
   return `${summarizerSystem(lang)}
+${context ? `\n${context}\n` : ""}
+<transcript>
+${text}
+</transcript>`;
+}
 
-${text}`;
+/** The job this interview is for, given to the summary as reference. */
+export function buildSummaryContext(bg: string | undefined): string | null {
+  const text = bg?.trim();
+  if (!text) return null;
+  return `<job_context>\n${text}\n</job_context>`;
 }
 
 export function buildAskAiPrompt(bg: string | undefined, userQuestion: string) {
@@ -192,15 +216,16 @@ Your job: answer the user's question clearly and directly. Help them prepare (ex
 
 Rules:
 - Treat every user message as a question or request directed at you
-- Do NOT role-play as if the user quoted an interviewer's question unless they explicitly paste one and ask you to help answer it
-- Do NOT write a "spoken script for the candidate to read aloud" unless the user explicitly asks for that
-- Use resume, job description, and notes from BACKGROUND when relevant, and never invent facts about the candidate
+- Questions about a topic (not interview questions to practise) get a normal explanation, not a spoken script
+- Knowledge files first: the KNOWLEDGE FILE sections and the resume, job description and notes in BACKGROUND are the candidate's own material. Look there first and answer from them when they cover the question; only when they don't, answer from solid general knowledge. Never invent facts about the candidate
 - Only state well-established facts; don't guess figures, dates, versions or sources
 - Be concise but thorough; use markdown lists or code blocks when helpful
 - For follow-ups in the same thread, continue the conversation naturally
 - Start with the answer itself — no preamble, no filler, no acknowledging their topic first
 - NEVER open with phrases like "It looks like…", "Great question!", "Sure!", "I'd be happy to…", or "You're interested in…" — go straight to substance
 - No meta-commentary ("Here's what you need to know", "Let me explain") — just explain
+
+${PRACTICE_QUESTIONS}
 
 BACKGROUND:
 ${bg ?? "None provided"}
@@ -219,11 +244,13 @@ ASSISTANT:`;
 const ASK_AI_SYSTEM = `You are the "Ask AI" assistant inside an interview-prep app. The user is talking directly to you; their messages are questions or requests for you, not an interview transcript, unless they say so.
 
 - Answer clearly and directly, starting with the substance. No greetings, no "Great question", no restating the request.
-- Use the candidate's background below and any attached knowledge files when they are relevant, and don't invent facts about the candidate that the material doesn't support.
+- Knowledge files first: the attached knowledge files and the candidate's background below are their own material. Look there first and answer from them when they cover the question (their facts, examples and wording, and any instructions in them about how to answer); only when they don't, answer from solid general knowledge. Don't invent facts about the candidate that the material doesn't support.
 - Only state well-established facts; never guess figures, dates, versions, names or sources. When you are not sure of a detail, say what is certain without it.
 - Help with whatever they need: explain concepts, draft or review answers, analyze screenshots, solve coding problems.
 - Use Markdown lists or code blocks when they make the answer easier to scan.
-- Reply in the language the user writes in, using that one language throughout; don't mix languages.`;
+- Reply in the language the user writes in, using that one language throughout; don't mix languages.
+
+${PRACTICE_QUESTIONS}`;
 
 export function buildAnthropicSystemPrompt(
   flag: string | undefined,

@@ -19,7 +19,7 @@ import { isVisionScreenshotDataUrl } from "@/lib/vision-screenshot";
 
 interface UseAskScreenshotBridgeArgs {
   appendImage: (dataUrl: string) => void;
-  inputRef: RefObject<HTMLInputElement | null>;
+  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   /** Fired AFTER the image has been appended. Used by the compact
    *  surface to open the Ask drawer; QuestionAssistant doesn't need
    *  this so it's optional. */

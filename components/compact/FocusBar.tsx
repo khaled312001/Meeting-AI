@@ -48,7 +48,7 @@ import { LoadingDots } from "./LoadingDots";
 
 /** Frosted glass shared by the pills and the answer panel. */
 export const focusGlass =
-  "border border-white/10 bg-[rgba(18,20,26,0.72)] shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl";
+  "border border-white/[0.09] bg-[rgba(11,17,33,0.76)] shadow-[0_10px_36px_rgba(2,6,23,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl";
 
 
 /** Meeting summary status in the bar: written, then saved (click opens). */

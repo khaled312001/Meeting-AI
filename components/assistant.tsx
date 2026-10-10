@@ -48,7 +48,6 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     transcriptionSegments,
     clearTranscription,
     getTranscribedText,
-    hasRestoredTranscript,
     interviewerText,
     myText,
     interviewerSpeaking,
@@ -251,7 +250,6 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
             onScroll={handleTranscriptScroll}
             showLatest={showLatest}
             onJumpToLatest={scrollToLatest}
-            hasRestoredTranscript={hasRestoredTranscript}
           />
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">

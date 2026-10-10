@@ -24,16 +24,19 @@ import {
   isVisionScreenshotDataUrl,
   VISION_FALLBACK_PROMPT,
 } from "@/lib/vision-screenshot";
-import { CompactAskComposer } from "./compact/CompactAskComposer";
+import { askRows, CompactAskComposer } from "./compact/CompactAskComposer";
 import { CompactContextDrawer } from "./compact/CompactContextDrawer";
 import { FocusBar } from "./compact/FocusBar";
 import { OutputPanel } from "./compact/OutputPanel";
 import { SCREEN_PROMPT } from "@/lib/live-answer";
 import { useCompactGenerate } from "./compact/useCompactGenerate";
 import {
+  COMPACT_HEIGHT_OUTPUT_EXPANDED,
+  COMPACT_WINDOW_WIDTH,
   resolveCompactHeight,
   type CompactLayoutState,
 } from "@/hooks/useCompactWindowSize";
+import { useAnswerPanelSize } from "@/hooks/useAnswerPanelSize";
 import { useInterviewContext } from "@/components/InterviewContextProvider";
 import { authClient } from "@/lib/auth-client";
 import { MAX_IMAGES } from "@/lib/constant";
@@ -44,12 +47,15 @@ interface CompactAssistantProps {
   addInSavedData: (data: HistoryData) => void;
   onExitCompact?: () => void;
   onCompactHeightChange?: (height: number) => void;
+  /** The focus window's width (wider when the answer panel was widened). */
+  onCompactWidthChange?: (width: number) => void;
 }
 
 export function CompactAssistant({
   addInSavedData,
   onExitCompact,
   onCompactHeightChange,
+  onCompactWidthChange,
 }: CompactAssistantProps) {
   const { interviewNotes, resumeText, jobDescription, setInterviewNotes } =
     useInterviewContext();
@@ -87,12 +93,14 @@ export function CompactAssistant({
   const [showContext, setShowContext] = useState<boolean>(false);
   const [outputCollapsed, setOutputCollapsed] = useState<boolean>(false);
   const [outputExpanded, setOutputExpanded] = useState<boolean>(false);
+  const { size: panelSize, setSize: setPanelSize, saveSize: savePanelSize } =
+    useAnswerPanelSize();
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
   const { data: session } = authClient.useSession();
-  const askInputRef = useRef<HTMLInputElement | null>(null);
+  const askInputRef = useRef<HTMLTextAreaElement | null>(null);
   const askFormRef = useRef<HTMLFormElement | null>(null);
 
   const effectiveBg = buildContextBlock({
@@ -514,13 +522,20 @@ export function CompactAssistant({
     hasStatusRow: isListening || transcribedText.trim().length > 0,
     hasAttachedImages: attachedImages.length > 0,
     outputExpanded,
+    outputHeight: panelSize.height,
+    askRows: askRows(askInput),
     menuOpen,
   };
   const compactHeight = resolveCompactHeight(compactLayout);
+  // The panel is centered with 8px on each side.
+  const compactWidth = Math.max(COMPACT_WINDOW_WIDTH, panelSize.width + 16);
 
   useLayoutEffect(() => {
     onCompactHeightChange?.(compactHeight);
   }, [compactHeight, onCompactHeightChange]);
+  useLayoutEffect(() => {
+    onCompactWidthChange?.(compactWidth);
+  }, [compactWidth, onCompactWidthChange]);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-transparent">
@@ -593,6 +608,17 @@ export function CompactAssistant({
           activeFlag={activeFlag}
           expanded={outputExpanded}
           onToggleExpanded={() => setOutputExpanded((x) => !x)}
+          size={{
+            width: panelSize.width,
+            height: outputExpanded
+              ? Math.max(COMPACT_HEIGHT_OUTPUT_EXPANDED, panelSize.height)
+              : panelSize.height,
+          }}
+          onResize={(next) => {
+            setOutputExpanded(false);
+            setPanelSize(next);
+          }}
+          onResizeEnd={savePanelSize}
           onClear={clearAnswer}
           chatUserLabel={
             session?.user ? sessionDisplayName(session.user) : undefined

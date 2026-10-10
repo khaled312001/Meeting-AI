@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 interface TranscriptionDisplayProps {
   segments: TranscriptionSegment[];
   className?: string;
+  /** Render every segment (past meetings), not just the latest ones. */
+  showAll?: boolean;
 }
 
 /**
@@ -23,9 +25,10 @@ const MemoizedTranscriptionLine = memo(TranscriptionLine);
 export function TranscriptionDisplay({
   segments,
   className,
+  showAll = false,
 }: TranscriptionDisplayProps) {
   const rendered =
-    segments.length > MAX_RENDERED ? segments.slice(-MAX_RENDERED) : segments;
+    !showAll && segments.length > MAX_RENDERED ? segments.slice(-MAX_RENDERED) : segments;
 
   if (rendered.length === 0) {
     return null;

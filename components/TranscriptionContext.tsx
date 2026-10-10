@@ -35,8 +35,15 @@ import {
 import {
   clearPersistedSegments,
   loadPersistedSegments,
-  persistSegments,
+  restorePersistedSegments,
 } from "@/lib/transcription/transcript-persistence";
+import {
+  deleteMeeting,
+  MIN_ARCHIVE_WORDS,
+  newMeetingId,
+  saveMeeting,
+  toArchivedMeeting,
+} from "@/lib/transcription/meeting-archive";
 import { endLiveSession, trackEvent } from "@/lib/session-tracking";
 import {
   DEFAULT_MEETING_LANGUAGE,
@@ -76,8 +83,6 @@ interface TranscriptionContextValue {
   /** Read-at-submit access to the transcript without subscribing to
    *  per-interim updates (submit callbacks stay referentially stable). */
   getTranscribedText: () => string;
-  /** True when the last transcript was restored from local storage. */
-  hasRestoredTranscript: boolean;
   /** Language the meeting is held in — transcription and answers use it. */
   language: MeetingLanguage;
   /** Switch language; a live session restarts in the new language. */
@@ -90,7 +95,7 @@ const SPEAKER_LABEL = { them: "Interviewer", me: "Me" } as const;
 
 /** Prompt texts from the finalized segments. Labels appear only once the
  *  user's mic is part of the transcript; until then it reads as before. */
-function buildTranscriptTexts(segments: TranscriptionSegment[]) {
+export function buildTranscriptTexts(segments: TranscriptionSegment[]) {
   const finals = segments.filter((s) => s.isFinal && s.text.trim());
   const join = (list: TranscriptionSegment[]) =>
     list.map((s) => s.text.trim()).join(" ");
@@ -155,7 +160,6 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       /* storage unavailable — applies for this session */
     }
   }, []);
-  const [hasRestoredTranscript, setHasRestoredTranscript] = useState(false);
   const [language, setLanguageState] = useState<MeetingLanguage>(
     DEFAULT_MEETING_LANGUAGE,
   );
@@ -229,17 +233,23 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
     sessionHandleRef.current = handle;
   }, [isElectron, stopHandle]);
 
-  // Throttled persistence of finalized segments. Interim updates mutate
-  // constantly; a fixed 1s tick writes at most once per second regardless
-  // of speech rate, and stop/clear flush immediately.
+  // Each meeting is saved to the past-meetings archive as it happens.
+  // Interim updates mutate constantly; a fixed 1s tick writes at most once
+  // per second regardless of speech rate, and stop/clear flush immediately.
+  // The live view itself always starts empty.
   const transcriptionSegmentsRef = useRef(transcriptionSegments);
   transcriptionSegmentsRef.current = transcriptionSegments;
   const persistDirtyRef = useRef(false);
+  const meetingRef = useRef<{ id: string; startedAt: number } | null>(null);
 
   const flushTranscriptPersist = useCallback(() => {
     if (!persistDirtyRef.current) return;
     persistDirtyRef.current = false;
-    persistSegments(transcriptionSegmentsRef.current);
+    const segments = transcriptionSegmentsRef.current;
+    if (!segments.some((s) => s.isFinal && s.text.trim())) return;
+    meetingRef.current ??= { id: newMeetingId(), startedAt: Date.now() };
+    const { id, startedAt } = meetingRef.current;
+    void saveMeeting(toArchivedMeeting(id, startedAt, languageRef.current, segments));
   }, []);
 
   useEffect(() => {
@@ -269,12 +279,20 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
     if (sid) void endLiveSession(sid, "user_stopped");
   }, [stopHandle, isElectron, flushTranscriptPersist]);
 
+  // Clearing ends the meeting: it stays in Past meetings (unless it was too
+  // short to matter) and the next words start a new one.
   const clearTranscription = useCallback(() => {
+    persistDirtyRef.current = true;
+    flushTranscriptPersist();
+    const meeting = meetingRef.current;
+    const words = transcriptionSegmentsRef.current
+      .filter((s) => s.isFinal)
+      .reduce((n, s) => n + s.text.split(/\s+/).filter(Boolean).length, 0);
+    if (meeting && words < MIN_ARCHIVE_WORDS) void deleteMeeting(meeting.id);
+    meetingRef.current = null;
     persistDirtyRef.current = false;
     setTranscriptionSegments([]);
-    setHasRestoredTranscript(false);
-    clearPersistedSegments();
-  }, []);
+  }, [flushTranscriptPersist]);
 
   const dismissError = useCallback(() => setErrorMessage(null), []);
 
@@ -290,14 +308,28 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // Restore the persisted transcript tail once on mount so a relaunch
-  // keeps recent context. Restored segments feed both the display and the
-  // Assistant prompt text.
+  // Older versions kept the last transcript in localStorage and showed it
+  // again on launch. Move it into Past meetings once, and start empty.
   useEffect(() => {
     const saved = loadPersistedSegments();
     if (saved.length === 0) return;
-    setTranscriptionSegments(saved.map((s) => ({ ...s, isFinal: true })));
-    setHasRestoredTranscript(true);
+    // Take it out right away so a second mount can't archive it twice;
+    // put it back if it couldn't be saved.
+    clearPersistedSegments();
+    const startedAt = Date.parse(saved[0]?.timestamp ?? "") || Date.now();
+    const finals = saved.map((s) => ({ ...s, isFinal: true }));
+    const lastSecond = Math.max(0, ...finals.map((s) => s.endTime || s.startTime || 0));
+    void saveMeeting(
+      toArchivedMeeting(
+        newMeetingId(),
+        startedAt,
+        readMeetingLanguage(),
+        finals,
+        startedAt + lastSecond * 1000,
+      ),
+    ).then((ok) => {
+      if (!ok) restorePersistedSegments(saved);
+    });
   }, []);
 
   // Tear down for real when the provider itself unmounts (i.e. app close /
@@ -345,7 +377,6 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       clearTranscription,
       dismissError,
       getTranscribedText,
-      hasRestoredTranscript,
       language,
       setLanguage,
     }),
@@ -370,7 +401,6 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       clearTranscription,
       dismissError,
       getTranscribedText,
-      hasRestoredTranscript,
       language,
       setLanguage,
     ],

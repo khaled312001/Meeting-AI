@@ -2,14 +2,15 @@
 
 import { useState, type RefObject } from "react";
 import { Check, Copy, FileDown } from "lucide-react";
+import { PastMeetingsButton } from "@/components/PastMeetings";
 import { TranscriptionDisplay } from "@/components/TranscriptionDisplay";
 import {
   overlayPanel,
   overlayTextShadow,
 } from "@/components/compact/compactTextStyles";
 import { Label } from "@/components/ui/label";
+import { copyText } from "@/lib/copy-text";
 import {
-  clearPersistedSegments,
   downloadTranscriptMarkdown,
   formatTranscriptMarkdown,
 } from "@/lib/transcription/transcript-persistence";
@@ -22,8 +23,6 @@ interface TranscriptionCardProps {
   onScroll?: () => void;
   showLatest?: boolean;
   onJumpToLatest?: () => void;
-  /** True when the transcript was restored from local storage on launch. */
-  hasRestoredTranscript?: boolean;
 }
 
 export function TranscriptionCard({
@@ -33,19 +32,14 @@ export function TranscriptionCard({
   onScroll,
   showLatest = false,
   onJumpToLatest,
-  hasRestoredTranscript = false,
 }: TranscriptionCardProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     if (segments.length === 0) return;
-    try {
-      await navigator.clipboard.writeText(formatTranscriptMarkdown(segments));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable — ignore */
-    }
+    if (!(await copyText(formatTranscriptMarkdown(segments)))) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -59,6 +53,7 @@ export function TranscriptionCard({
           Live transcript
         </Label>
         <div className="flex items-center gap-0.5">
+          <PastMeetingsButton className="rounded px-2 py-1 text-[10px] font-medium text-text-tertiary transition-colors hover:bg-surface-overlay hover:text-text-secondary" />
           <button
             type="button"
             className="rounded px-2 py-1 text-[10px] font-medium text-text-tertiary transition-colors hover:bg-surface-overlay hover:text-text-secondary disabled:opacity-40"
@@ -96,23 +91,6 @@ export function TranscriptionCard({
           </button>
         </div>
       </div>
-      {hasRestoredTranscript && segments.length > 0 && (
-        <div className="mb-2 flex shrink-0 items-center justify-between rounded-md border border-border-subtle/40 bg-surface-inset px-2 py-1">
-          <span className="text-[10px] text-text-tertiary">
-            Restored your previous transcript. Clear to start fresh.
-          </span>
-          <button
-            type="button"
-            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-text-secondary underline underline-offset-2 hover:text-text-primary"
-            onClick={() => {
-              clearPersistedSegments();
-              onClear();
-            }}
-          >
-            Discard
-          </button>
-        </div>
-      )}
       <div className="relative min-h-0 flex-1">
         <div
           ref={transcriptionBoxRef}

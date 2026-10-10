@@ -5,6 +5,11 @@
  *  desktop, an .html download in the browser — with the answers suggested
  *  during the meeting and the full transcript.
  *
+ *  Each meeting (one interview, one job) gets a summary of its own: once a
+ *  meeting's summary is saved, the next one starts after it, so nothing from
+ *  an earlier interview leaks in. The job description and notes go along so
+ *  the summary names the right role.
+ *
  *  Runs beside the answer panel (never through it), so an answer that is
  *  still streaming when the meeting ends is not disturbed. The normal view
  *  shows a small card; focus mode shows the status in its bar. */
@@ -21,9 +26,11 @@ import {
   useState,
 } from "react";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
+import { useInterviewContext } from "@/components/InterviewContextProvider";
 import { useTab } from "@/components/TabContext";
-import { useTranscription } from "@/components/TranscriptionContext";
+import { buildTranscriptTexts, useTranscription } from "@/components/TranscriptionContext";
 import { buildSummaryDocument, summaryFileBaseName } from "@/lib/meeting-summary";
+import { buildContextBlock } from "@/lib/prompt-context";
 import { streamCompletion } from "@/lib/stream-completion";
 import { FLAGS } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -62,24 +69,68 @@ function downloadInBrowser(html: string, name: string) {
 }
 
 export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
-  const { sessionState, getTranscribedText, language } = useTranscription();
-  const { pastAnswers, completion, answerKind } = useAssistantSession();
+  const { sessionState, transcriptionSegments, language } = useTranscription();
+  const { pastAnswers, completion, answerKind, answerAt } = useAssistantSession();
+  const { interviewNotes, jobDescription } = useInterviewContext();
   const { compactMode } = useTab();
   const [status, setStatus] = useState<MeetingSummaryStatus>({ state: "idle" });
 
-  const answersRef = useRef<string[]>([]);
-  answersRef.current = [
-    ...pastAnswers.filter((a) => a.kind !== "review").map((a) => a.text),
-    ...(answerKind !== "review" && completion.trim() ? [completion] : []),
-  ].filter((a) => a.trim());
+  const answersRef = useRef({ pastAnswers, completion, answerKind, answerAt });
+  answersRef.current = { pastAnswers, completion, answerKind, answerAt };
+  const segmentsRef = useRef(transcriptionSegments);
+  segmentsRef.current = transcriptionSegments;
+  const listeningNowRef = useRef(sessionState !== "idle");
+  listeningNowRef.current = sessionState !== "idle";
+  // The job this meeting is for (the resume stays out: it isn't the meeting).
+  const jobContextRef = useRef("");
+  jobContextRef.current = buildContextBlock({ existingBg: interviewNotes, jobDescription });
   const languageRef = useRef(language);
   languageRef.current = language;
   const runningRef = useRef<AbortController | null>(null);
   const savedFileRef = useRef<string | null>(null);
 
+  /** Where the current meeting starts: speech after `afterSegmentId`,
+   *  answers written from `since` on. */
+  const meetingStartRef = useRef<{ afterSegmentId: string | null; since: number }>({
+    afterSegmentId: null,
+    since: 0,
+  });
+  // A cleared transcript (and a fresh launch) starts a new meeting.
+  const transcriptEmpty = transcriptionSegments.length === 0;
+  useEffect(() => {
+    if (transcriptEmpty) meetingStartRef.current = { afterSegmentId: null, since: Date.now() };
+  }, [transcriptEmpty]);
+
+  const meetingSegments = useCallback(() => {
+    const all = segmentsRef.current;
+    const { afterSegmentId } = meetingStartRef.current;
+    const i = afterSegmentId ? all.findIndex((s) => s.id === afterSegmentId) : -1;
+    return i < 0 ? all : all.slice(i + 1);
+  }, []);
+  const meetingTranscript = useCallback(
+    () => buildTranscriptTexts(meetingSegments()).transcribedText,
+    [meetingSegments],
+  );
+
+  /** The answers suggested during this meeting (reviews of the user's own
+   *  replies stay out). */
+  const meetingAnswers = useCallback(() => {
+    const { since } = meetingStartRef.current;
+    const { pastAnswers, completion, answerKind, answerAt } = answersRef.current;
+    return [
+      ...pastAnswers.filter((a) => a.kind !== "review" && (a.at ?? 0) >= since).map((a) => a.text),
+      ...(answerKind !== "review" && completion.trim() && (answerAt ?? 0) >= since ? [completion] : []),
+    ].filter((a) => a.trim());
+  }, []);
+
   const saveSummary = useCallback(async () => {
     if (runningRef.current) return;
-    const transcript = getTranscribedText();
+    const segments = meetingSegments();
+    const transcript = buildTranscriptTexts(segments).transcribedText;
+    // Saved after listening stopped → this meeting is over; the next
+    // summary covers only what comes after it.
+    const endsMeeting = !listeningNowRef.current;
+    const lastSegmentId = segments.at(-1)?.id ?? null;
     if (wordCount(transcript) < MIN_WORDS) {
       setStatus({ state: "error", message: "Not enough was said for a summary yet." });
       return;
@@ -93,7 +144,7 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
       let summary = "";
       await streamCompletion({
         flag: FLAGS.SUMMARIZER,
-        bg: "",
+        bg: jobContextRef.current,
         prompt: transcript,
         lang,
         useKnowledge: false,
@@ -107,7 +158,7 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
       const html = buildSummaryDocument({
         summary,
         transcript,
-        answers: answersRef.current,
+        answers: meetingAnswers(),
         language: lang,
         startedAt: at,
       });
@@ -121,6 +172,9 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
         downloadInBrowser(html, name);
         setStatus({ state: "saved", name: `${name}.html`, file: null });
       }
+      if (endsMeeting && lastSegmentId) {
+        meetingStartRef.current = { afterSegmentId: lastSegmentId, since: Date.now() };
+      }
     } catch (err) {
       if (controller.signal.aborted) return;
       setStatus({
@@ -130,7 +184,7 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     } finally {
       if (runningRef.current === controller) runningRef.current = null;
     }
-  }, [getTranscribedText]);
+  }, [meetingSegments, meetingAnswers]);
 
   // Listening stopped after a real conversation → summarize and save.
   const listeningRef = useRef(false);
@@ -138,15 +192,15 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const listening = sessionState !== "idle";
     if (listening && !listeningRef.current) {
-      wordsAtStartRef.current = wordCount(getTranscribedText());
+      wordsAtStartRef.current = wordCount(meetingTranscript());
       setStatus((s) => (s.state === "writing" ? s : { state: "idle" }));
     }
     if (!listening && listeningRef.current) {
-      const words = wordCount(getTranscribedText());
+      const words = wordCount(meetingTranscript());
       if (words >= MIN_WORDS && words > wordsAtStartRef.current) void saveSummary();
     }
     listeningRef.current = listening;
-  }, [sessionState, getTranscribedText, saveSummary]);
+  }, [sessionState, meetingTranscript, saveSummary]);
 
   useEffect(() => () => runningRef.current?.abort(), []);
 
@@ -195,7 +249,7 @@ function MeetingSummaryCard() {
     <div
       role="status"
       data-clickable
-      className="fixed bottom-4 right-4 z-50 flex w-[340px] max-w-[calc(100vw-32px)] items-start gap-3 rounded-xl border border-border-subtle bg-surface-raised p-3.5 shadow-xl"
+      className="fixed bottom-4 right-4 z-50 flex w-[340px] max-w-[calc(100vw-32px)] items-start gap-3 rounded-xl border border-border-subtle bg-surface-raised p-3.5 shadow-xl animate-panel-in"
     >
       <span
         className={cn(

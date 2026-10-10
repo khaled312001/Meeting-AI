@@ -9,6 +9,7 @@ import {
 } from "@/components/compact/compactTextStyles";
 import SafeMarkdown from "@/components/SafeMarkdown";
 import type { ChatMessage } from "@/hooks/useAskChat";
+import { copyText } from "@/lib/copy-text";
 import { cn } from "@/lib/utils";
 
 interface ChatThreadProps {
@@ -201,12 +202,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={() => {
-        try {
-          void navigator.clipboard.writeText(text);
-          setCopied(true);
-        } catch {
-          /* clipboard unavailable */
-        }
+        void copyText(text).then((ok) => ok && setCopied(true));
       }}
       className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-text-tertiary transition-colors hover:text-text-secondary"
       title="Copy answer"

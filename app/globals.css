@@ -5,28 +5,28 @@
     -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Noto Sans Arabic",
     Tahoma, sans-serif;
 
-  --color-surface-base: oklch(0.14 0.008 75);
-  --color-surface-raised: oklch(0.18 0.008 75);
-  --color-surface-overlay: oklch(0.22 0.008 75);
-  --color-surface-inset: oklch(0.12 0.008 75);
+  --color-surface-base: oklch(0.155 0.022 262);
+  --color-surface-raised: oklch(0.195 0.024 262);
+  --color-surface-overlay: oklch(0.235 0.026 262);
+  --color-surface-inset: oklch(0.13 0.02 262);
 
-  --color-border-default: oklch(0.35 0.006 75 / 0.35);
-  --color-border-subtle: oklch(0.3 0.006 75 / 0.2);
-  --color-border-strong: oklch(0.4 0.006 75 / 0.45);
+  --color-border-default: oklch(0.42 0.03 262 / 0.35);
+  --color-border-subtle: oklch(0.38 0.03 262 / 0.2);
+  --color-border-strong: oklch(0.48 0.03 262 / 0.45);
 
-  --color-text-primary: oklch(0.93 0.005 75);
-  --color-text-secondary: oklch(0.65 0.006 75);
-  --color-text-tertiary: oklch(0.48 0.006 75);
+  --color-text-primary: oklch(0.96 0.008 255);
+  --color-text-secondary: oklch(0.74 0.02 258);
+  --color-text-tertiary: oklch(0.57 0.025 260);
 
-  --color-accent: oklch(0.62 0.12 155);
-  --color-accent-hover: oklch(0.58 0.12 155);
-  --color-accent-muted: oklch(0.62 0.12 155 / 0.12);
-  --color-accent-foreground: oklch(0.98 0.005 75);
-  --color-accent-text: oklch(0.78 0.1 155);
+  --color-accent: oklch(0.58 0.19 262);
+  --color-accent-hover: oklch(0.64 0.18 262);
+  --color-accent-muted: oklch(0.58 0.19 262 / 0.12);
+  --color-accent-foreground: oklch(0.99 0.004 255);
+  --color-accent-text: oklch(0.8 0.1 258);
 
-  --color-signal-assistant: oklch(0.72 0.14 65);
+  --color-signal-assistant: oklch(0.8 0.15 78);
   --color-signal-ask: oklch(0.65 0.12 240);
-  --color-signal-notes: oklch(0.55 0.006 75);
+  --color-signal-notes: oklch(0.6 0.02 260);
 
   --color-destructive: oklch(0.65 0.18 25);
   --color-destructive-muted: oklch(0.65 0.18 25 / 0.12);
@@ -34,16 +34,16 @@
   --color-warning: oklch(0.75 0.14 85);
   --color-info: oklch(0.65 0.12 240);
 
-  --color-primary: oklch(0.62 0.12 155);
-  --color-primary-foreground: oklch(0.98 0.005 75);
-  --color-secondary: oklch(0.22 0.008 75);
-  --color-secondary-foreground: oklch(0.93 0.005 75);
-  --color-muted: oklch(0.22 0.008 75);
-  --color-muted-foreground: oklch(0.65 0.006 75);
-  --color-background: oklch(0.14 0.008 75);
-  --color-foreground: oklch(0.93 0.005 75);
-  --color-input: oklch(0.35 0.006 75 / 0.35);
-  --color-ring: oklch(0.62 0.12 155 / 0.35);
+  --color-primary: oklch(0.58 0.19 262);
+  --color-primary-foreground: oklch(0.99 0.004 255);
+  --color-secondary: oklch(0.235 0.026 262);
+  --color-secondary-foreground: oklch(0.96 0.008 255);
+  --color-muted: oklch(0.235 0.026 262);
+  --color-muted-foreground: oklch(0.74 0.02 258);
+  --color-background: oklch(0.155 0.022 262);
+  --color-foreground: oklch(0.96 0.008 255);
+  --color-input: oklch(0.42 0.03 262 / 0.35);
+  --color-ring: oklch(0.58 0.19 262 / 0.35);
 
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -55,29 +55,29 @@ html {
 }
 
 :root {
-  --surface-base: oklch(0.14 0.008 75);
-  --surface-raised: oklch(0.18 0.008 75);
-  --surface-overlay: oklch(0.22 0.008 75);
-  --surface-inset: oklch(0.12 0.008 75);
+  --surface-base: oklch(0.155 0.022 262);
+  --surface-raised: oklch(0.195 0.024 262);
+  --surface-overlay: oklch(0.235 0.026 262);
+  --surface-inset: oklch(0.13 0.02 262);
 
-  --border-default: oklch(0.35 0.006 75 / 0.35);
-  --border-subtle: oklch(0.3 0.006 75 / 0.2);
-  --border-strong: oklch(0.4 0.006 75 / 0.45);
+  --border-default: oklch(0.42 0.03 262 / 0.35);
+  --border-subtle: oklch(0.38 0.03 262 / 0.2);
+  --border-strong: oklch(0.48 0.03 262 / 0.45);
 
-  --text-primary: oklch(0.93 0.005 75);
-  --text-secondary: oklch(0.65 0.006 75);
-  --text-tertiary: oklch(0.48 0.006 75);
+  --text-primary: oklch(0.96 0.008 255);
+  --text-secondary: oklch(0.74 0.02 258);
+  --text-tertiary: oklch(0.57 0.025 260);
 
-  --accent: oklch(0.62 0.12 155);
-  --accent-hover: oklch(0.58 0.12 155);
-  --accent-muted: oklch(0.62 0.12 155 / 0.12);
-  --accent-foreground: oklch(0.98 0.005 75);
-  --accent-ring: oklch(0.62 0.12 155 / 0.35);
-  --accent-text: oklch(0.78 0.1 155);
+  --accent: oklch(0.58 0.19 262);
+  --accent-hover: oklch(0.64 0.18 262);
+  --accent-muted: oklch(0.58 0.19 262 / 0.12);
+  --accent-foreground: oklch(0.99 0.004 255);
+  --accent-ring: oklch(0.58 0.19 262 / 0.35);
+  --accent-text: oklch(0.8 0.1 258);
 
-  --signal-assistant: oklch(0.72 0.14 65);
+  --signal-assistant: oklch(0.8 0.15 78);
   --signal-ask: oklch(0.65 0.12 240);
-  --signal-notes: oklch(0.55 0.006 75);
+  --signal-notes: oklch(0.6 0.02 260);
 
   --destructive: oklch(0.65 0.18 25);
   --destructive-muted: oklch(0.65 0.18 25 / 0.12);
@@ -98,11 +98,42 @@ html {
 }
 
 .app-page-bg {
-  background: linear-gradient(
-    to bottom,
-    oklch(0.13 0.008 75),
-    oklch(0.14 0.008 75)
-  );
+  background:
+    radial-gradient(
+      1100px 520px at 12% -12%,
+      oklch(0.58 0.19 262 / 0.1),
+      transparent 62%
+    ),
+    radial-gradient(
+      900px 460px at 100% 110%,
+      oklch(0.8 0.15 78 / 0.035),
+      transparent 60%
+    ),
+    linear-gradient(to bottom, oklch(0.14 0.022 262), oklch(0.155 0.022 262));
+}
+
+/* Controls ease between states and give a little on press. Utilities
+   (transition-*, scale-*) still win, since base styles come first. */
+@layer base {
+  button,
+  a,
+  [role="button"],
+  [role="tab"] {
+    transition-property: color, background-color, border-color, box-shadow,
+      opacity, scale;
+    transition-duration: 160ms;
+    transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  button:not(:disabled):active,
+  [role="button"]:active {
+    scale: 0.97;
+  }
+  :focus-visible {
+    outline-color: var(--accent);
+  }
+  ::selection {
+    background-color: oklch(0.58 0.19 262 / 0.4);
+  }
 }
 
 .app-toolbar {
@@ -149,9 +180,9 @@ html {
 .animate-skeleton {
   background: linear-gradient(
     90deg,
-    oklch(0.2 0.008 75) 25%,
-    oklch(0.24 0.008 75) 50%,
-    oklch(0.2 0.008 75) 75%
+    oklch(0.21 0.025 262) 25%,
+    oklch(0.25 0.027 262) 50%,
+    oklch(0.21 0.025 262) 75%
   );
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
@@ -273,6 +304,48 @@ html {
   animation: recordingPulse 1.5s cubic-bezier(0.33, 1, 0.68, 1) infinite;
 }
 
+/* Panels and dialogs opening. */
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-panel-in {
+  animation: panelIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-overlay-in {
+  animation: overlayIn 0.2s ease-out both;
+}
+/* A new answer arriving: rises in softly. */
+@keyframes answerIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.animate-answer-in {
+  animation: answerIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Markdown answers. The typography plugin is not loaded, so the basics
    that make an answer easy to scan live here. */
 .prose ul {
@@ -355,8 +428,15 @@ html {
   .animate-fade-in-up,
   .animate-slide-in,
   .animate-recording-pulse,
-  .animate-focus-eq {
+  .animate-focus-eq,
+  .animate-panel-in,
+  .animate-overlay-in,
+  .animate-answer-in {
     animation: none;
+  }
+  button:not(:disabled):active,
+  [role="button"]:active {
+    scale: none;
   }
 }
 

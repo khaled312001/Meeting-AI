@@ -38,8 +38,10 @@ export const MAX_PREVIOUS_ANSWER_CHARS = 2_000;
 
 /** Knowledge-file budget folded into the plain-text background for
  *  providers without document blocks (Gemini, OpenAI-compatible). Anthropic
- *  receives the full files as document blocks instead. */
-export const MAX_KNOWLEDGE_FALLBACK_CHARS = 24_000;
+ *  receives the full files as document blocks instead. Answers come from
+ *  these files first, so cutting them short sends the model elsewhere;
+ *  this keeps typical files whole (~30k tokens). */
+export const MAX_KNOWLEDGE_FALLBACK_CHARS = 120_000;
 
 export interface ChatMessageBody {
   role: "user" | "assistant";

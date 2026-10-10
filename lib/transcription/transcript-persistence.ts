@@ -1,19 +1,12 @@
 /**
- * Local persistence for the live transcript.
- *
- * The transcription session is memory-only by design (fast interim merges),
- * but losing the whole transcript when the window closes is unrecoverable.
- * This module keeps a ring buffer of the most recent *finalized* segments in
- * localStorage so a relaunch can restore recent context. Interim segments are
- * never persisted — they mutate constantly and would thrash the storage.
+ * Transcript export helpers, and the reader for the transcript that older
+ * versions kept in localStorage (moved into Past meetings on launch — see
+ * meeting-archive.ts, which now saves every meeting).
  */
 
 import type { TranscriptionSegment } from "@/lib/types";
 
 const STORAGE_KEY = "ric.transcript.v1";
-const MAX_PERSISTED_SEGMENTS = 400;
-/** localStorage is shared and small (~5MB); keep our slice well under it. */
-const MAX_PERSISTED_BYTES = 1024 * 1024;
 
 /** Load previously persisted finalized segments (oldest first). */
 export function loadPersistedSegments(): TranscriptionSegment[] {
@@ -35,21 +28,11 @@ export function loadPersistedSegments(): TranscriptionSegment[] {
   }
 }
 
-/** Persist the tail of the finalized segments. Fails silently (quota etc.). */
-export function persistSegments(segments: TranscriptionSegment[]): void {
+/** Put an old transcript back (when moving it to Past meetings failed). */
+export function restorePersistedSegments(segments: TranscriptionSegment[]): void {
   if (typeof window === "undefined") return;
   try {
-    let trimmed = segments
-      .filter((s) => s.isFinal)
-      .slice(-MAX_PERSISTED_SEGMENTS);
-    // localStorage is shared and small (~5MB); keep our slice well under it.
-    let json = JSON.stringify(trimmed);
-    while (json.length > MAX_PERSISTED_BYTES && trimmed.length > 10) {
-      // Drop the oldest quarter and retry.
-      trimmed = trimmed.slice(-Math.max(10, Math.floor(trimmed.length * 0.75)));
-      json = JSON.stringify(trimmed);
-    }
-    window.localStorage.setItem(STORAGE_KEY, json);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(segments));
   } catch {
     /* non-fatal */
   }

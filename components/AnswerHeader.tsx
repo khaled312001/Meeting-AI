@@ -6,6 +6,7 @@
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 import type { AnswerKind } from "@/components/AssistantSessionProvider";
+import { copyText } from "@/lib/copy-text";
 import { cn } from "@/lib/utils";
 
 export function formatClock(at: number | null | undefined): string {
@@ -30,13 +31,11 @@ export function CopyButton({
       data-clickable
       disabled={!text.trim()}
       onClick={() => {
-        void navigator.clipboard
-          ?.writeText(text)
-          .then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1200);
-          })
-          .catch(() => {});
+        void copyText(text).then((ok) => {
+          if (!ok) return;
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        });
       }}
       title={copied ? "Copied" : "Copy"}
       aria-label="Copy answer"

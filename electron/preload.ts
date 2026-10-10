@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("summary:save-pdf", html, baseName),
   openSavedFile: (file: string) => ipcRenderer.invoke("summary:open", file),
   showSavedFile: (file: string) => ipcRenderer.invoke("summary:show", file),
+  copyText: (text: string) => ipcRenderer.invoke("clipboard:write-text", text),
   appRelaunch: () => ipcRenderer.invoke("app-relaunch"),
   updaterGetVersion: () => ipcRenderer.invoke("updater:get-version"),
   updaterGetStatus: () => ipcRenderer.invoke("updater:get-status"),
@@ -115,6 +116,7 @@ export interface ElectronAPI {
   saveSummaryPdf: (html: string, baseName: string) => Promise<string>;
   openSavedFile: (file: string) => Promise<boolean>;
   showSavedFile: (file: string) => Promise<boolean>;
+  copyText: (text: string) => Promise<boolean>;
   appRelaunch: () => Promise<void>;
   updaterGetVersion: () => Promise<string>;
   updaterGetStatus: () => Promise<UpdaterStatusPayload>;

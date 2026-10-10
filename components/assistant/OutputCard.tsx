@@ -112,11 +112,12 @@ export const OutputCard = memo(function OutputCard({
             <AnswerHistory answers={pastAnswers} proseClassName={PROSE} />
             {completion ? (
               <div
+                key={answerAt ?? "answer"}
                 dir="auto"
                 className={
                   answerKind === "review"
-                    ? "border-l-2 border-l-amber-300/50 pl-2"
-                    : undefined
+                    ? "animate-answer-in border-l-2 border-l-amber-300/50 pl-2"
+                    : "animate-answer-in"
                 }
               >
                 <AnswerHeader

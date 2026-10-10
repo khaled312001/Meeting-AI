@@ -37,11 +37,13 @@ interface UseAutoAnswerArgs {
   onInterrupt: () => void;
 }
 
-/** Pause after a question mark before answering. Interviewers often stop
- *  mid-question to think, so this has to outlast a short breath. */
-const QUESTION_PAUSE_MS = 1500;
+/** Pause after a question mark before answering, on top of the pause the
+ *  speech-to-text already waited for. Kept short so the answer comes fast;
+ *  if the interviewer carries on, the answer restarts with the full question
+ *  (CONTINUE_WINDOW_MS). */
+const QUESTION_PAUSE_MS = 600;
 /** Pause after speech that does not end in a question mark. */
-const SENTENCE_PAUSE_MS = 2500;
+const SENTENCE_PAUSE_MS = 1300;
 /** Words the user must say before their reply counts as "question over". */
 const REPLY_MIN_WORDS = 3;
 const MIN_WORDS = 3;

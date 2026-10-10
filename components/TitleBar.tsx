@@ -22,11 +22,13 @@ import { SignalStrip } from "@/components/shell/SignalStrip";
 import { UserMenu } from "@/components/shell/UserMenu";
 import { WorkspaceTabs } from "@/components/shell/WorkspaceTabs";
 import { APP_DISPLAY_NAME } from "@/lib/constant";
+import { useWindowDrag } from "@/hooks/useWindowDrag";
 
 export default function TitleBar() {
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
+  const { onPointerDown: startDrag } = useWindowDrag();
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const [updateStateType, setUpdateStateType] = useState<string | null>(null);
@@ -138,14 +140,16 @@ export default function TitleBar() {
     return null;
   }
 
-  const noDragStyle = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
-
   return (
     <div
       data-clickable
       data-window-chrome
-      className="titlebar-chrome fixed left-0 right-0 top-0 z-50 flex h-8 select-none flex-col"
-      style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+      className="titlebar-chrome fixed left-0 right-0 top-0 z-50 flex h-8 cursor-grab select-none flex-col active:cursor-grabbing"
+      // Moved from the renderer, like the focus bar: a CSS drag region
+      // stops responding on Windows once focus mode's click-through ran.
+      onPointerDown={(e) => {
+        if (!isMaximized) startDrag(e);
+      }}
     >
       {!compactMode && <SignalStrip activeTab={activeTab} />}
       <div className="flex min-h-0 flex-1 items-center justify-between px-3">
@@ -163,13 +167,12 @@ export default function TitleBar() {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               variant="titlebar"
-              style={noDragStyle}
               className="ml-1 hidden md:flex"
             />
           )}
         </div>
 
-        <div className="flex items-center gap-1" style={noDragStyle}>
+        <div className="flex cursor-default items-center gap-1">
           {session?.user && (
             <UserMenu
               user={session.user}

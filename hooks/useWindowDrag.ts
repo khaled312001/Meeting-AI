@@ -1,7 +1,7 @@
 "use client";
 
-/** Drag the desktop window by any empty part of an element (focus mode
- *  bar). Moves the window from the renderer instead of a CSS drag region,
+/** Drag the desktop window by any empty part of an element (focus bar,
+ *  title bar). Moves the window from the renderer instead of a CSS drag region,
  *  which stops responding on Windows once click-through has toggled.
  *  Presses on buttons, inputs and menus keep working as usual. */
 

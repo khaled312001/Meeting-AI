@@ -1,7 +1,9 @@
 "use client";
 
-/** Inline Ask AI composer — single row under the toolbar.
- *  Assistant/Summarize stay in the toolbar above; this is for typed/chat Ask AI. */
+/** Inline Ask AI composer under the toolbar.
+ *  Assistant/Summarize stay in the toolbar above; this is for typed/chat Ask AI.
+ *  Pasted text keeps its lines (a list of practice questions stays a list);
+ *  Enter sends, Shift+Enter adds a line. */
 
 import { ImageIcon, Plus, Send, X } from "lucide-react";
 import { focusGlass } from "./FocusBar";
@@ -20,7 +22,7 @@ import type { CompactOutputMode } from "./OutputPanel";
 interface CompactAskComposerProps {
   askInput: string;
   setAskInput: (value: string) => void;
-  askInputRef: RefObject<HTMLInputElement | null>;
+  askInputRef: RefObject<HTMLTextAreaElement | null>;
   askFormRef: RefObject<HTMLFormElement | null>;
   attachedImages: string[];
   removeImageAt: (index: number) => void;
@@ -34,6 +36,11 @@ interface CompactAskComposerProps {
   setOutputCollapsed: (collapsed: boolean) => void;
   submitAskInput: (textOverride?: string) => void | Promise<void>;
 }
+
+/** Rows the box shows: one per line typed or pasted, up to this many. */
+export const ASK_MAX_ROWS = 5;
+export const askRows = (text: string) =>
+  Math.min(ASK_MAX_ROWS, text.split("\n").length);
 
 export function CompactAskComposer({
   askInput,
@@ -122,17 +129,23 @@ export function CompactAskComposer({
 
       <form
         ref={askFormRef}
-        className="flex items-center gap-1.5"
+        className="flex items-end gap-1.5"
         onSubmit={(e) => {
           e.preventDefault();
           void submitAskInput();
         }}
       >
-        <input
+        <textarea
           ref={askInputRef}
-          type="text"
+          rows={askRows(askInput)}
           value={askInput}
           onChange={(e) => setAskInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              askFormRef.current?.requestSubmit();
+            }
+          }}
           placeholder={
             askMic.state === "recording"
               ? "Listening… speak your question"
@@ -142,7 +155,7 @@ export function CompactAskComposer({
           }
           autoFocus
           className={cn(
-            "h-7 min-w-0 flex-1 rounded-md border px-2.5 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-ring",
+            "custom-scrollbar min-w-0 flex-1 resize-none rounded-md border px-2.5 py-1.5 text-xs leading-4 text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-ring",
             overlayInput,
           )}
         />

@@ -1,4 +1,4 @@
-import { app, ipcMain } from "electron";
+import { app, clipboard, ipcMain } from "electron";
 
 import { checkForUpdates, getAppVersion, getUpdaterStatus } from "../updater";
 
@@ -9,6 +9,13 @@ import { checkForUpdates, getAppVersion, getUpdaterStatus } from "../updater";
 export function registerAppIpc(): void {
   ipcMain.handle("app-quit", () => {
     app.quit();
+  });
+
+  // The renderer's clipboard API fails while the overlay isn't focused.
+  ipcMain.handle("clipboard:write-text", (_, text: unknown) => {
+    if (typeof text !== "string" || text.length > 2_000_000) return false;
+    clipboard.writeText(text);
+    return true;
   });
 
   ipcMain.handle("app-relaunch", () => {
