@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/Kbd";
+import { KnowledgeUploadButton } from "@/components/KnowledgeUploadButton";
 import { LiveControls } from "@/components/LiveControls";
 import { useMeetingSummary } from "@/components/MeetingSummaryProvider";
 import { hasAttachedContext } from "@/lib/prompt-context";
@@ -145,7 +146,7 @@ export const ContextCard = memo(function ContextCard({
               className="inline-flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-secondary"
               aria-expanded={detailsOpen}
             >
-              Context
+              Context & files
               <ChevronDown
                 className={cn(
                   "h-3 w-3 transition-transform",
@@ -195,6 +196,10 @@ export const ContextCard = memo(function ContextCard({
         {detailsOpen && (
           <div className="space-y-2 border-b border-border-subtle/40 px-3 py-2">
             <div>
+              <Label className="mb-1 block">Knowledge files</Label>
+              <KnowledgeUploadButton />
+            </div>
+            <div>
               <Label htmlFor="interview_notes" className="mb-1 block">
                 Interview notes
               </Label>
@@ -228,7 +233,7 @@ export const ContextCard = memo(function ContextCard({
                 ) : (
                   <Upload className="h-3 w-3" />
                 )}
-                Upload resume
+                Upload CV only
               </Button>
               {resumeFileName && (
                 <span className="inline-flex max-w-[160px] items-center gap-1 text-[10px] text-text-secondary">
@@ -268,7 +273,7 @@ export const ContextCard = memo(function ContextCard({
 
         {!detailsOpen && attached && (
           <p className="border-b border-border-subtle/40 px-3 py-1.5 text-[10px] text-text-tertiary">
-            Resume and JD saved. Open Context to edit.
+            Resume and JD saved. Open Context & files to edit or add knowledge files.
           </p>
         )}
       </form>

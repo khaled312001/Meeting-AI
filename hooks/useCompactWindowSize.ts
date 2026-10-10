@@ -21,7 +21,7 @@ const COMPACT_HEIGHT_COMPOSER_IMAGES = 116;
 const COMPACT_ASK_ROW = 16;
 const COMPACT_HEIGHT_OUTPUT = 340;
 export const COMPACT_HEIGHT_OUTPUT_EXPANDED = 560;
-const COMPACT_HEIGHT_CONTEXT = 176;
+const COMPACT_HEIGHT_CONTEXT = 212;
 /** Room for the ⋮ menu to drop down without being cut off. */
 const COMPACT_HEIGHT_MENU_MIN = 330;
 

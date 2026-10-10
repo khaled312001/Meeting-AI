@@ -4,6 +4,7 @@
  *  — the parent owns the `bg` state and the visibility flag. */
 
 import { overlayInput } from "@/components/compact/compactTextStyles";
+import { KnowledgeUploadButton } from "@/components/KnowledgeUploadButton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { focusGlass } from "./FocusBar";
@@ -38,6 +39,7 @@ export function CompactContextDrawer({
           Your resume, job description and enabled knowledge files are used too.
         </p>
       )}
+      <KnowledgeUploadButton />
       <Textarea
         placeholder="Topics, facts to mention, things to avoid…"
         className={cn(
