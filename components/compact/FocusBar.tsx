@@ -374,8 +374,10 @@ export function FocusBar({
                 role="menu"
                 data-clickable
                 className={cn(
-                  "absolute right-0 top-9 z-50 w-52 rounded-xl p-1",
+                  "absolute right-0 top-9 z-50 w-52 rounded-xl p-1 animate-panel-in",
                   focusGlass,
+                  // Nearly solid: menu items stay readable over an answer.
+                  "bg-[rgba(11,17,33,0.97)]",
                 )}
               >
                 {menuItem(
