@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   BookOpen,
+  CreditCard,
   History,
   LayoutDashboard,
   LifeBuoy,
@@ -22,12 +23,13 @@ import { SessionsSection } from "./SessionsSection";
 import { NotesSection } from "./NotesSection";
 import { SupportSection } from "./SupportSection";
 import { AccountSection } from "./AccountSection";
+import { SubscriptionSection } from "./SubscriptionSection";
 import { authClient, signOutAndTrack } from "@/lib/auth-client";
 import { useSupportMessages } from "@/hooks/useSupportMessages";
 import { adminApi } from "@/lib/admin-api";
 import { appHref } from "@/lib/app-href";
 
-const SECTIONS = ["overview", "knowledge", "profile", "sessions", "notes", "support", "account"] as const;
+const SECTIONS = ["overview", "knowledge", "profile", "sessions", "notes", "subscription", "support", "account"] as const;
 export type ClientSection = (typeof SECTIONS)[number];
 
 /** True when the signed-in user can open the admin panel (403 otherwise). */
@@ -66,6 +68,7 @@ export default function ClientDashboard() {
     { key: "profile", label: "Interview profile", icon: UserRound, group: "Prepare" },
     { key: "sessions", label: "Session history", icon: History, group: "Review" },
     { key: "notes", label: "Saved answers", icon: NotebookPen, group: "Review" },
+    { key: "subscription", label: "Subscription & billing", icon: CreditCard, group: "Account" },
     { key: "support", label: "Support", icon: LifeBuoy, badge: unread || null, group: "Account" },
     { key: "account", label: "Account", icon: UserCog, group: "Account" },
   ];
@@ -105,6 +108,7 @@ export default function ClientDashboard() {
         {section === "profile" && <ProfileSection />}
         {section === "sessions" && <SessionsSection />}
         {section === "notes" && <NotesSection />}
+        {section === "subscription" && <SubscriptionSection onNavigate={setSection} />}
         {section === "support" && <SupportSection />}
         {section === "account" && user && (
           <AccountSection user={user} currentSessionId={session?.session.id} />

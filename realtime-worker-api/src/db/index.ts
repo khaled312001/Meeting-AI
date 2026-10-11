@@ -11,6 +11,9 @@ export interface Env {
   /** Sign-in / sign-up attempts allowed per IP per hour (0 = off). */
   LOGIN_ATTEMPTS_PER_HOUR?: string;
   SIGNUPS_PER_HOUR?: string;
+  /** "true" re-opens /api/auth/sign-up (local dev seeding). Off by default:
+   *  accounts are created by an admin after a customer subscribes. */
+  ALLOW_PUBLIC_SIGNUP?: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   ADMIN_EMAILS?: string;

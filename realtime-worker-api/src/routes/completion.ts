@@ -35,6 +35,10 @@ import {
 import { recordUsage, startUsage } from "../usage";
 import { getDb } from "../db";
 import { consumeQuota } from "../services/quota.service";
+import {
+  chargeSubscription,
+  checkSubscription,
+} from "../services/subscription.service";
 import { recordSecurityEvent } from "../lib/security-log";
 import type { Env } from "../env";
 import {
@@ -179,6 +183,12 @@ export async function handleCompletion(
       console.warn("[Worker] rate limiter threw, failing closed:", err);
       return jsonResponse({ error: "Rate limiter unavailable" }, 503);
     }
+  }
+
+  // Subscribers stop at the end of their credit or period.
+  const plan = await checkSubscription(getDb(env), trackedUser.id);
+  if (!plan.allowed) {
+    return jsonResponse({ error: plan.message, code: "credit_exhausted" }, 402);
   }
 
   const cfg = await getCachedConfig(env);
@@ -392,6 +402,18 @@ export async function handleCompletion(
             consumeQuota(getDb(env), env, trackedUser.id, "completion", {
               completions: 1,
             }),
+          );
+        }
+        // One answered question = one charge. Meeting summaries are free.
+        if (
+          status === "ok" &&
+          responseChars > 0 &&
+          payload.flag !== FLAGS.SUMMARIZER
+        ) {
+          ctx.waitUntil(
+            chargeSubscription(getDb(env), trackedUser.id).catch(
+              (err: unknown) => console.warn("[Worker] credit charge failed:", err),
+            ),
           );
         }
       } catch {

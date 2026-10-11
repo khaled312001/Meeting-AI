@@ -12,6 +12,8 @@ import {
   Plus,
   Focus,
   Download,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authClient, signOutAndTrack } from "@/lib/auth-client";
@@ -23,15 +25,14 @@ import { UserMenu } from "@/components/shell/UserMenu";
 import { WorkspaceTabs } from "@/components/shell/WorkspaceTabs";
 import { APP_DISPLAY_NAME } from "@/lib/constant";
 import { useWindowDrag } from "@/hooks/useWindowDrag";
+import { useAppUpdate } from "@/hooks/useAppUpdate";
 
 export default function TitleBar() {
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
   const { onPointerDown: startDrag } = useWindowDrag();
-  const [appVersion, setAppVersion] = useState<string | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
-  const [updateStateType, setUpdateStateType] = useState<string | null>(null);
+  const update = useAppUpdate();
   const [updateToast, setUpdateToast] = useState<string | null>(null);
   const { backdropOpacity, adjustBackdropOpacity } = useAppBackdrop();
   const { data: session } = authClient.useSession();
@@ -44,51 +45,20 @@ export default function TitleBar() {
       window.electronAPI.windowIsAlwaysOnTop().then(setIsAlwaysOnTop);
       window.electronAPI.windowIsMaximized().then(setIsMaximized);
 
-      if (window.electronAPI.updaterGetVersion) {
-        void window.electronAPI.updaterGetVersion().then(setAppVersion);
-      }
-      if (window.electronAPI.onUpdaterStatus) {
-        const unsubscribe = window.electronAPI.onUpdaterStatus((status) => {
-          setUpdateStateType(status.type);
-          switch (status.type) {
-            case "checking":
-              setUpdateStatus("Checking for updates…");
-              break;
-            case "available":
-              setUpdateStatus(`Update ${status.version} available`);
-              break;
-            case "downloading":
-              setUpdateStatus(
-                `Downloading update (${Math.round(status.percent)}%)`,
-              );
-              break;
-            case "downloaded":
-              setUpdateStatus(
-                `Update ${status.version} ready — restart to install`,
-              );
-              // Non-modal toast so the user can act even after dismissing
-              // the native dialog.
-              setUpdateToast(
-                `Update ${status.version} is ready — restart to install.`,
-              );
-              break;
-            case "not-available":
-              setUpdateStatus(`Up to date (${status.version})`);
-              break;
-            case "error":
-              setUpdateStatus("Update check failed");
-              setUpdateToast(
-                "Update check failed. You can retry from the download icon.",
-              );
-              break;
-            default:
-              setUpdateStatus(null);
-          }
-        });
-        return unsubscribe;
-      }
     }
   }, []);
+
+  // Non-modal toast so the user can act even after dismissing the native
+  // dialog.
+  const updateType = update.status.type;
+  const updateVersion = "version" in update.status ? update.status.version : null;
+  useEffect(() => {
+    if (updateType === "downloaded") {
+      setUpdateToast(`Update ${updateVersion} is ready — restart to install.`);
+    } else if (updateType === "error") {
+      setUpdateToast("Update failed. Try again from the update button.");
+    }
+  }, [updateType, updateVersion]);
 
   const handleMinimize = async () => {
     if (window.electronAPI) {
@@ -121,12 +91,6 @@ export default function TitleBar() {
     if (window.electronAPI) {
       adjustBackdropOpacity(delta);
     }
-  };
-
-  const handleCheckForUpdates = async () => {
-    if (!window.electronAPI?.updaterCheck) return;
-    setUpdateStatus("Checking for updates…");
-    await window.electronAPI.updaterCheck();
   };
 
   const handleLogout = () => void signOutAndTrack();
@@ -235,31 +199,33 @@ export default function TitleBar() {
             )}
           </Button>
 
-          <Button
-            size="icon"
-            variant="ghost"
-            className="relative h-6 w-6"
-            onClick={() => void handleCheckForUpdates()}
-            title={
-              updateStatus ??
-              (appVersion
-                ? `Check for updates (v${appVersion})`
-                : "Check for updates")
-            }
-          >
-            <Download className="h-3 w-3" />
-            {(updateStateType === "available" ||
-              updateStateType === "downloading" ||
-              updateStateType === "downloaded") && (
-              <span
-                aria-hidden
-                className={cn(
-                  "absolute right-1 top-1 h-1.5 w-1.5 rounded-full",
-                  updateStateType === "downloaded" ? "bg-accent" : "bg-info",
-                )}
-              />
-            )}
-          </Button>
+          {update.ready ? (
+            <Button
+              size="sm"
+              className="h-6 gap-1 px-2 text-[10px] font-semibold"
+              onClick={update.install}
+              title={update.label}
+            >
+              <RefreshCw className="h-3 w-3" />
+              Update
+            </Button>
+          ) : (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="relative h-6 w-6"
+              onClick={update.check}
+              disabled={update.busy}
+              title={update.label}
+              aria-label={update.label}
+            >
+              {update.busy ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+            </Button>
+          )}
 
           <Button
             size="icon"
@@ -318,13 +284,13 @@ export default function TitleBar() {
           <span className="text-[11px] leading-snug text-text-secondary">
             {updateToast}
           </span>
-          {updateStateType === "downloaded" && (
+          {update.ready && (
             <button
               type="button"
               className="shrink-0 rounded-md bg-accent px-2 py-1 text-[10px] font-semibold text-accent-foreground hover:opacity-90"
               onClick={() => {
                 setUpdateToast(null);
-                void window.electronAPI?.appRelaunch();
+                update.install();
               }}
             >
               Restart

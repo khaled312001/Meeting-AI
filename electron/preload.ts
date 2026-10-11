@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   updaterGetVersion: () => ipcRenderer.invoke("updater:get-version"),
   updaterGetStatus: () => ipcRenderer.invoke("updater:get-status"),
   updaterCheck: () => ipcRenderer.invoke("updater:check"),
+  updaterInstall: () => ipcRenderer.invoke("updater:install"),
   onUpdaterStatus: (callback: (status: UpdaterStatusPayload) => void) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
@@ -121,6 +122,7 @@ export interface ElectronAPI {
   updaterGetVersion: () => Promise<string>;
   updaterGetStatus: () => Promise<UpdaterStatusPayload>;
   updaterCheck: () => Promise<void>;
+  updaterInstall: () => Promise<void>;
   onUpdaterStatus: (
     callback: (status: UpdaterStatusPayload) => void,
   ) => () => void;

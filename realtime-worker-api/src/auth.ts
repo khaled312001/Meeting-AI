@@ -53,6 +53,8 @@ export const auth = (env: Env & { CONFIG_KV?: KVNamespace }) => {
     }),
     emailAndPassword: {
       enabled: true,
+      // Customers subscribe through support; admins create their accounts.
+      disableSignUp: env.ALLOW_PUBLIC_SIGNUP !== "true",
       password: {
         hash: hashPassword,
         verify: verifyPassword,

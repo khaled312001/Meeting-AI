@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Ban, CheckCircle2, Download, Trash2, UserCheck, Users, X } from "lucide-react";
+import { Ban, CheckCircle2, Download, Trash2, UserCheck, UserPlus, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Avatar,
@@ -24,6 +24,7 @@ import { adminApi, downloadCsv, type AdminUser, type UserFilter } from "@/lib/ad
 import { formatDate, formatNumber, formatRelative } from "@/lib/format";
 import { planLabel } from "../labels";
 import { UserDrawer } from "./UserDrawer";
+import { AddCustomerDialog } from "./CustomerAccounts";
 import { useBanReason, useDebounced, userStatusPill } from "./shared";
 
 const PAGE = 25;
@@ -31,6 +32,7 @@ const PAGE = 25;
 export function UsersSection({ initialUserId }: { initialUserId?: string | null }) {
   const toast = useToast();
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const [adding, setAdding] = React.useState(false);
   const { ask: askBanReason, dialog: banDialog } = useBanReason();
   const [filter, setFilter] = React.useState<UserFilter>("all");
   const [search, setSearch] = React.useState("");
@@ -83,14 +85,18 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
     <>
       {confirmDialog}
       {banDialog}
+      <AddCustomerDialog open={adding} onClose={() => setAdding(false)} onCreated={() => void users.reload()} />
       <PageHeader
         title="Users"
-        description="Approve sign-ups, manage access, plans and per-user AI settings."
+        description="Add customers, manage access, subscriptions and per-user AI settings."
         actions={
           <>
             <RefreshButton onClick={() => void users.reload()} spinning={users.refreshing} />
             <Button variant="outline" onClick={() => void exportCsv()}>
               <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
+            </Button>
+            <Button onClick={() => setAdding(true)}>
+              <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Add customer
             </Button>
           </>
         }

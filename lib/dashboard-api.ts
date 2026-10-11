@@ -49,6 +49,23 @@ export interface QuotaSummary {
   recordConsumption: boolean;
 }
 
+/** Paid plan with a prepaid answer credit (see worker subscription.service). */
+export interface SubscriptionSummary {
+  plan: string;
+  planLabel: string;
+  state: "active" | "exhausted" | "expired" | "cancelled";
+  creditUsd: number;
+  usedUsd: number;
+  remainingUsd: number;
+  answerPriceUsd: number;
+  answersTotal: number;
+  answersUsed: number;
+  answersLeft: number;
+  startsAt: string;
+  endsAt: string;
+  note: string | null;
+}
+
 export interface MyUsage {
   window: UsageWindow;
   since: string;
@@ -57,6 +74,7 @@ export interface MyUsage {
   perAction: Array<UsageAgg & { action: string }>;
   timeseries: TimeseriesRow[];
   quota: QuotaSummary;
+  subscription: SubscriptionSummary | null;
 }
 
 export function getMyUsage(window: UsageWindow, signal?: AbortSignal) {

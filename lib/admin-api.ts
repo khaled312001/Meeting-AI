@@ -4,7 +4,7 @@
  */
 
 import { ricFetch } from "@/lib/ric-fetch";
-import type { QuotaSummary, TimeseriesRow, UsageAgg } from "@/lib/dashboard-api";
+import type { QuotaSummary, SubscriptionSummary, TimeseriesRow, UsageAgg } from "@/lib/dashboard-api";
 
 const BASE = "/api/auth/self-hosted-admin";
 
@@ -362,6 +362,23 @@ export interface Admins {
   effective: string[];
 }
 
+/** A paid plan an admin can assign (worker PLANS). */
+export interface PlanInfo {
+  label: string;
+  creditUsd: number;
+  months: number;
+}
+
+/** Plans offered in the "Add customer" and subscription forms. */
+export const SUBSCRIPTION_PLANS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "elite-yearly", label: "Elite · Yearly ($400 credit, 12 months)" },
+  { value: "elite-quarterly", label: "Elite · Quarterly ($100 credit, 3 months)" },
+  { value: "elite-monthly", label: "Elite · Monthly ($35 credit, 1 month)" },
+  { value: "pro-yearly", label: "Pro · Yearly ($200 credit, 12 months)" },
+  { value: "pro-quarterly", label: "Pro · Quarterly ($50 credit, 3 months)" },
+  { value: "pro-monthly", label: "Pro · Monthly ($18 credit, 1 month)" },
+];
+
 export interface QuotaTiers {
   defaultTierForNewUsers: string;
   tiers: Record<string, { monthlyAllowanceSeconds: number | null; monthlyAllowanceCompletions: number | null }>;
@@ -399,6 +416,34 @@ export const adminApi = {
   bulkDelete: (userIds: string[]) => adminPost<{ ok: true; affected: number }>("/bulk-delete", { userIds }),
   exportUsers: () => adminGet<{ csv: string; total: number }>("/export-users"),
   revokeAllSessions: (userId: string) => adminPost("/revoke-all-sessions", { userId }),
+
+  createUser: (body: { email: string; name: string; password?: string; plan?: string }) =>
+    adminPost<{
+      ok: true;
+      user: { id: string; email: string; name: string };
+      password: string;
+      subscription: SubscriptionSummary | null;
+    }>("/create-user", body),
+  /** Sets a new password (generated when omitted) and signs the user out everywhere. */
+  resetPassword: (userId: string, password?: string) =>
+    adminPost<{ ok: true; password: string }>("/reset-password", { userId, password }),
+  getSubscription: (userId: string, signal?: AbortSignal) =>
+    adminGet<{ subscription: SubscriptionSummary | null; plans: Record<string, PlanInfo> }>(
+      "/subscription",
+      { userId },
+      signal,
+    ),
+  setSubscription: (body: {
+    userId: string;
+    plan: string;
+    creditUsd?: number;
+    usedUsd?: number;
+    startsAt?: string;
+    endsAt?: string;
+    status?: "active" | "cancelled";
+    note?: string | null;
+  }) => adminPost<{ ok: true; subscription: SubscriptionSummary }>("/subscription", body),
+  deleteSubscription: (userId: string) => adminPost<{ ok: true }>("/subscription-delete", { userId }),
 
   getQuota: (userId: string, signal?: AbortSignal) =>
     adminGet<{ userId: string; summary: QuotaSummary }>("/quota", { userId }, signal),

@@ -99,6 +99,22 @@ export const quotaBalance = sqliteTable("quota_balance", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });
 
+/** Paid plan with a prepaid AI credit, charged per completion at token cost. */
+export const subscription = sqliteTable("subscription", {
+  userId: text("userId")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  plan: text("plan").notNull(),
+  status: text("status").notNull().default("active"),
+  creditMicros: integer("creditMicros").notNull(),
+  usedMicros: integer("usedMicros").notNull().default(0),
+  startsAt: integer("startsAt", { mode: "timestamp" }).notNull(),
+  endsAt: integer("endsAt", { mode: "timestamp" }).notNull(),
+  note: text("note"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
+});
+
 export const workspace = sqliteTable("workspace", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

@@ -1,6 +1,11 @@
 import { app, clipboard, ipcMain } from "electron";
 
-import { checkForUpdates, getAppVersion, getUpdaterStatus } from "../updater";
+import {
+  checkForUpdates,
+  getAppVersion,
+  getUpdaterStatus,
+  installUpdate,
+} from "../updater";
 
 /** App lifecycle IPC: quit + relaunch + updater.
  *
@@ -28,4 +33,6 @@ export function registerAppIpc(): void {
   ipcMain.handle("updater:get-status", () => getUpdaterStatus());
 
   ipcMain.handle("updater:check", () => checkForUpdates());
+
+  ipcMain.handle("updater:install", () => installUpdate());
 }

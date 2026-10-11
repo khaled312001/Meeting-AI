@@ -63,6 +63,8 @@ export interface ElectronAPI {
   updaterGetVersion?: () => Promise<string>;
   updaterGetStatus?: () => Promise<UpdaterStatusPayload>;
   updaterCheck?: () => Promise<void>;
+  /** Restart into a downloaded update. */
+  updaterInstall?: () => Promise<void>;
   onUpdaterStatus?: (
     callback: (status: UpdaterStatusPayload) => void,
   ) => () => void;

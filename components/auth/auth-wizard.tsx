@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { APP_DISPLAY_NAME } from "@/lib/constant";
+import { APP_DISPLAY_NAME, PRICING_URL } from "@/lib/constant";
 
 interface AuthWizardProps {
   initialStep?: "welcome" | "signup" | "signin";
@@ -79,6 +79,41 @@ function NotionSecondaryButton({
   );
 }
 
+/** Sign-up is closed: customers get an account from support after subscribing. */
+function NoAccountNote() {
+  return (
+    <div
+      className="mt-2 grid gap-2 rounded-md px-3 py-2.5"
+      style={{
+        backgroundColor: TOKEN.accentSoft,
+        border: `1px solid ${TOKEN.accentBorder}`,
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          color: TOKEN.accentText,
+          fontSize: 11.5,
+          lineHeight: 1.5,
+        }}
+      >
+        New here? Accounts are opened by our support team when you subscribe.
+        Pick a plan, pay, and we&apos;ll send you your sign-in details.
+      </p>
+      <a
+        href={PRICING_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1"
+        style={{ color: TOKEN.accent, fontSize: 12, fontWeight: 600 }}
+      >
+        See plans &amp; subscribe
+        <MoveRight className="h-3 w-3" />
+      </a>
+    </div>
+  );
+}
+
 export function AuthWizard({
   initialStep = "welcome",
   onSuccess,
@@ -88,7 +123,6 @@ export function AuthWizard({
   );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -116,51 +150,6 @@ export function AuthWizard({
       onSuccess();
     } else {
       router.push("/");
-    }
-  };
-
-  const handleSignup = async () => {
-    if (!email || !password || !name) {
-      showModal(
-        "Missing fields",
-        "Please fill in every field to continue.",
-        "error",
-      );
-      return;
-    }
-    setLoading(true);
-    try {
-      await authClient.signUp.email(
-        { email, password, name },
-        {
-          onSuccess: () => {
-            sendGTMEvent({ event: "signup", value: "email" });
-            posthog.identify(email, { email, name });
-            posthog.capture("user_signed_up", { method: "email", email });
-            showModal(
-              "Account created",
-              "We're taking you to your workspace.",
-              "success",
-            );
-            setTimeout(() => handleSuccess(), 1200);
-          },
-          onError: (ctx) => {
-            sendGTMEvent({ event: "signup_error", error: ctx.error.message });
-            posthog.capture("signup_error", {
-              error_message: ctx.error.message,
-              email,
-            });
-            posthog.captureException(new Error(ctx.error.message));
-            showModal("Sign up failed", ctx.error.message, "error");
-            setLoading(false);
-          },
-        },
-      );
-    } catch (e: unknown) {
-      const msg =
-        e instanceof Error ? e.message : "An unexpected error occurred";
-      showModal("Something went wrong", msg, "error");
-      setLoading(false);
     }
   };
 
@@ -320,7 +309,7 @@ export function AuthWizard({
             }}
           >
             {step === "welcome" && "Welcome back"}
-            {step === "signup" && "Create your account"}
+            {step === "signup" && "Get an account"}
             {step === "signin" && "Sign in to your account"}
           </h1>
           <p
@@ -332,8 +321,8 @@ export function AuthWizard({
               marginBottom: 0,
             }}
           >
-            {step === "welcome" && "Pick how you'd like to continue."}
-            {step === "signup" && "All you need is an email and a password."}
+            {step === "welcome" && "Sign in with the account our team sent you."}
+            {step === "signup" && "Accounts come with a subscription."}
             {step === "signin" && "Enter your email and password below."}
           </p>
         </div>
@@ -341,110 +330,20 @@ export function AuthWizard({
         <div>
           {step === "welcome" && (
             <div className="grid gap-2">
-              <NotionPrimaryButton onClick={() => setStep("signup")}>
-                Create account
+              <NotionPrimaryButton onClick={() => setStep("signin")}>
+                Sign in
                 <MoveRight className="h-3.5 w-3.5" />
               </NotionPrimaryButton>
-              <NotionSecondaryButton onClick={() => setStep("signin")}>
-                Sign in
-              </NotionSecondaryButton>
-
-              <div
-                className="mt-3 flex items-start gap-2 rounded-md px-2.5 py-2"
-                style={{
-                  backgroundColor: TOKEN.accentSoft,
-                  border: `1px solid ${TOKEN.accentBorder}`,
-                }}
-              >
-                <span
-                  className="mt-0.5 inline-flex items-center justify-center rounded"
-                  style={{
-                    backgroundColor: TOKEN.accent,
-                    color: "#ffffff",
-                    width: 14,
-                    height: 14,
-                    fontSize: 9,
-                    fontWeight: 700,
-                  }}
-                >
-                  i
-                </span>
-                <p
-                  style={{
-                    margin: 0,
-                    color: TOKEN.accentText,
-                    fontSize: 11,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  New accounts go through a quick admin approval. You&apos;ll be
-                  able to message the admin from the next screen.
-                </p>
-              </div>
+              <NoAccountNote />
             </div>
           )}
 
           {step === "signup" && (
-            <div className="grid gap-3">
-              <div className="grid gap-1">
-                <NotionLabel htmlFor="name">Name</NotionLabel>
-                <NotionInput
-                  id="name"
-                  placeholder="Jane Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="name"
-                />
-              </div>
-              <div className="grid gap-1">
-                <NotionLabel htmlFor="email">Work email</NotionLabel>
-                <NotionInput
-                  id="email"
-                  type="email"
-                  placeholder="you@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                />
-              </div>
-              <div className="grid gap-1">
-                <NotionLabel htmlFor="password">Password</NotionLabel>
-                <NotionInput
-                  id="password"
-                  type="password"
-                  placeholder="At least 8 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
-                />
-              </div>
-              <NotionPrimaryButton onClick={handleSignup} loading={loading}>
-                {loading ? "Creating account…" : "Create account"}
-              </NotionPrimaryButton>
-              <p
-                style={{
-                  color: TOKEN.steel,
-                  fontSize: 11.5,
-                  textAlign: "center",
-                  margin: 0,
-                }}
-              >
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => setStep("signin")}
-                  style={{
-                    color: TOKEN.accent,
-                    fontWeight: 600,
-                    background: "none",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                  }}
-                >
-                  Sign in
-                </button>
-              </p>
+            <div className="grid gap-2">
+              <NoAccountNote />
+              <NotionSecondaryButton onClick={() => setStep("signin")}>
+                I already have an account
+              </NotionSecondaryButton>
             </div>
           )}
 
@@ -484,20 +383,14 @@ export function AuthWizard({
                 }}
               >
                 Don&apos;t have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => setStep("signup")}
-                  style={{
-                    color: TOKEN.accent,
-                    fontWeight: 600,
-                    background: "none",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                  }}
+                <a
+                  href={PRICING_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: TOKEN.accent, fontWeight: 600 }}
                 >
-                  Create account
-                </button>
+                  See plans
+                </a>
               </p>
             </div>
           )}

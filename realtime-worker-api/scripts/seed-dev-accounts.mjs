@@ -1,6 +1,7 @@
 // Create + approve the local test accounts. LOCAL DEV ONLY.
 //
-//   1. bun run dev            (wrangler dev on http://localhost:8787)
+//   1. bun run dev            (wrangler dev on http://localhost:8787;
+//                              .dev.vars needs ALLOW_PUBLIC_SIGNUP=true)
 //   2. bun run seed:dev       (this script, in another terminal)
 //
 // Accounts (all share DEV_PASSWORD below — a throwaway local value, never

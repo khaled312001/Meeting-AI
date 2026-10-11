@@ -5,3 +5,5 @@ export const MAX_IMAGES = 4;
 /** Target of the dashboard's "Download desktop app" button — an installer or a
  *  releases page. Set NEXT_PUBLIC_DESKTOP_DOWNLOAD_URL at build time. */
 export const DESKTOP_DOWNLOAD_URL = process.env.NEXT_PUBLIC_DESKTOP_DOWNLOAD_URL?.trim() || "";
+/** Plans and prices, shown to customers on the subscription page. */
+export const PRICING_URL = "https://interprova.com/download/pricing/";

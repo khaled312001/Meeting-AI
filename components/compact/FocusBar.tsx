@@ -25,6 +25,7 @@ import {
   Minus,
   MoreVertical,
   Play,
+  RefreshCw,
   RotateCcw,
   Settings2,
   Sparkles,
@@ -43,6 +44,7 @@ import {
 } from "@/components/LiveControls";
 import { Kbd } from "@/components/ui/Kbd";
 import { useWindowDrag } from "@/hooks/useWindowDrag";
+import { useAppUpdate } from "@/hooks/useAppUpdate";
 import { cn } from "@/lib/utils";
 import { LoadingDots } from "./LoadingDots";
 
@@ -229,6 +231,7 @@ export function FocusBar({
   const showStatusRow = isActive || transcribedText.trim().length > 0;
   const { saveSummary, status: summaryStatus } = useMeetingSummary();
 
+  const update = useAppUpdate();
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!menuOpen) return;
@@ -415,6 +418,18 @@ export function FocusBar({
                 {isElectron && (
                   <>
                     <div className="my-1 h-px bg-white/10" />
+                    {menuItem(
+                      update.busy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw
+                          className={cn("h-3.5 w-3.5", update.ready && "text-accent-text")}
+                        />
+                      ),
+                      update.label,
+                      update.ready ? update.install : update.check,
+                      { disabled: update.busy },
+                    )}
                     {menuItem(
                       <Minus className="h-3.5 w-3.5" />,
                       "Minimize",

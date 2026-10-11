@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Ban, CheckCircle2, Loader2, LogOut, RotateCcw, Trash2, UserCheck, UserX } from "lucide-react";
+import { Ban, CheckCircle2, KeyRound, Loader2, LogOut, RotateCcw, Trash2, UserCheck, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -32,8 +32,9 @@ import {
 import { formatDate, formatDateTime, formatDuration, formatNumber, formatRelative, humanizeKey } from "@/lib/format";
 import { actionLabel, planLabel } from "../labels";
 import { useBanReason, userStatusPill } from "./shared";
+import { PasswordDialog, SubscriptionTab } from "./CustomerAccounts";
 
-type Tab = "overview" | "plan" | "ai" | "activity";
+type Tab = "overview" | "subscription" | "plan" | "ai" | "activity";
 
 export function UserDrawer({
   userId,
@@ -49,6 +50,7 @@ export function UserDrawer({
   const { ask: askBanReason, dialog: banDialog } = useBanReason();
   const [tab, setTab] = React.useState<Tab>("overview");
   const [busy, setBusy] = React.useState(false);
+  const [newPassword, setNewPassword] = React.useState<{ email: string; password: string; note: string } | null>(null);
   const detail = useApi((s) => adminApi.getUser(userId!, s), [userId], { enabled: Boolean(userId) });
 
   React.useEffect(() => {
@@ -79,6 +81,7 @@ export function UserDrawer({
     <>
       {confirmDialog}
       {banDialog}
+      <PasswordDialog shown={newPassword} onClose={() => setNewPassword(null)} />
       <Drawer
         open={userId !== null}
         onClose={onClose}
@@ -119,6 +122,28 @@ export function UserDrawer({
                 }}
               >
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+              </Button>
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: `Reset the password of ${u.email}?`,
+                    description: "A new password is generated and they are signed out of every device.",
+                    confirmLabel: "Reset password",
+                  });
+                  if (!ok) return;
+                  void act("Password reset", async () => {
+                    const res = await adminApi.resetPassword(u.id);
+                    setNewPassword({
+                      email: u.email,
+                      password: res.password,
+                      note: "They were signed out everywhere. This password is shown only once: send it privately.",
+                    });
+                  });
+                }}
+              >
+                <KeyRound className="mr-1.5 h-3.5 w-3.5" /> Reset password
               </Button>
               <Button
                 variant="outline"
@@ -189,13 +214,15 @@ export function UserDrawer({
                 ariaLabel="User details"
                 options={[
                   { value: "overview", label: "Overview" },
-                  { value: "plan", label: "Plan & quota" },
+                  { value: "subscription", label: "Subscription" },
+                  { value: "plan", label: "Quota" },
                   { value: "ai", label: "AI settings" },
                   { value: "activity", label: "Activity" },
                 ]}
               />
             </div>
             {tab === "overview" && <OverviewTab d={d} />}
+            {tab === "subscription" && <SubscriptionTab userId={d.user.id} />}
             {tab === "plan" && <PlanTab d={d} onSaved={() => void detail.reload()} />}
             {tab === "ai" && <AiTab d={d} onSaved={() => void detail.reload()} />}
             {tab === "activity" && <ActivityTab d={d} />}

@@ -102,6 +102,7 @@ export function OverviewSection({
   const doneCount = checklist.filter((c) => c.done).length;
 
   const quota = u?.quota;
+  const sub = u?.subscription ?? null;
   const firstName = userName.split(/\s+/)[0] || "there";
 
   return (
@@ -177,6 +178,39 @@ export function OverviewSection({
           }}
         />
 
+        {sub ? (
+          <Card
+            title="Plan & credit"
+            description={`Ends ${formatDate(sub.endsAt)}`}
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => onNavigate("subscription")}>
+                Details
+              </Button>
+            }
+          >
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-secondary">Current plan</span>
+                <Pill tone={sub.state === "active" ? "accent" : "danger"}>{sub.planLabel}</Pill>
+              </div>
+              <div>
+                <div className="text-xs text-text-secondary">Credit left</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
+                  ${sub.remainingUsd.toFixed(2)}
+                  <span className="ml-1 text-xs font-normal text-text-tertiary">
+                    of ${sub.creditUsd.toFixed(0)}
+                  </span>
+                </div>
+              </div>
+              <Meter
+                label="Questions left"
+                value={sub.answersUsed}
+                max={sub.answersTotal}
+                detail={`${formatNumber(sub.answersLeft)} / ${formatNumber(sub.answersTotal)}`}
+              />
+            </div>
+          </Card>
+        ) : (
         <Card title="Plan & usage" description={quota ? `Resets ${formatDate(quota.cycleResetAt)}` : undefined}>
           {quota ? (
             <div className="space-y-5">
@@ -217,6 +251,7 @@ export function OverviewSection({
             </div>
           )}
         </Card>
+        )}
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">

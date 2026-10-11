@@ -54,6 +54,7 @@ import { announcementEndpoints } from "./endpoints/announcements";
 import { auditEndpoints } from "./endpoints/audit";
 import { cleanupEndpoints } from "./endpoints/cleanup";
 import { quotaEndpoints } from "./endpoints/quota";
+import { subscriptionEndpoints } from "./endpoints/subscriptions";
 import { ensureQuotaRow } from "../../services/quota.service";
 import { configEndpoints } from "./endpoints/config";
 import { dashboardEndpoints } from "./endpoints/dashboard";
@@ -336,6 +337,7 @@ export const selfHostedAdmin = (opts: SelfHostedAdminOptions) => {
       ...announcementEndpoints(deps),
       ...cleanupEndpoints(deps),
       ...quotaEndpoints(deps),
+      ...subscriptionEndpoints(deps),
     },
   } satisfies BetterAuthPlugin;
 };
