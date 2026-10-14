@@ -160,3 +160,36 @@ export async function setSubscription(
 export async function deleteSubscription(db: Db, userId: string): Promise<void> {
   await db.delete(subscription).where(eq(subscription.userId, userId));
 }
+
+export type CreditAdjustment =
+  /** Adds to (or, when negative, takes from) the plan's total credit. */
+  | { action: "add"; usd: number }
+  /** Sets what is left; the total grows if needed. */
+  | { action: "set-left"; usd: number }
+  /** Gives the whole credit back (nothing used). */
+  | { action: "restore" };
+
+export async function adjustCredit(
+  db: Db,
+  userId: string,
+  change: CreditAdjustment,
+): Promise<SubscriptionRow | null> {
+  const row = await getSubscription(db, userId);
+  if (!row) return null;
+  let creditMicros = row.creditMicros;
+  let usedMicros = row.usedMicros;
+  if (change.action === "add") {
+    creditMicros = Math.max(0, creditMicros + Math.round(change.usd * MICROS_PER_USD));
+  } else if (change.action === "set-left") {
+    const left = Math.max(0, Math.round(change.usd * MICROS_PER_USD));
+    if (left > creditMicros) creditMicros = left;
+    usedMicros = creditMicros - left;
+  } else {
+    usedMicros = 0;
+  }
+  await db
+    .update(subscription)
+    .set({ creditMicros, usedMicros, updatedAt: new Date() })
+    .where(eq(subscription.userId, userId));
+  return getSubscription(db, userId);
+}

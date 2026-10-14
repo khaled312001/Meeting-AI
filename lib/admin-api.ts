@@ -143,6 +143,7 @@ export interface AdminUser {
     consumedCompletions: number | null;
     monthlyAllowanceCompletions: number | null;
   } | null;
+  subscription: { plan: string; creditUsd: number; remainingUsd: number } | null;
 }
 
 export type UserFilter = "all" | "pending" | "approved" | "banned";
@@ -369,14 +370,17 @@ export interface PlanInfo {
   months: number;
 }
 
+/** Every answered question costs this much credit (worker ANSWER_PRICE_USD). */
+export const ANSWER_PRICE_USD = 0.4;
+
 /** Plans offered in the "Add customer" and subscription forms. */
 export const SUBSCRIPTION_PLANS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: "elite-yearly", label: "Elite · Yearly ($400 credit, 12 months)" },
-  { value: "elite-quarterly", label: "Elite · Quarterly ($100 credit, 3 months)" },
-  { value: "elite-monthly", label: "Elite · Monthly ($35 credit, 1 month)" },
-  { value: "pro-yearly", label: "Pro · Yearly ($200 credit, 12 months)" },
-  { value: "pro-quarterly", label: "Pro · Quarterly ($50 credit, 3 months)" },
-  { value: "pro-monthly", label: "Pro · Monthly ($18 credit, 1 month)" },
+  { value: "elite-yearly", label: "Elite · Yearly (1000 questions, 12 months)" },
+  { value: "elite-quarterly", label: "Elite · Quarterly (250 questions, 3 months)" },
+  { value: "elite-monthly", label: "Elite · Monthly (87 questions, 1 month)" },
+  { value: "pro-yearly", label: "Pro · Yearly (500 questions, 12 months)" },
+  { value: "pro-quarterly", label: "Pro · Quarterly (125 questions, 3 months)" },
+  { value: "pro-monthly", label: "Pro · Monthly (45 questions, 1 month)" },
 ];
 
 export interface QuotaTiers {
@@ -443,6 +447,13 @@ export const adminApi = {
     status?: "active" | "cancelled";
     note?: string | null;
   }) => adminPost<{ ok: true; subscription: SubscriptionSummary }>("/subscription", body),
+  /** Add to the plan's total, set what is left, or give everything back. */
+  adjustCredit: (
+    body:
+      | { userId: string; action: "add"; usd: number }
+      | { userId: string; action: "set-left"; usd: number }
+      | { userId: string; action: "restore" },
+  ) => adminPost<{ ok: true; subscription: SubscriptionSummary }>("/subscription-credit", body),
   deleteSubscription: (userId: string) => adminPost<{ ok: true }>("/subscription-delete", { userId }),
 
   getQuota: (userId: string, signal?: AbortSignal) =>

@@ -20,7 +20,14 @@ import {
 } from "../ui";
 import { useToast } from "../toast";
 import { useApi } from "@/lib/use-api";
-import { adminApi, downloadCsv, type AdminUser, type UserFilter } from "@/lib/admin-api";
+import {
+  adminApi,
+  ANSWER_PRICE_USD,
+  downloadCsv,
+  SUBSCRIPTION_PLANS,
+  type AdminUser,
+  type UserFilter,
+} from "@/lib/admin-api";
 import { formatDate, formatNumber, formatRelative } from "@/lib/format";
 import { planLabel } from "../labels";
 import { UserDrawer } from "./UserDrawer";
@@ -218,7 +225,19 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
                   key: "plan",
                   header: "Plan",
                   hideOnMobile: true,
-                  cell: (u) => (
+                  cell: (u) =>
+                    u.subscription ? (
+                      <div>
+                        <div className="text-text-secondary">
+                          {SUBSCRIPTION_PLANS.find((p) => p.value === u.subscription!.plan)?.label.split(" (")[0] ??
+                            u.subscription.plan}
+                        </div>
+                        <div className="text-xs tabular-nums text-text-tertiary">
+                          {formatNumber(Math.floor(u.subscription.remainingUsd / ANSWER_PRICE_USD))} /{" "}
+                          {formatNumber(Math.floor(u.subscription.creditUsd / ANSWER_PRICE_USD))} questions left
+                        </div>
+                      </div>
+                    ) : (
                     <div>
                       <div className="text-text-secondary">{planLabel(u.quota?.planTier ?? "legacy_unlimited")}</div>
                       {u.quota && (
@@ -231,7 +250,7 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
                         </div>
                       )}
                     </div>
-                  ),
+                    ),
                 },
                 {
                   key: "active",

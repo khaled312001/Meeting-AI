@@ -8,6 +8,7 @@ import { session, user } from "../../../db/schema";
 import {
   PLANS,
   addMonths,
+  adjustCredit,
   deleteSubscription,
   getSubscription,
   isPlanId,
@@ -35,6 +36,12 @@ const setSubscriptionSchema = z.object({
   status: z.enum(["active", "cancelled"]).optional(),
   note: z.string().max(500).nullable().optional(),
 });
+
+const adjustCreditSchema = z.discriminatedUnion("action", [
+  z.object({ userId: userIdSchema, action: z.literal("add"), usd: z.number().min(-100_000).max(100_000) }),
+  z.object({ userId: userIdSchema, action: z.literal("set-left"), usd: z.number().min(0).max(100_000) }),
+  z.object({ userId: userIdSchema, action: z.literal("restore") }),
+]);
 
 const createUserSchema = z.object({
   email: z.string().email().max(254),
@@ -100,6 +107,24 @@ export function subscriptionEndpoints(deps: AdminDeps) {
           eventType: "admin_action",
           userEmail: adminEmail,
           metadata: { action: "set_subscription", userId: body.userId, plan: body.plan },
+        });
+        return ctx.json({ ok: true, subscription: toSubscriptionSummary(row) });
+      },
+    ),
+
+    adminAdjustCredit: createAuthEndpoint(
+      "/self-hosted-admin/subscription-credit",
+      { method: "POST", use: [sessionMiddleware], body: adjustCreditSchema },
+      async (ctx) => {
+        const adminEmail = ctx.context.session.user.email;
+        if (!(await isAdmin(adminEmail))) throw new APIError("FORBIDDEN");
+        const { userId, ...change } = ctx.body;
+        const row = await adjustCredit(opts.getDb(), userId, change);
+        if (!row) throw new APIError("NOT_FOUND", { message: "This user has no plan yet" });
+        await recordAudit({
+          eventType: "admin_action",
+          userEmail: adminEmail,
+          metadata: { action: "adjust_credit", userId, change },
         });
         return ctx.json({ ok: true, subscription: toSubscriptionSummary(row) });
       },

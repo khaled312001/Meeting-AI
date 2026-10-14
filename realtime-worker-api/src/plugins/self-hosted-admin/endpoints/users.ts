@@ -11,6 +11,7 @@ import {
   user,
   userInterviewContext,
   userModelParams,
+  subscription,
 } from "../../../db/schema";
 import { getUserUsageSummary } from "../../../usage";
 import {
@@ -78,9 +79,13 @@ export function userEndpoints(deps: AdminDeps) {
                   planTier: quotaBalance.planTier,
                   consumedCompletions: quotaBalance.consumedCompletions,
                   monthlyAllowanceCompletions: quotaBalance.monthlyAllowanceCompletions,
+                  subPlan: subscription.plan,
+                  subCredit: subscription.creditMicros,
+                  subUsed: subscription.usedMicros,
                 })
                 .from(user)
                 .leftJoin(quotaBalance, eq(user.id, quotaBalance.userId))
+                .leftJoin(subscription, eq(user.id, subscription.userId))
                 .where(where)
                 .orderBy(desc(user.createdAt))
                 .limit(limit)
@@ -91,9 +96,13 @@ export function userEndpoints(deps: AdminDeps) {
                   planTier: quotaBalance.planTier,
                   consumedCompletions: quotaBalance.consumedCompletions,
                   monthlyAllowanceCompletions: quotaBalance.monthlyAllowanceCompletions,
+                  subPlan: subscription.plan,
+                  subCredit: subscription.creditMicros,
+                  subUsed: subscription.usedMicros,
                 })
                 .from(user)
                 .leftJoin(quotaBalance, eq(user.id, quotaBalance.userId))
+                .leftJoin(subscription, eq(user.id, subscription.userId))
                 .orderBy(desc(user.createdAt))
                 .limit(limit)
                 .offset(offset),
@@ -107,10 +116,21 @@ export function userEndpoints(deps: AdminDeps) {
             planTier,
             consumedCompletions,
             monthlyAllowanceCompletions,
+            subPlan,
+            subCredit,
+            subUsed,
             ...userRow
           } = row;
           return {
             ...userRow,
+            subscription:
+              subPlan != null && subCredit != null
+                ? {
+                    plan: subPlan,
+                    creditUsd: subCredit / 1_000_000,
+                    remainingUsd: Math.max(0, subCredit - (subUsed ?? 0)) / 1_000_000,
+                  }
+                : null,
             quota:
               planTier != null ||
               consumedCompletions != null ||
