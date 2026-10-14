@@ -81,7 +81,8 @@ export function userEndpoints(deps: AdminDeps) {
                   monthlyAllowanceCompletions: quotaBalance.monthlyAllowanceCompletions,
                   subPlan: subscription.plan,
                   subCredit: subscription.creditMicros,
-                  subUsed: subscription.usedMicros,
+                  subLimit: subscription.questionLimit,
+                  subUsed: subscription.questionsUsed,
                 })
                 .from(user)
                 .leftJoin(quotaBalance, eq(user.id, quotaBalance.userId))
@@ -98,7 +99,8 @@ export function userEndpoints(deps: AdminDeps) {
                   monthlyAllowanceCompletions: quotaBalance.monthlyAllowanceCompletions,
                   subPlan: subscription.plan,
                   subCredit: subscription.creditMicros,
-                  subUsed: subscription.usedMicros,
+                  subLimit: subscription.questionLimit,
+                  subUsed: subscription.questionsUsed,
                 })
                 .from(user)
                 .leftJoin(quotaBalance, eq(user.id, quotaBalance.userId))
@@ -118,6 +120,7 @@ export function userEndpoints(deps: AdminDeps) {
             monthlyAllowanceCompletions,
             subPlan,
             subCredit,
+            subLimit,
             subUsed,
             ...userRow
           } = row;
@@ -128,7 +131,8 @@ export function userEndpoints(deps: AdminDeps) {
                 ? {
                     plan: subPlan,
                     creditUsd: subCredit / 1_000_000,
-                    remainingUsd: Math.max(0, subCredit - (subUsed ?? 0)) / 1_000_000,
+                    questions: subLimit ?? 0,
+                    questionsLeft: Math.max(0, (subLimit ?? 0) - (subUsed ?? 0)),
                   }
                 : null,
             quota:

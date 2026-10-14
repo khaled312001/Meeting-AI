@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { CopyButton, Dialog, Field, Meter, Pill, Select, useConfirm } from "../ui";
 import { useToast } from "../toast";
 import { useApi } from "@/lib/use-api";
-import { adminApi, ANSWER_PRICE_USD, SUBSCRIPTION_PLANS } from "@/lib/admin-api";
+import { adminApi, SUBSCRIPTION_PLANS } from "@/lib/admin-api";
 import { formatDate, formatNumber } from "@/lib/format";
 
 const NO_PLAN = "__none";
@@ -151,6 +151,7 @@ export function SubscriptionTab({ userId }: { userId: string }) {
   const sub = data.data?.subscription ?? null;
 
   const [plan, setPlan] = React.useState("elite-yearly");
+  const [credit, setCredit] = React.useState("");
   const [total, setTotal] = React.useState("");
   const [used, setUsed] = React.useState("");
   const [startsAt, setStartsAt] = React.useState("");
@@ -162,6 +163,7 @@ export function SubscriptionTab({ userId }: { userId: string }) {
     if (!data.data) return;
     const s = data.data.subscription;
     setPlan(s?.plan ?? "elite-yearly");
+    setCredit(s ? String(s.creditUsd) : "");
     setTotal(s ? String(s.answersTotal) : "");
     setUsed(s ? String(s.answersUsed) : "");
     setStartsAt(s ? dateInput(s.startsAt) : "");
@@ -192,23 +194,25 @@ export function SubscriptionTab({ userId }: { userId: string }) {
       action === "add"
         ? `${q > 0 ? "Added" : "Removed"} ${Math.abs(q)} questions`
         : `Balance set to ${q} questions`,
-      () => adminApi.adjustCredit({ userId, action, usd: q * ANSWER_PRICE_USD }),
+      () => adminApi.adjustQuestions({ userId, action, questions: q }),
     );
   };
 
   const save = () => {
+    const c = credit.trim() === "" ? undefined : Number(credit);
     const t = questions(total);
     const u = questions(used);
-    if ([t, u].some((n) => n !== undefined && !(n >= 0))) {
-      toast.error("Questions must be zero or more");
+    if ([c, t, u].some((n) => n !== undefined && !(n >= 0))) {
+      toast.error("Credit and questions must be zero or more");
       return;
     }
     void run("Subscription saved", () =>
       adminApi.setSubscription({
         userId,
         plan,
-        creditUsd: t === undefined ? undefined : t * ANSWER_PRICE_USD,
-        usedUsd: u === undefined ? undefined : u * ANSWER_PRICE_USD,
+        creditUsd: c,
+        questions: t,
+        questionsUsed: u,
         startsAt: startsAt ? new Date(`${startsAt}T00:00:00Z`).toISOString() : undefined,
         endsAt: endsAt ? new Date(`${endsAt}T23:59:59Z`).toISOString() : undefined,
       }),
@@ -251,7 +255,8 @@ export function SubscriptionTab({ userId }: { userId: string }) {
             detail={`${formatNumber(sub.answersUsed)} / ${formatNumber(sub.answersTotal)}`}
           />
           <p className="text-xs text-text-tertiary">
-            {formatDate(sub.startsAt)} → {formatDate(sub.endsAt)} · {usd(ANSWER_PRICE_USD)} per question
+            {formatDate(sub.startsAt)} → {formatDate(sub.endsAt)} · {usd(sub.creditUsd)} for{" "}
+            {formatNumber(sub.answersTotal)} questions ({usd(sub.answerPriceUsd)} each)
           </p>
 
           <div className="space-y-2 border-t border-border-subtle pt-4">
@@ -288,7 +293,7 @@ export function SubscriptionTab({ userId }: { userId: string }) {
                 variant="ghost"
                 disabled={saving || sub.answersUsed === 0}
                 onClick={() =>
-                  void run("Full balance restored", () => adminApi.adjustCredit({ userId, action: "restore" }))
+                  void run("Full balance restored", () => adminApi.adjustQuestions({ userId, action: "restore" }))
                 }
               >
                 <RotateCcw className="mr-1.5 h-3 w-3" /> Restore full balance
@@ -308,13 +313,14 @@ export function SubscriptionTab({ userId }: { userId: string }) {
       )}
 
       <div className="space-y-4">
-        <Field label="Plan" htmlFor="sub-plan" hint="A new plan starts today with the plan's questions.">
+        <Field label="Plan" htmlFor="sub-plan" hint="Picking a plan fills in its credit and questions; you can change both.">
           <Select
             id="sub-plan"
             value={plan}
             onChange={(v) => {
               setPlan(v);
-              if (!sub) {
+              if (!sub || v !== sub.plan) {
+                setCredit("");
                 setTotal("");
                 setStartsAt("");
                 setEndsAt("");
@@ -325,7 +331,16 @@ export function SubscriptionTab({ userId }: { userId: string }) {
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Total questions" htmlFor="sub-total" hint={`${usd(ANSWER_PRICE_USD)} of credit each.`}>
+          <Field label="Credit (USD)" htmlFor="sub-credit" hint="The plan's value shown to the customer.">
+            <Input
+              id="sub-credit"
+              inputMode="decimal"
+              value={credit}
+              onChange={(e) => setCredit(e.target.value)}
+              placeholder="Plan default"
+            />
+          </Field>
+          <Field label="Total questions" htmlFor="sub-total" hint="How many questions this credit buys.">
             <Input
               id="sub-total"
               inputMode="numeric"

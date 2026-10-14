@@ -1,8 +1,8 @@
-/** Prepaid AI credit per subscriber.
- *
- *  A subscription holds a dollar credit (stored as micro-USD) for a fixed
- *  period. Every answered question takes a flat ANSWER_PRICE_USD off it, so
- *  $400 is 1000 answers. Users without a subscription row are not limited. */
+/** Paid plans: a dollar credit for a fixed period and the number of questions
+ *  it buys. Questions are the balance — every answered question uses one —
+ *  and the dollars left follow from them (credit × questions left / limit).
+ *  An admin can set both per customer, e.g. $400 for 1200 questions. Users
+ *  without a subscription row are not limited. */
 
 import { eq, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
@@ -14,24 +14,20 @@ export type SubscriptionRow = typeof subscription.$inferSelect;
 
 export const MICROS_PER_USD = 1_000_000;
 
-/** Plans an admin can assign. Credit is the AI budget for the whole period. */
+/** Plans an admin can assign: the credit, its questions, and the period. */
 export const PLANS = {
-  "elite-yearly": { label: "Elite · Yearly", creditUsd: 400, months: 12 },
-  "elite-quarterly": { label: "Elite · Quarterly", creditUsd: 100, months: 3 },
-  "elite-monthly": { label: "Elite · Monthly", creditUsd: 35, months: 1 },
-  "pro-yearly": { label: "Pro · Yearly", creditUsd: 200, months: 12 },
-  "pro-quarterly": { label: "Pro · Quarterly", creditUsd: 50, months: 3 },
-  "pro-monthly": { label: "Pro · Monthly", creditUsd: 18, months: 1 },
+  "elite-yearly": { label: "Elite · Yearly", creditUsd: 400, questions: 1000, months: 12 },
+  "elite-quarterly": { label: "Elite · Quarterly", creditUsd: 100, questions: 250, months: 3 },
+  "elite-monthly": { label: "Elite · Monthly", creditUsd: 35, questions: 87, months: 1 },
+  "pro-yearly": { label: "Pro · Yearly", creditUsd: 200, questions: 500, months: 12 },
+  "pro-quarterly": { label: "Pro · Quarterly", creditUsd: 50, questions: 125, months: 3 },
+  "pro-monthly": { label: "Pro · Monthly", creditUsd: 18, questions: 45, months: 1 },
 } as const;
 export type PlanId = keyof typeof PLANS;
 
 export function isPlanId(v: unknown): v is PlanId {
   return typeof v === "string" && Object.hasOwn(PLANS, v);
 }
-
-/** Each answered question costs the same: $400 buys 1000 answers. */
-export const ANSWER_PRICE_USD = 0.4;
-export const ANSWER_PRICE_MICROS = ANSWER_PRICE_USD * MICROS_PER_USD;
 
 export async function getSubscription(
   db: Db,
@@ -50,25 +46,29 @@ export type SubscriptionState = "active" | "exhausted" | "expired" | "cancelled"
 export function subscriptionState(row: SubscriptionRow, now = Date.now()): SubscriptionState {
   if (row.status !== "active") return "cancelled";
   if (row.endsAt.getTime() <= now) return "expired";
-  if (row.usedMicros >= row.creditMicros) return "exhausted";
+  if (row.questionsUsed >= row.questionLimit) return "exhausted";
   return "active";
 }
 
 export function toSubscriptionSummary(row: SubscriptionRow | null) {
   if (!row) return null;
   const plan = isPlanId(row.plan) ? PLANS[row.plan] : null;
-  const remaining = Math.max(0, row.creditMicros - row.usedMicros);
+  const creditUsd = row.creditMicros / MICROS_PER_USD;
+  const total = row.questionLimit;
+  const used = Math.min(row.questionsUsed, total);
+  const priceUsd = total > 0 ? creditUsd / total : 0;
+  const usedUsd = Math.round(priceUsd * used * 100) / 100;
   return {
     plan: row.plan,
     planLabel: plan?.label ?? row.plan,
     state: subscriptionState(row),
-    creditUsd: row.creditMicros / MICROS_PER_USD,
-    usedUsd: row.usedMicros / MICROS_PER_USD,
-    remainingUsd: remaining / MICROS_PER_USD,
-    answerPriceUsd: ANSWER_PRICE_USD,
-    answersTotal: Math.floor(row.creditMicros / ANSWER_PRICE_MICROS),
-    answersUsed: Math.round(row.usedMicros / ANSWER_PRICE_MICROS),
-    answersLeft: Math.floor(remaining / ANSWER_PRICE_MICROS),
+    creditUsd,
+    usedUsd,
+    remainingUsd: Math.max(0, Math.round((creditUsd - usedUsd) * 100) / 100),
+    answerPriceUsd: priceUsd,
+    answersTotal: total,
+    answersUsed: row.questionsUsed,
+    answersLeft: Math.max(0, total - row.questionsUsed),
     startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt.toISOString(),
     note: row.note,
@@ -76,7 +76,7 @@ export function toSubscriptionSummary(row: SubscriptionRow | null) {
 }
 export type SubscriptionSummary = NonNullable<ReturnType<typeof toSubscriptionSummary>>;
 
-/** Blocks AI calls for subscribers whose credit or period has run out. */
+/** Blocks AI calls for subscribers whose questions or period have run out. */
 export async function checkSubscription(
   db: Db,
   userId: string,
@@ -89,7 +89,7 @@ export async function checkSubscription(
     case "exhausted":
       return {
         allowed: false,
-        message: "Your answer credit is used up. Contact support to top up your plan.",
+        message: "You have used all the questions in your plan. Contact support to add more.",
       };
     case "expired":
       return {
@@ -104,16 +104,12 @@ export async function checkSubscription(
   }
 }
 
-export async function chargeSubscription(
-  db: Db,
-  userId: string,
-  micros = ANSWER_PRICE_MICROS,
-): Promise<void> {
-  if (!(micros > 0)) return;
+/** One answered question. */
+export async function chargeSubscription(db: Db, userId: string): Promise<void> {
   await db
     .update(subscription)
     .set({
-      usedMicros: sql`${subscription.usedMicros} + ${Math.ceil(micros)}`,
+      questionsUsed: sql`${subscription.questionsUsed} + 1`,
       updatedAt: new Date(),
     })
     .where(eq(subscription.userId, userId));
@@ -125,17 +121,18 @@ export function addMonths(from: Date, months: number): Date {
   return d;
 }
 
-/** Create or replace a user's plan. A new plan starts with nothing used. */
+/** Create or replace a user's plan. */
 export async function setSubscription(
   db: Db,
   userId: string,
   input: {
     plan: string;
     creditUsd: number;
+    questions: number;
+    questionsUsed?: number;
     startsAt: Date;
     endsAt: Date;
     status?: string;
-    usedUsd?: number;
     note?: string | null;
   },
 ): Promise<SubscriptionRow> {
@@ -144,7 +141,8 @@ export async function setSubscription(
     plan: input.plan,
     status: input.status ?? "active",
     creditMicros: Math.round(input.creditUsd * MICROS_PER_USD),
-    usedMicros: Math.round((input.usedUsd ?? 0) * MICROS_PER_USD),
+    questionLimit: Math.max(0, Math.floor(input.questions)),
+    questionsUsed: Math.max(0, Math.floor(input.questionsUsed ?? 0)),
     startsAt: input.startsAt,
     endsAt: input.endsAt,
     note: input.note ?? null,
@@ -157,39 +155,39 @@ export async function setSubscription(
   return (await getSubscription(db, userId))!;
 }
 
-export async function deleteSubscription(db: Db, userId: string): Promise<void> {
-  await db.delete(subscription).where(eq(subscription.userId, userId));
-}
-
-export type CreditAdjustment =
-  /** Adds to (or, when negative, takes from) the plan's total credit. */
-  | { action: "add"; usd: number }
-  /** Sets what is left; the total grows if needed. */
-  | { action: "set-left"; usd: number }
-  /** Gives the whole credit back (nothing used). */
+export type QuestionAdjustment =
+  /** Adds to (or, when negative, takes from) the plan's question limit. */
+  | { action: "add"; questions: number }
+  /** Sets how many questions are left; the limit grows if needed. */
+  | { action: "set-left"; questions: number }
+  /** Gives every used question back. */
   | { action: "restore" };
 
-export async function adjustCredit(
+export async function adjustQuestions(
   db: Db,
   userId: string,
-  change: CreditAdjustment,
+  change: QuestionAdjustment,
 ): Promise<SubscriptionRow | null> {
   const row = await getSubscription(db, userId);
   if (!row) return null;
-  let creditMicros = row.creditMicros;
-  let usedMicros = row.usedMicros;
+  let limit = row.questionLimit;
+  let used = row.questionsUsed;
   if (change.action === "add") {
-    creditMicros = Math.max(0, creditMicros + Math.round(change.usd * MICROS_PER_USD));
+    limit = Math.max(0, limit + Math.trunc(change.questions));
   } else if (change.action === "set-left") {
-    const left = Math.max(0, Math.round(change.usd * MICROS_PER_USD));
-    if (left > creditMicros) creditMicros = left;
-    usedMicros = creditMicros - left;
+    const left = Math.max(0, Math.trunc(change.questions));
+    if (left > limit) limit = left;
+    used = limit - left;
   } else {
-    usedMicros = 0;
+    used = 0;
   }
   await db
     .update(subscription)
-    .set({ creditMicros, usedMicros, updatedAt: new Date() })
+    .set({ questionLimit: limit, questionsUsed: used, updatedAt: new Date() })
     .where(eq(subscription.userId, userId));
   return getSubscription(db, userId);
+}
+
+export async function deleteSubscription(db: Db, userId: string): Promise<void> {
+  await db.delete(subscription).where(eq(subscription.userId, userId));
 }

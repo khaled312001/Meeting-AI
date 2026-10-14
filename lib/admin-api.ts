@@ -143,7 +143,7 @@ export interface AdminUser {
     consumedCompletions: number | null;
     monthlyAllowanceCompletions: number | null;
   } | null;
-  subscription: { plan: string; creditUsd: number; remainingUsd: number } | null;
+  subscription: { plan: string; creditUsd: number; questions: number; questionsLeft: number } | null;
 }
 
 export type UserFilter = "all" | "pending" | "approved" | "banned";
@@ -370,17 +370,14 @@ export interface PlanInfo {
   months: number;
 }
 
-/** Every answered question costs this much credit (worker ANSWER_PRICE_USD). */
-export const ANSWER_PRICE_USD = 0.4;
-
 /** Plans offered in the "Add customer" and subscription forms. */
 export const SUBSCRIPTION_PLANS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: "elite-yearly", label: "Elite · Yearly (1000 questions, 12 months)" },
-  { value: "elite-quarterly", label: "Elite · Quarterly (250 questions, 3 months)" },
-  { value: "elite-monthly", label: "Elite · Monthly (87 questions, 1 month)" },
-  { value: "pro-yearly", label: "Pro · Yearly (500 questions, 12 months)" },
-  { value: "pro-quarterly", label: "Pro · Quarterly (125 questions, 3 months)" },
-  { value: "pro-monthly", label: "Pro · Monthly (45 questions, 1 month)" },
+  { value: "elite-yearly", label: "Elite · Yearly ($400 · 1000 questions · 12 months)" },
+  { value: "elite-quarterly", label: "Elite · Quarterly ($100 · 250 questions · 3 months)" },
+  { value: "elite-monthly", label: "Elite · Monthly ($35 · 87 questions · 1 month)" },
+  { value: "pro-yearly", label: "Pro · Yearly ($200 · 500 questions · 12 months)" },
+  { value: "pro-quarterly", label: "Pro · Quarterly ($50 · 125 questions · 3 months)" },
+  { value: "pro-monthly", label: "Pro · Monthly ($18 · 45 questions · 1 month)" },
 ];
 
 export interface QuotaTiers {
@@ -441,19 +438,20 @@ export const adminApi = {
     userId: string;
     plan: string;
     creditUsd?: number;
-    usedUsd?: number;
+    questions?: number;
+    questionsUsed?: number;
     startsAt?: string;
     endsAt?: string;
     status?: "active" | "cancelled";
     note?: string | null;
   }) => adminPost<{ ok: true; subscription: SubscriptionSummary }>("/subscription", body),
-  /** Add to the plan's total, set what is left, or give everything back. */
-  adjustCredit: (
+  /** Add to the question limit, set how many are left, or give every used one back. */
+  adjustQuestions: (
     body:
-      | { userId: string; action: "add"; usd: number }
-      | { userId: string; action: "set-left"; usd: number }
+      | { userId: string; action: "add"; questions: number }
+      | { userId: string; action: "set-left"; questions: number }
       | { userId: string; action: "restore" },
-  ) => adminPost<{ ok: true; subscription: SubscriptionSummary }>("/subscription-credit", body),
+  ) => adminPost<{ ok: true; subscription: SubscriptionSummary }>("/subscription-questions", body),
   deleteSubscription: (userId: string) => adminPost<{ ok: true }>("/subscription-delete", { userId }),
 
   getQuota: (userId: string, signal?: AbortSignal) =>

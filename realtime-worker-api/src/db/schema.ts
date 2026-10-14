@@ -99,7 +99,7 @@ export const quotaBalance = sqliteTable("quota_balance", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });
 
-/** Paid plan with a prepaid AI credit, charged per completion at token cost. */
+/** Paid plan: a dollar credit and the number of questions it buys. */
 export const subscription = sqliteTable("subscription", {
   userId: text("userId")
     .primaryKey()
@@ -108,6 +108,9 @@ export const subscription = sqliteTable("subscription", {
   status: text("status").notNull().default("active"),
   creditMicros: integer("creditMicros").notNull(),
   usedMicros: integer("usedMicros").notNull().default(0),
+  /** Questions the plan allows; the balance customers and admins see. */
+  questionLimit: integer("questionLimit").notNull().default(0),
+  questionsUsed: integer("questionsUsed").notNull().default(0),
   startsAt: integer("startsAt", { mode: "timestamp" }).notNull(),
   endsAt: integer("endsAt", { mode: "timestamp" }).notNull(),
   note: text("note"),

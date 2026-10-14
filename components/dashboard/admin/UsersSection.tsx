@@ -22,7 +22,6 @@ import { useToast } from "../toast";
 import { useApi } from "@/lib/use-api";
 import {
   adminApi,
-  ANSWER_PRICE_USD,
   downloadCsv,
   SUBSCRIPTION_PLANS,
   type AdminUser,
@@ -233,8 +232,8 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
                             u.subscription.plan}
                         </div>
                         <div className="text-xs tabular-nums text-text-tertiary">
-                          {formatNumber(Math.floor(u.subscription.remainingUsd / ANSWER_PRICE_USD))} /{" "}
-                          {formatNumber(Math.floor(u.subscription.creditUsd / ANSWER_PRICE_USD))} questions left
+                          {formatNumber(u.subscription.questionsLeft)} / {formatNumber(u.subscription.questions)}{" "}
+                          questions left · ${u.subscription.creditUsd}
                         </div>
                       </div>
                     ) : (

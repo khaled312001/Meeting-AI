@@ -8,7 +8,7 @@ import { session, user } from "../../../db/schema";
 import {
   PLANS,
   addMonths,
-  adjustCredit,
+  adjustQuestions,
   deleteSubscription,
   getSubscription,
   isPlanId,
@@ -29,17 +29,19 @@ const setSubscriptionSchema = z.object({
   plan: planSchema,
   /** Defaults to the plan's credit. */
   creditUsd: z.number().min(0).max(100_000).optional(),
-  /** Keeps the amount already used when omitted on an existing plan. */
-  usedUsd: z.number().min(0).max(100_000).optional(),
+  /** Defaults to the plan's questions (or the current limit). */
+  questions: z.number().int().min(0).max(1_000_000).optional(),
+  /** Keeps the count already used when omitted on an existing plan. */
+  questionsUsed: z.number().int().min(0).max(1_000_000).optional(),
   startsAt: z.string().datetime().optional(),
   endsAt: z.string().datetime().optional(),
   status: z.enum(["active", "cancelled"]).optional(),
   note: z.string().max(500).nullable().optional(),
 });
 
-const adjustCreditSchema = z.discriminatedUnion("action", [
-  z.object({ userId: userIdSchema, action: z.literal("add"), usd: z.number().min(-100_000).max(100_000) }),
-  z.object({ userId: userIdSchema, action: z.literal("set-left"), usd: z.number().min(0).max(100_000) }),
+const adjustQuestionsSchema = z.discriminatedUnion("action", [
+  z.object({ userId: userIdSchema, action: z.literal("add"), questions: z.number().int().min(-1_000_000).max(1_000_000) }),
+  z.object({ userId: userIdSchema, action: z.literal("set-left"), questions: z.number().int().min(0).max(1_000_000) }),
   z.object({ userId: userIdSchema, action: z.literal("restore") }),
 ]);
 
@@ -92,12 +94,15 @@ export function subscriptionEndpoints(deps: AdminDeps) {
         if (!found) throw new APIError("NOT_FOUND", { message: "User not found" });
 
         const plan = PLANS[body.plan as keyof typeof PLANS];
-        const existing = await getSubscription(db, body.userId);
+        const current = await getSubscription(db, body.userId);
+        // Switching plans starts from the new plan's numbers.
+        const existing = current?.plan === body.plan ? current : null;
         const startsAt = body.startsAt ? new Date(body.startsAt) : new Date();
         const row = await setSubscription(db, body.userId, {
           plan: body.plan,
-          creditUsd: body.creditUsd ?? plan.creditUsd,
-          usedUsd: body.usedUsd ?? (existing ? existing.usedMicros / 1_000_000 : 0),
+          creditUsd: body.creditUsd ?? (existing ? existing.creditMicros / 1_000_000 : plan.creditUsd),
+          questions: body.questions ?? existing?.questionLimit ?? plan.questions,
+          questionsUsed: body.questionsUsed ?? existing?.questionsUsed ?? 0,
           startsAt,
           endsAt: body.endsAt ? new Date(body.endsAt) : addMonths(startsAt, plan.months),
           status: body.status,
@@ -112,19 +117,19 @@ export function subscriptionEndpoints(deps: AdminDeps) {
       },
     ),
 
-    adminAdjustCredit: createAuthEndpoint(
-      "/self-hosted-admin/subscription-credit",
-      { method: "POST", use: [sessionMiddleware], body: adjustCreditSchema },
+    adminAdjustQuestions: createAuthEndpoint(
+      "/self-hosted-admin/subscription-questions",
+      { method: "POST", use: [sessionMiddleware], body: adjustQuestionsSchema },
       async (ctx) => {
         const adminEmail = ctx.context.session.user.email;
         if (!(await isAdmin(adminEmail))) throw new APIError("FORBIDDEN");
         const { userId, ...change } = ctx.body;
-        const row = await adjustCredit(opts.getDb(), userId, change);
+        const row = await adjustQuestions(opts.getDb(), userId, change);
         if (!row) throw new APIError("NOT_FOUND", { message: "This user has no plan yet" });
         await recordAudit({
           eventType: "admin_action",
           userEmail: adminEmail,
-          metadata: { action: "adjust_credit", userId, change },
+          metadata: { action: "adjust_questions", userId, change },
         });
         return ctx.json({ ok: true, subscription: toSubscriptionSummary(row) });
       },
@@ -180,6 +185,7 @@ export function subscriptionEndpoints(deps: AdminDeps) {
             await setSubscription(db, created.id, {
               plan: ctx.body.plan,
               creditUsd: plan.creditUsd,
+              questions: plan.questions,
               startsAt,
               endsAt: addMonths(startsAt, plan.months),
             }),
