@@ -55,6 +55,7 @@ next-env.d.ts
 /electron/*.js
 /electron/*.js.map
 /electron/backend-url.json
+/electron/google-oauth.json
 *.dmg
 *.exe
 *.AppImage

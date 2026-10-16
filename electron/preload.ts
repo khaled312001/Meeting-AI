@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+import type { GoogleAccountStatus, GoogleErrorCode } from "./googleAuth";
+import type { CalendarEvent, GoogleTask, NewEventInput } from "./googleApi";
+
+type CalendarResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; code: GoogleErrorCode | "unknown"; error: string };
+
 type ScreenAccessStatus =
   | "not-determined"
   | "granted"
@@ -91,6 +98,38 @@ contextBridge.exposeInMainWorld("electronAPI", {
         ipcRenderer.removeListener("screen:capture-and-ask", handler);
     },
   },
+  calendar: {
+    getStatus: (): Promise<CalendarResult<GoogleAccountStatus>> =>
+      ipcRenderer.invoke("google:status"),
+    connect: (): Promise<CalendarResult<GoogleAccountStatus>> =>
+      ipcRenderer.invoke("google:connect"),
+    cancelConnect: (): Promise<CalendarResult<GoogleAccountStatus>> =>
+      ipcRenderer.invoke("google:cancel-connect"),
+    disconnect: (): Promise<CalendarResult<GoogleAccountStatus>> =>
+      ipcRenderer.invoke("google:disconnect"),
+    listEvents: (): Promise<CalendarResult<CalendarEvent[]>> =>
+      ipcRenderer.invoke("calendar:list-events"),
+    createEvent: (input: NewEventInput): Promise<CalendarResult<CalendarEvent>> =>
+      ipcRenderer.invoke("calendar:create-event", input),
+    openLink: (url: string): Promise<CalendarResult<boolean>> =>
+      ipcRenderer.invoke("calendar:open-link", url),
+    listTasks: (): Promise<CalendarResult<GoogleTask[]>> =>
+      ipcRenderer.invoke("tasks:list"),
+    addTask: (input: {
+      title: string;
+      due?: string;
+    }): Promise<CalendarResult<GoogleTask>> =>
+      ipcRenderer.invoke("tasks:add", input),
+    completeTask: (id: string): Promise<CalendarResult<boolean>> =>
+      ipcRenderer.invoke("tasks:complete", id),
+    onOpenEvent: (callback: (eventId: string) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, eventId: unknown) => {
+        if (typeof eventId === "string") callback(eventId);
+      };
+      ipcRenderer.on("calendar:open-event", handler);
+      return () => ipcRenderer.removeListener("calendar:open-event", handler);
+    },
+  },
 });
 
 export interface ElectronAPI {
@@ -135,5 +174,21 @@ export interface ElectronAPI {
     triggerPrompt: () => Promise<ScreenAccessStatus>;
     capture: () => Promise<ScreenCaptureResult>;
     onCaptureAndAsk: (callback: () => void) => () => void;
+  };
+  calendar: {
+    getStatus: () => Promise<CalendarResult<GoogleAccountStatus>>;
+    connect: () => Promise<CalendarResult<GoogleAccountStatus>>;
+    cancelConnect: () => Promise<CalendarResult<GoogleAccountStatus>>;
+    disconnect: () => Promise<CalendarResult<GoogleAccountStatus>>;
+    listEvents: () => Promise<CalendarResult<CalendarEvent[]>>;
+    createEvent: (input: NewEventInput) => Promise<CalendarResult<CalendarEvent>>;
+    openLink: (url: string) => Promise<CalendarResult<boolean>>;
+    listTasks: () => Promise<CalendarResult<GoogleTask[]>>;
+    addTask: (input: {
+      title: string;
+      due?: string;
+    }) => Promise<CalendarResult<GoogleTask>>;
+    completeTask: (id: string) => Promise<CalendarResult<boolean>>;
+    onOpenEvent: (callback: (eventId: string) => void) => () => void;
   };
 }

@@ -79,6 +79,10 @@ jobs:
       - name: Apply app constants for packaging
         env:
           NEXT_PUBLIC_BACKEND_API_URL: ${{ vars.BACKEND_API_URL }}
+          # Google Calendar sign-in (Desktop app OAuth client). Optional:
+          # without them the calendar panel shows "not set up".
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
         run: node scripts/apply-app-constants.js
 
       - name: Package app (electron-builder)

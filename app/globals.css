@@ -27,6 +27,7 @@
   --color-signal-assistant: oklch(0.8 0.15 78);
   --color-signal-ask: oklch(0.65 0.12 240);
   --color-signal-notes: oklch(0.6 0.02 260);
+  --color-signal-meetings: oklch(0.72 0.13 165);
 
   --color-destructive: oklch(0.65 0.18 25);
   --color-destructive-muted: oklch(0.65 0.18 25 / 0.12);
@@ -78,6 +79,7 @@ html {
   --signal-assistant: oklch(0.8 0.15 78);
   --signal-ask: oklch(0.65 0.12 240);
   --signal-notes: oklch(0.6 0.02 260);
+  --signal-meetings: oklch(0.72 0.13 165);
 
   --destructive: oklch(0.65 0.18 25);
   --destructive-muted: oklch(0.65 0.18 25 / 0.12);
@@ -421,7 +423,23 @@ html {
   animation: focusEq 0.9s ease-in-out infinite;
 }
 
+/* Meetings panel: rows rise in one after another (delay set inline). */
+@keyframes listItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-list-in {
+  animation: listItemIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .animate-list-in,
   .fade-in-answer,
   .animate-skeleton,
   .animate-fade-in-scale,

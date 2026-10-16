@@ -60,3 +60,19 @@ console.log(
     ? `Baked backend URL ${backendUrl} into electron/backend-url.json.`
     : "NEXT_PUBLIC_BACKEND_API_URL not set — packaged app will use http://localhost:8787.",
 );
+
+// Google Calendar sign-in (desktop OAuth client) for the packaged main
+// process — see electron/googleAuth.ts. Empty values leave the calendar
+// panel in its "not set up" state.
+const googleClientId = (process.env.GOOGLE_OAUTH_CLIENT_ID || "").trim();
+const googleClientSecret = (process.env.GOOGLE_OAUTH_CLIENT_SECRET || "").trim();
+fs.writeFileSync(
+  path.join(root, "electron", "google-oauth.json"),
+  `${JSON.stringify({ clientId: googleClientId, clientSecret: googleClientSecret }, null, 2)}
+`,
+);
+console.log(
+  googleClientId
+    ? "Baked the Google OAuth client into electron/google-oauth.json."
+    : "GOOGLE_OAUTH_CLIENT_ID not set — Google Calendar will show as not set up.",
+);

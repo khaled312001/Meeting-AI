@@ -1,4 +1,10 @@
-import { BookOpen, MessageSquare, Mic, type LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  MessageSquare,
+  Mic,
+  type LucideIcon,
+} from "lucide-react";
 import type { TabType } from "@/components/TabContext";
 
 export interface WorkspaceTab {
@@ -30,5 +36,12 @@ export const WORKSPACE_TABS: WorkspaceTab[] = [
     icon: BookOpen,
     shortcutKey: "N",
     description: "Saved answers and exports",
+  },
+  {
+    id: "meetings",
+    label: "Meetings",
+    icon: CalendarDays,
+    shortcutKey: "M",
+    description: "Upcoming meetings from Google Calendar",
   },
 ];

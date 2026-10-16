@@ -12,6 +12,7 @@ const signalColors: Record<TabType, string> = {
   assistant: "bg-signal-assistant",
   "ask-ai": "bg-signal-ask",
   notes: "bg-signal-notes",
+  meetings: "bg-signal-meetings",
 };
 
 export function SignalStrip({ activeTab, className }: SignalStripProps) {

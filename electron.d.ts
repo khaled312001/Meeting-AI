@@ -20,6 +20,93 @@ type UpdaterStatusPayload =
   | { type: "downloaded"; version: string }
   | { type: "error"; message: string };
 
+/** Google Calendar / Tasks (desktop only; everything runs in the main
+ *  process, see electron/googleAuth.ts and electron/googleApi.ts). */
+export type GoogleErrorCode =
+  | "not-configured"
+  | "not-connected"
+  | "reauth"
+  | "cancelled"
+  | "missing-scope"
+  | "network"
+  | "google"
+  | "unknown";
+
+export type CalendarResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; code: GoogleErrorCode; error: string };
+
+export interface GoogleAccountStatus {
+  /** A Google OAuth client id is baked into this build. */
+  configured: boolean;
+  connected: boolean;
+  email: string | null;
+  canUseCalendar: boolean;
+  canUseTasks: boolean;
+  /** False when the sign-in can't be kept across restarts. */
+  persisted: boolean;
+  signingIn: boolean;
+}
+
+export type MeetingProvider = "meet" | "zoom" | "teams" | "webex" | "other";
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  /** ISO date-time (all-day events: local midnight). */
+  start: string;
+  end: string;
+  allDay: boolean;
+  joinUrl: string | null;
+  provider: MeetingProvider | null;
+  isInterview: boolean;
+  htmlLink: string | null;
+  location: string | null;
+  organizer: string | null;
+  attendees: number;
+}
+
+export interface NewCalendarEventInput {
+  title: string;
+  /** ISO date-time. */
+  start: string;
+  durationMinutes: number;
+  addMeet: boolean;
+  timeZone: string;
+  description?: string;
+}
+
+export interface GoogleTask {
+  id: string;
+  title: string;
+  notes: string | null;
+  /** YYYY-MM-DD */
+  due: string | null;
+}
+
+export interface CalendarAPI {
+  getStatus: () => Promise<CalendarResult<GoogleAccountStatus>>;
+  /** Opens Google's consent page in the browser; resolves after sign-in. */
+  connect: () => Promise<CalendarResult<GoogleAccountStatus>>;
+  cancelConnect: () => Promise<CalendarResult<GoogleAccountStatus>>;
+  disconnect: () => Promise<CalendarResult<GoogleAccountStatus>>;
+  /** Primary calendar, now until 7 days ahead. Also arms reminders. */
+  listEvents: () => Promise<CalendarResult<CalendarEvent[]>>;
+  createEvent: (
+    input: NewCalendarEventInput,
+  ) => Promise<CalendarResult<CalendarEvent>>;
+  /** Open a meeting / event link in the default browser. */
+  openLink: (url: string) => Promise<CalendarResult<boolean>>;
+  listTasks: () => Promise<CalendarResult<GoogleTask[]>>;
+  addTask: (input: {
+    title: string;
+    due?: string;
+  }) => Promise<CalendarResult<GoogleTask>>;
+  completeTask: (id: string) => Promise<CalendarResult<boolean>>;
+  /** A meeting reminder notification was clicked. */
+  onOpenEvent: (callback: (eventId: string) => void) => () => void;
+}
+
 export interface ElectronAPI {
   windowMinimize: () => Promise<void>;
   windowMaximize: () => Promise<boolean>;
@@ -78,6 +165,8 @@ export interface ElectronAPI {
     capture: () => Promise<ScreenCaptureResult>;
     onCaptureAndAsk: (callback: () => void) => () => void;
   };
+  /** Missing on builds older than the calendar integration. */
+  calendar?: CalendarAPI;
 }
 
 declare global {

@@ -13,6 +13,7 @@ import * as path from "path";
 
 import { installSingleInstanceAndDeepLinks } from "./deepLink";
 import { registerAppIpc } from "./ipc/app";
+import { registerCalendarIpc } from "./ipc/calendar";
 import { registerSummaryIpc } from "./ipc/summary";
 import { registerCaptureAndAskShortcut, registerScreenIpc } from "./ipc/screen";
 import { attachWindowFocusNotifier, registerWindowIpc } from "./ipc/window";
@@ -389,6 +390,7 @@ registerWindowIpc(getMainWindow);
 registerScreenIpc(getMainWindow);
 registerAppIpc();
 registerSummaryIpc();
+registerCalendarIpc(getMainWindow);
 
 // Clean up global shortcuts on quit. We must guard with `app.isReady()`
 // because `app.quit()` is called synchronously in the single-instance

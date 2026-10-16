@@ -3,6 +3,7 @@
 import { Assistant } from "@/components/assistant";
 import { CompactAssistant } from "@/components/CompactAssistant";
 import History from "@/components/History";
+import { MeetingsPanel } from "@/components/meetings/MeetingsPanel";
 import { QuestionAssistant } from "@/components/QuestionAssistant";
 import { ScreenRecordingOnboard } from "@/components/ScreenRecordingOnboard";
 import { AppBackdrop, useAppBackdrop } from "@/components/AppBackdropContext";
@@ -118,6 +119,12 @@ export default function MainPage() {
   );
 
   const handleLogout = useCallback(() => signOutAndTrack(), []);
+
+  // A meeting reminder was clicked: full view, Meetings tab.
+  const revealMeetings = useCallback(() => {
+    if (compactMode) setCompactModePersisted(false);
+    setActiveTab("meetings");
+  }, [compactMode, setCompactModePersisted, setActiveTab]);
 
   return (
     <div
@@ -270,6 +277,22 @@ export default function MainPage() {
                   isExporting={isExporting}
                 />
               </div>
+            </div>
+
+            {/* Always mounted (like the other panels) so the calendar keeps
+                refreshing and meeting reminders stay armed. */}
+            <div
+              id="panel-meetings"
+              role="tabpanel"
+              aria-labelledby="tab-meetings"
+              className={cn(
+                "h-full min-h-0 overflow-hidden transition-opacity duration-150",
+                activeTab === "meetings"
+                  ? "flex flex-col opacity-100"
+                  : "hidden opacity-0",
+              )}
+            >
+              <MeetingsPanel onReveal={revealMeetings} />
             </div>
           </div>
 
