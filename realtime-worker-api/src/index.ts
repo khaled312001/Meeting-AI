@@ -35,6 +35,7 @@ import {
   handlePatchKnowledge,
 } from "./routes/knowledge";
 import { handleUsageMe } from "./routes/usage-me";
+import { handleInternalAccount } from "./routes/internal";
 import {
   handleListSessions,
   handleSessionEnd,
@@ -188,6 +189,11 @@ export default {
     if (path === "/api/export" && request.method === "POST") {
       const response = await handleExport(request, env, ctx);
       return withCors(response, request);
+    }
+
+    // Server-to-server only: no CORS headers, so no browser page can read it.
+    if (path === "/api/internal/account" && request.method === "POST") {
+      return handleInternalAccount(request, env);
     }
 
     if (path === "/api/usage/me" && request.method === "GET") {

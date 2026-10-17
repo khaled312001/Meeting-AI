@@ -23,6 +23,9 @@ export interface Env {
   ALLOW_PUBLIC_SIGNUP?: string;
   /** Comma-separated emails allowed to use /api/admin/* (self-hosted dashboard). */
   ADMIN_EMAILS?: string;
+  /** Bearer secret (32+ chars) for /api/internal/* — the customer site's
+   *  backend reads a linked customer's plan with it. Unset = endpoints off. */
+  INTERNAL_API_SECRET?: string;
   /** Cloudflare account id that owns the AI Gateway (fallback when not set via admin dashboard). */
   CF_ACCOUNT_ID?: string;
   /** Cloudflare AI Gateway id (fallback when not set via admin dashboard). */
