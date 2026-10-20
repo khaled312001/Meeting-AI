@@ -45,6 +45,7 @@ import {
 import { Kbd } from "@/components/ui/Kbd";
 import { useWindowDrag } from "@/hooks/useWindowDrag";
 import { useAppUpdate } from "@/hooks/useAppUpdate";
+import { UpdateButton } from "@/components/UpdateButton";
 import { cn } from "@/lib/utils";
 import { LoadingDots } from "./LoadingDots";
 
@@ -349,6 +350,8 @@ export function FocusBar({
           <AnswerModeSwitch variant="glass" />
           <MicSwitch variant="glass" />
           <Divider />
+
+          {isElectron && <UpdateButton variant="focus" />}
 
           {onExitFocus && (
             <PillButton

@@ -11,9 +11,6 @@ import {
   Minus,
   Plus,
   Focus,
-  Download,
-  Loader2,
-  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authClient, signOutAndTrack } from "@/lib/auth-client";
@@ -26,6 +23,7 @@ import { WorkspaceTabs } from "@/components/shell/WorkspaceTabs";
 import { APP_DISPLAY_NAME } from "@/lib/constant";
 import { useWindowDrag } from "@/hooks/useWindowDrag";
 import { useAppUpdate } from "@/hooks/useAppUpdate";
+import { UpdateButton } from "@/components/UpdateButton";
 
 export default function TitleBar() {
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(true);
@@ -199,33 +197,7 @@ export default function TitleBar() {
             )}
           </Button>
 
-          {update.ready ? (
-            <Button
-              size="sm"
-              className="h-6 gap-1 px-2 text-[10px] font-semibold"
-              onClick={update.install}
-              title={update.label}
-            >
-              <RefreshCw className="h-3 w-3" />
-              Update
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="relative h-6 w-6"
-              onClick={update.check}
-              disabled={update.busy}
-              title={update.label}
-              aria-label={update.label}
-            >
-              {update.busy ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Download className="h-3 w-3" />
-              )}
-            </Button>
-          )}
+          <UpdateButton variant="titlebar" className="mx-1" />
 
           <Button
             size="icon"
