@@ -27,6 +27,13 @@ import {
   installPermissionRequestHandler,
 } from "./security/permissions";
 import { isTrustedOrigin } from "./security/origin";
+import {
+  applyTaskbarVisibility,
+  destroyTray,
+  initTray,
+  isHiddenFromTaskbar,
+  showTrayHintOnce,
+} from "./tray";
 import { initAutoUpdater } from "./updater";
 import {
   loadRestoredBounds,
@@ -186,9 +193,10 @@ async function createWindow() {
       sandbox: true,
       backgroundThrottling: false,
     },
-    // Taskbar button + Alt-Tab entry so a minimized window can be found
-    // again. Content protection keeps the window itself out of screen shares.
-    skipTaskbar: false,
+    // Out of the taskbar by default (see tray.ts); the tray icon and
+    // Ctrl+Shift+Space bring it back. Content protection keeps the window
+    // itself out of screen shares.
+    skipTaskbar: isHiddenFromTaskbar(),
     show: false,
   });
 
@@ -366,8 +374,11 @@ app.whenReady().then(async () => {
   registerToggleOverlayShortcut();
   registerMeetingShortcuts();
 
-  // Dock icon + Cmd-Tab entry on macOS, so a minimized window can be found.
-  if (process.platform === "darwin") void app.dock?.show();
+  // Tray icon first: with the taskbar button / Dock icon hidden it is how
+  // the window is found again.
+  initTray(getMainWindow);
+  applyTaskbarVisibility(mainWindow);
+  showTrayHintOnce();
 
   app.on("activate", () => {
     const w = mainWindow;
@@ -399,6 +410,8 @@ registerCalendarIpc(getMainWindow);
 // ready", which then bubbles up as an uncaughtException at startup.
 app.on("will-quit", () => {
   if (!app.isReady()) return;
+  // Windows leaves a dead tray icon behind until hovered otherwise.
+  destroyTray();
   try {
     globalShortcut.unregisterAll();
   } catch (err) {

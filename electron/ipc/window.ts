@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 
+import { minimizeWindow } from "../tray";
+
 const WINDOW_FOCUS_CHANNEL = "window:focus";
 
 type WindowAccessor = () => BrowserWindow | null;
@@ -95,8 +97,9 @@ export function registerWindowIpc(getWindow: WindowAccessor): void {
     hitTester.set(valid);
   });
 
+  // Hidden to the tray when the app is kept out of the taskbar.
   ipcMain.handle("window-minimize", () => {
-    getWindow()?.minimize();
+    minimizeWindow(getWindow());
   });
 
   ipcMain.handle("window-maximize", () => {
