@@ -261,7 +261,10 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
             answerKind={answerKind}
             isGenerating={isLoading}
             onSave={handleSave}
-            onClear={clearAnswers}
+            onClear={() => {
+              stop();
+              clearAnswers();
+            }}
           />
         </div>
       </div>

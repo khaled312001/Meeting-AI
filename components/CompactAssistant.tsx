@@ -232,10 +232,18 @@ export function CompactAssistant({
     });
   }, [generate, isLoading, takeQuestion, transcribedText]);
 
+  /** Clears what the answer panel shows: the answers, and the Chat
+   *  thread when the panel is showing Chat. */
   const clearAnswer = () => {
     abortGeneration();
     clearAnswers();
     setError(null);
+    chatClearError();
+    if (outputMode === "chat") {
+      chatAbort();
+      chatReset();
+      setOutputMode("transcript");
+    }
   };
 
   // Ctrl/⌘+Alt shortcuts from any app (desktop).

@@ -508,7 +508,8 @@ function validateChatMessages(
       413,
     );
   }
-  for (const m of payload.messages!) {
+  const lastIndex = payload.messages!.length - 1;
+  for (const [i, m] of payload.messages!.entries()) {
     if (!m || typeof m !== "object") {
       return jsonResponse(
         { error: "each message must be an object" },
@@ -524,10 +525,15 @@ function validateChatMessages(
     if (typeof m.text !== "string") {
       return jsonResponse({ error: "message.text must be a string" }, 400);
     }
+    // Earlier turns are context only: a long answer (several questions
+    // answered at once) is shortened instead of failing every later turn.
+    if (m.text.length > MAX_CHAT_MESSAGE_CHARS && i !== lastIndex) {
+      m.text = `${m.text.slice(0, MAX_CHAT_MESSAGE_CHARS - 20).trimEnd()}\n[…shortened]`;
+    }
     if (m.text.length > MAX_CHAT_MESSAGE_CHARS) {
       return jsonResponse(
         {
-          error: `message.text exceeds ${MAX_CHAT_MESSAGE_CHARS} characters`,
+          error: `Your message is too long — keep it under ${MAX_CHAT_MESSAGE_CHARS} characters, or split it into two.`,
         },
         413,
       );

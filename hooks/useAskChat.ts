@@ -92,6 +92,15 @@ export interface UseAskChatHandle {
 
 const DEFAULT_SEND_CAP = 16;
 
+/** The worker's per-message cap. Earlier turns (often a long answer to
+ *  several questions) are shortened to fit rather than failing the send. */
+const MAX_WIRE_MESSAGE_CHARS = 8000;
+
+function fitForWire(text: string): string {
+  if (text.length <= MAX_WIRE_MESSAGE_CHARS) return text;
+  return `${text.slice(0, MAX_WIRE_MESSAGE_CHARS - 20).trimEnd()}\n[…shortened]`;
+}
+
 /** Hard cap on the in-memory + persisted thread. Only the wire payload is
  *  capped by `sendCap`; without this, a long session grows unbounded and
  *  every streamed token re-serializes an ever-larger array. */
@@ -343,9 +352,9 @@ export function useAskChat(options: UseAskChatOptions = {}): UseAskChatHandle {
         flag: FLAGS.ASK_AI,
         prompt: trimmed,
         ...(legacyImage !== undefined ? { image: legacyImage } : {}),
-        messages: trimmedHistory.map((m) => ({
+        messages: trimmedHistory.map((m, i) => ({
           role: m.role,
-          text: m.text,
+          text: i === trimmedHistory.length - 1 ? m.text : fitForWire(m.text),
           // Only include images on user turns — some OpenAI-compatible
           // providers reject image_url on assistant messages, and we
           // never have model-generated images anyway.

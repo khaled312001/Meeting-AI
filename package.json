@@ -1,6 +1,6 @@
 {
   "name": "meeting-ai",
-  "version": "0.21.0",
+  "version": "0.21.1",
   "description": "Real-time AI assistant for interviews (beta desktop app)",
   "author": "Ved Gupta <vedgupta@protonmail.com>",
   "private": true,
@@ -96,6 +96,7 @@
     "directories": {
       "buildResources": "public"
     },
+    "afterPack": "scripts/mac-adhoc-sign.cjs",
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "public/icons/android-chrome-512x512.png",

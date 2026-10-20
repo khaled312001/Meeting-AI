@@ -190,6 +190,11 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
   );
 
   const clearAnswers = useCallback(() => {
+    // Reset the refs now too: an answer starting before the next render
+    // would otherwise file the cleared text back into the history.
+    completionRef.current = "";
+    pastAnswersRef.current = [];
+    citationsRef.current = [];
     setPastAnswers([]);
     setCompletion("");
     setCitations([]);
