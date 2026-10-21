@@ -21,6 +21,7 @@ import type {
   BetaRequestDocumentBlock,
   BetaTextBlockParam,
   BetaTextCitation,
+  BetaThinkingConfigParam,
 } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { encoder } from "../lib/http";
 import type { ModelParams, ThinkingBudget } from "../config-cache";
@@ -37,6 +38,16 @@ const EFFORT_BY_BUDGET: Record<ThinkingBudget, "low" | "medium" | "high"> = {
 
 /** Models that accept server-side refusal fallbacks in the "default" form. */
 const FALLBACK_MODELS = /^claude-(fable-5-1|opus-5-5|opus-5|sonnet-5-5)$/;
+
+/** "Thinking off" for live answers. Thinking text is never streamed, so
+ *  any thinking delays the first word the candidate sees. Each model
+ *  spells "off" differently; Opus 5.5 and Fable can't turn it off and keep
+ *  their default (low effort keeps it short). */
+function thinkingOff(model: string): BetaThinkingConfigParam | undefined {
+  if (/^claude-sonnet-5-5/.test(model)) return { type: "between_tools" };
+  if (/^claude-(haiku-5-5|sonnet-5|opus-5)$/.test(model)) return { type: "disabled" };
+  return undefined;
+}
 
 /** Citation payload forwarded to the client. */
 export interface AnthropicCitation {
@@ -55,6 +66,8 @@ export interface StreamAnthropicArgs {
   writer: WritableStreamDefaultWriter<Uint8Array>;
   params: ModelParams;
   trackedUser?: AuthedUser | null;
+  /** Aborted when the client goes away (a replaced or stopped answer). */
+  signal?: AbortSignal;
 }
 
 function sse(writer: WritableStreamDefaultWriter<Uint8Array>, payload: unknown) {
@@ -155,6 +168,7 @@ export async function streamAnthropicCompletion({
   writer,
   params,
   trackedUser,
+  signal,
 }: StreamAnthropicArgs) {
   if (!apiKey) {
     throw new Error(
@@ -172,7 +186,11 @@ export async function streamAnthropicCompletion({
   systemBlocks[systemBlocks.length - 1].cache_control = { type: "ephemeral" };
 
   const useFallbacks = FALLBACK_MODELS.test(model);
+  const thinking =
+    params.thinkingBudget === "off" ? thinkingOff(model) : undefined;
 
+  const startedAt = Date.now();
+  let firstTextMs: number | null = null;
   try {
     const stream = client.beta.messages.stream({
       model,
@@ -184,6 +202,7 @@ export async function streamAnthropicCompletion({
       // Live answers need the first token fast; thinking depth follows the
       // admin "thinking budget" (forced to "off" → low for live flags).
       output_config: { effort: EFFORT_BY_BUDGET[params.thinkingBudget] },
+      ...(thinking ? { thinking } : {}),
       ...(trackedUser?.id
         ? { metadata: { user_id: trackedUser.id.slice(0, 64) } }
         : {}),
@@ -193,11 +212,12 @@ export async function streamAnthropicCompletion({
             fallbacks: "default" as const,
           }
         : {}),
-    });
+    }, { signal });
 
     for await (const event of stream) {
       if (event.type !== "content_block_delta") continue;
       if (event.delta.type === "text_delta" && event.delta.text) {
+        firstTextMs ??= Date.now() - startedAt;
         await sse(writer, { text: event.delta.text });
       } else if (event.delta.type === "citations_delta") {
         const citation = toCitation(event.delta.citation);
@@ -215,6 +235,7 @@ export async function streamAnthropicCompletion({
         cacheRead: final.usage.cache_read_input_tokens,
         cacheWrite: final.usage.cache_creation_input_tokens,
         output: final.usage.output_tokens,
+        firstTextMs,
       }),
     );
 
@@ -227,6 +248,8 @@ export async function streamAnthropicCompletion({
 
     await writer.write(encoder.encode("data: [DONE]\n\n"));
   } catch (error: unknown) {
+    // The client stopped this answer: nothing to report to anyone.
+    if (signal?.aborted) return;
     console.error(
       "[anthropic] stream failed:",
       error instanceof Error ? error.message : "unknown",

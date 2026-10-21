@@ -98,7 +98,18 @@ async function handleApi(req: http.IncomingMessage, res: http.ServerResponse) {
 
   const method = req.method ?? "GET";
   const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req);
-  const request = new Request(url, { method, headers, body: body ? new Uint8Array(body) : undefined });
+  // Aborts the request when the client goes away mid-answer, so a stopped
+  // answer stops the model call too (and is not charged).
+  const gone = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) gone.abort();
+  });
+  const request = new Request(url, {
+    method,
+    headers,
+    body: body ? new Uint8Array(body) : undefined,
+    signal: gone.signal,
+  });
 
   const response = await worker.fetch(request, env, makeCtx());
 
@@ -119,6 +130,7 @@ async function handleApi(req: http.IncomingMessage, res: http.ServerResponse) {
   }
   res.flushHeaders();
   for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+    if (gone.signal.aborted) break;
     res.write(chunk);
   }
   res.end();

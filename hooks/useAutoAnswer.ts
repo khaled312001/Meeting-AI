@@ -38,12 +38,13 @@ interface UseAutoAnswerArgs {
 }
 
 /** Pause after a question mark before answering, on top of the pause the
- *  speech-to-text already waited for. Kept short so the answer comes fast;
- *  if the interviewer carries on, the answer restarts with the full question
- *  (CONTINUE_WINDOW_MS). */
-const QUESTION_PAUSE_MS = 600;
+ *  speech-to-text already waited for. None: the answer starts the moment
+ *  the question is final. If the interviewer carries on, the answer
+ *  restarts with the full question (CONTINUE_WINDOW_MS), and the stopped
+ *  one is not charged. */
+const QUESTION_PAUSE_MS = 0;
 /** Pause after speech that does not end in a question mark. */
-const SENTENCE_PAUSE_MS = 1300;
+const SENTENCE_PAUSE_MS = 500;
 /** Words the user must say before their reply counts as "question over". */
 const REPLY_MIN_WORDS = 3;
 const MIN_WORDS = 3;

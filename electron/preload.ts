@@ -65,6 +65,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("summary:save-pdf", html, baseName),
   openSavedFile: (file: string) => ipcRenderer.invoke("summary:open", file),
   showSavedFile: (file: string) => ipcRenderer.invoke("summary:show", file),
+  setMeetingPending: (pending: boolean) =>
+    ipcRenderer.send("meeting:pending", pending),
+  meetingFinished: () => ipcRenderer.send("meeting:finished"),
+  onFinishMeetingBeforeQuit: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on("meeting:finish-before-quit", handler);
+    return () =>
+      ipcRenderer.removeListener("meeting:finish-before-quit", handler);
+  },
   copyText: (text: string) => ipcRenderer.invoke("clipboard:write-text", text),
   appRelaunch: () => ipcRenderer.invoke("app-relaunch"),
   updaterGetVersion: () => ipcRenderer.invoke("updater:get-version"),
@@ -156,6 +165,11 @@ export interface ElectronAPI {
   saveSummaryPdf: (html: string, baseName: string) => Promise<string>;
   openSavedFile: (file: string) => Promise<boolean>;
   showSavedFile: (file: string) => Promise<boolean>;
+  /** A meeting still needs its summary: quitting saves it first. */
+  setMeetingPending?: (pending: boolean) => void;
+  /** The summary asked for before quitting is done (or failed). */
+  meetingFinished?: () => void;
+  onFinishMeetingBeforeQuit?: (callback: () => void) => () => void;
   copyText: (text: string) => Promise<boolean>;
   appRelaunch: () => Promise<void>;
   updaterGetVersion: () => Promise<string>;

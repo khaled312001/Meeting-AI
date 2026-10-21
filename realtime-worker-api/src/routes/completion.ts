@@ -353,6 +353,7 @@ export async function handleCompletion(
         writer: trackingWriter,
         params: effectiveParams,
         trackedUser,
+        signal: request.signal,
       })
     : cfg.useCustom
     ? streamOpenAICompatibleCompletion(
@@ -390,6 +391,8 @@ export async function handleCompletion(
     })
     .finally(async () => {
       try {
+        // A stopped or replaced answer is not charged.
+        if (request.signal.aborted) streamError ??= "client_aborted";
         const status = streamError ? "error" : "ok";
         tracker.finish({
           status,
@@ -419,7 +422,8 @@ export async function handleCompletion(
       } catch {
         /* never throw from tracker */
       }
-      await writer.close();
+      // Already closed when the client went away.
+      await writer.close().catch(() => {});
     });
 
   ctx.waitUntil(pump);

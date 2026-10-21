@@ -144,6 +144,11 @@ export interface ElectronAPI {
   /** Open / reveal a file saved by saveSummaryPdf. */
   openSavedFile?: (file: string) => Promise<boolean>;
   showSavedFile?: (file: string) => Promise<boolean>;
+  /** A meeting still needs its summary: quitting saves it first. */
+  setMeetingPending?: (pending: boolean) => void;
+  /** The summary asked for before quitting is done (or failed). */
+  meetingFinished?: () => void;
+  onFinishMeetingBeforeQuit?: (callback: () => void) => () => void;
   /** Copy through the main process (works while the window isn't focused). */
   copyText?: (text: string) => Promise<boolean>;
   appRelaunch: () => Promise<void>;

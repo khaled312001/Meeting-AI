@@ -1,7 +1,9 @@
 "use client";
 
-/** End-of-meeting summary: when listening stops after a real conversation,
- *  the summary is written and saved on its own — a PDF in Downloads on
+/** End-of-meeting summary: when a real conversation ends — listening
+ *  stops, the transcript is cleared, or the desktop app is quit mid-meeting —
+ *  the summary is written and saved on its own (retried if the connection
+ *  drops) — a PDF in Downloads on
  *  desktop, an .html download in the browser — with the answers suggested
  *  during the meeting and the full transcript.
  *
@@ -32,11 +34,22 @@ import { buildTranscriptTexts, useTranscription } from "@/components/Transcripti
 import { buildSummaryDocument, summaryFileBaseName } from "@/lib/meeting-summary";
 import { buildContextBlock } from "@/lib/prompt-context";
 import { streamCompletion } from "@/lib/stream-completion";
-import { FLAGS } from "@/lib/types";
+import { FLAGS, type TranscriptionSegment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** Too little was said for a summary to be worth a file. */
 const MIN_WORDS = 40;
+/** Waits before trying an automatic summary again after it failed. */
+const RETRY_DELAYS_MS = [3_000, 10_000];
+
+/** One meeting, captured when it ended. */
+interface MeetingSnapshot {
+  segments: TranscriptionSegment[];
+  answers: string[];
+  jobContext: string;
+  /** Listening had stopped: later speech is a new meeting. */
+  endsMeeting: boolean;
+}
 
 export type MeetingSummaryStatus =
   | { state: "idle" }
@@ -69,7 +82,7 @@ function downloadInBrowser(html: string, name: string) {
 }
 
 export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
-  const { sessionState, transcriptionSegments, language } = useTranscription();
+  const { sessionState, transcriptionSegments, language, stopSession } = useTranscription();
   const { pastAnswers, completion, answerKind, answerAt } = useAssistantSession();
   const { interviewNotes, jobDescription } = useInterviewContext();
   const { compactMode } = useTab();
@@ -88,6 +101,14 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
   languageRef.current = language;
   const runningRef = useRef<AbortController | null>(null);
   const savedFileRef = useRef<string | null>(null);
+  /** Summaries run one after another, never two at once. */
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
+  /** The last segment a saved summary covered. */
+  const summarizedUpToRef = useRef<string | null>(null);
+  /** A meeting whose summary failed, for "Try again". */
+  const failedRef = useRef<MeetingSnapshot | null>(null);
+  /** Quitting: the quit handler saves the meeting itself. */
+  const quittingRef = useRef(false);
 
   /** Where the current meeting starts: speech after `afterSegmentId`,
    *  answers written from `since` on. */
@@ -95,11 +116,6 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     afterSegmentId: null,
     since: 0,
   });
-  // A cleared transcript (and a fresh launch) starts a new meeting.
-  const transcriptEmpty = transcriptionSegments.length === 0;
-  useEffect(() => {
-    if (transcriptEmpty) meetingStartRef.current = { afterSegmentId: null, since: Date.now() };
-  }, [transcriptEmpty]);
 
   const meetingSegments = useCallback(() => {
     const all = segmentsRef.current;
@@ -123,16 +139,11 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     ].filter((a) => a.trim());
   }, []);
 
-  const saveSummary = useCallback(async () => {
-    if (runningRef.current) return;
-    const segments = meetingSegments();
-    const transcript = buildTranscriptTexts(segments).transcribedText;
-    // Saved after listening stopped → this meeting is over; the next
-    // summary covers only what comes after it.
-    const endsMeeting = !listeningNowRef.current;
-    const lastSegmentId = segments.at(-1)?.id ?? null;
+  const writeSummary = useCallback(async (meeting: MeetingSnapshot, auto: boolean) => {
+    const transcript = buildTranscriptTexts(meeting.segments).transcribedText;
+    const lastSegmentId = meeting.segments.at(-1)?.id ?? null;
     if (wordCount(transcript) < MIN_WORDS) {
-      setStatus({ state: "error", message: "Not enough was said for a summary yet." });
+      if (!auto) setStatus({ state: "error", message: "Not enough was said for a summary yet." });
       return;
     }
     const controller = new AbortController();
@@ -141,66 +152,163 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     const lang = languageRef.current;
     const at = new Date();
     try {
-      let summary = "";
-      await streamCompletion({
-        flag: FLAGS.SUMMARIZER,
-        bg: jobContextRef.current,
-        prompt: transcript,
-        lang,
-        useKnowledge: false,
-        signal: controller.signal,
-        onChunk: (text) => {
-          summary += text;
-        },
-      });
-      if (!summary.trim()) throw new Error("The summary came back empty.");
+      for (let attempt = 0; ; attempt++) {
+        try {
+          let summary = "";
+          await streamCompletion({
+            flag: FLAGS.SUMMARIZER,
+            bg: meeting.jobContext,
+            prompt: transcript,
+            lang,
+            useKnowledge: false,
+            signal: controller.signal,
+            onChunk: (text) => {
+              summary += text;
+            },
+          });
+          if (!summary.trim()) throw new Error("The summary came back empty.");
 
-      const html = buildSummaryDocument({
-        summary,
-        transcript,
-        answers: meetingAnswers(),
-        language: lang,
-        startedAt: at,
-      });
-      const name = summaryFileBaseName(lang, at);
-      const api = typeof window !== "undefined" ? window.electronAPI : undefined;
-      if (api?.saveSummaryPdf) {
-        const file = await api.saveSummaryPdf(html, name);
-        savedFileRef.current = file;
-        setStatus({ state: "saved", name: file.split(/[\\/]/).pop() ?? name, file });
-      } else {
-        downloadInBrowser(html, name);
-        setStatus({ state: "saved", name: `${name}.html`, file: null });
+          const html = buildSummaryDocument({
+            summary,
+            transcript,
+            answers: meeting.answers,
+            language: lang,
+            startedAt: at,
+          });
+          const name = summaryFileBaseName(lang, at);
+          const api = typeof window !== "undefined" ? window.electronAPI : undefined;
+          if (api?.saveSummaryPdf) {
+            const file = await api.saveSummaryPdf(html, name);
+            savedFileRef.current = file;
+            setStatus({ state: "saved", name: file.split(/[\\/]/).pop() ?? name, file });
+          } else {
+            downloadInBrowser(html, name);
+            setStatus({ state: "saved", name: `${name}.html`, file: null });
+          }
+          summarizedUpToRef.current = lastSegmentId;
+          if (failedRef.current === meeting) failedRef.current = null;
+          // Saved after listening stopped → this meeting is over; the next
+          // summary covers only what comes after it.
+          if (meeting.endsMeeting && lastSegmentId) {
+            meetingStartRef.current = { afterSegmentId: lastSegmentId, since: Date.now() };
+          }
+          return;
+        } catch (err) {
+          if (controller.signal.aborted) return;
+          // A dropped connection shouldn't cost the meeting its summary.
+          if (auto && attempt < RETRY_DELAYS_MS.length) {
+            await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+            if (controller.signal.aborted) return;
+            continue;
+          }
+          failedRef.current = meeting;
+          setStatus({
+            state: "error",
+            message: err instanceof Error ? err.message : "Couldn't save the summary.",
+          });
+          return;
+        }
       }
-      if (endsMeeting && lastSegmentId) {
-        meetingStartRef.current = { afterSegmentId: lastSegmentId, since: Date.now() };
-      }
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setStatus({
-        state: "error",
-        message: err instanceof Error ? err.message : "Couldn't save the summary.",
-      });
     } finally {
       if (runningRef.current === controller) runningRef.current = null;
     }
-  }, [meetingSegments, meetingAnswers]);
+  }, []);
+
+  const queueSummary = useCallback(
+    (meeting: MeetingSnapshot, auto: boolean) => {
+      queueRef.current = queueRef.current
+        .then(() => writeSummary(meeting, auto))
+        .catch(() => {});
+      return queueRef.current;
+    },
+    [writeSummary],
+  );
+
+  const snapshot = useCallback(
+    (): MeetingSnapshot => ({
+      segments: meetingSegments(),
+      answers: meetingAnswers(),
+      jobContext: jobContextRef.current,
+      endsMeeting: !listeningNowRef.current,
+    }),
+    [meetingSegments, meetingAnswers],
+  );
+
+  /** Summarize the meeting now and save it (the button, and "Try again"). */
+  const saveSummary = useCallback(() => {
+    if (runningRef.current) return;
+    void queueSummary(failedRef.current ?? snapshot(), false);
+  }, [queueSummary, snapshot]);
+
+  // Clearing the transcript ends the meeting: summarize what was cleared
+  // (unless its summary is already saved), then start a new one.
+  const lastSegmentsRef = useRef<TranscriptionSegment[]>([]);
+  if (transcriptionSegments.length > 0) lastSegmentsRef.current = transcriptionSegments;
+  const wordsAtStartRef = useRef(0);
+  const transcriptEmpty = transcriptionSegments.length === 0;
+  useEffect(() => {
+    if (!transcriptEmpty) return;
+    const before = lastSegmentsRef.current;
+    lastSegmentsRef.current = [];
+    const { afterSegmentId } = meetingStartRef.current;
+    const i = afterSegmentId ? before.findIndex((s) => s.id === afterSegmentId) : -1;
+    const segments = i < 0 ? before : before.slice(i + 1);
+    const last = segments.at(-1)?.id ?? null;
+    if (
+      last &&
+      last !== summarizedUpToRef.current &&
+      wordCount(buildTranscriptTexts(segments).transcribedText) >= MIN_WORDS
+    ) {
+      void queueSummary(
+        { segments, answers: meetingAnswers(), jobContext: jobContextRef.current, endsMeeting: false },
+        true,
+      );
+    }
+    meetingStartRef.current = { afterSegmentId: null, since: Date.now() };
+    wordsAtStartRef.current = 0;
+  }, [transcriptEmpty, queueSummary, meetingAnswers]);
+
+  /** Speech in this listening session that no summary covers yet. */
+  const hasUnsavedMeeting = useCallback(() => {
+    const words = wordCount(meetingTranscript());
+    return words >= MIN_WORDS && words > wordsAtStartRef.current;
+  }, [meetingTranscript]);
 
   // Listening stopped after a real conversation → summarize and save.
   const listeningRef = useRef(false);
-  const wordsAtStartRef = useRef(0);
   useEffect(() => {
     const listening = sessionState !== "idle";
     if (listening && !listeningRef.current) {
       wordsAtStartRef.current = wordCount(meetingTranscript());
       setStatus((s) => (s.state === "writing" ? s : { state: "idle" }));
     }
-    if (!listening && listeningRef.current) {
-      const words = wordCount(meetingTranscript());
-      if (words >= MIN_WORDS && words > wordsAtStartRef.current) void saveSummary();
+    if (!listening && listeningRef.current && !quittingRef.current && hasUnsavedMeeting()) {
+      void queueSummary(snapshot(), true);
     }
     listeningRef.current = listening;
-  }, [sessionState, meetingTranscript, saveSummary]);
+  }, [sessionState, meetingTranscript, hasUnsavedMeeting, queueSummary, snapshot]);
+
+  // Desktop: quitting mid-meeting saves the summary first (see quitGuard).
+  const writing = status.state === "writing";
+  const segmentCount = transcriptionSegments.length;
+  useEffect(() => {
+    const pending = writing || (sessionState !== "idle" && hasUnsavedMeeting());
+    window.electronAPI?.setMeetingPending?.(pending);
+  }, [writing, sessionState, segmentCount, hasUnsavedMeeting]);
+
+  const stopSessionRef = useRef(stopSession);
+  stopSessionRef.current = stopSession;
+  useEffect(() => {
+    const api = typeof window !== "undefined" ? window.electronAPI : undefined;
+    return api?.onFinishMeetingBeforeQuit?.(() => {
+      quittingRef.current = true;
+      const save = listeningNowRef.current && hasUnsavedMeeting();
+      const meeting = { ...snapshot(), endsMeeting: true };
+      if (listeningNowRef.current) stopSessionRef.current();
+      const done = save ? queueSummary(meeting, true) : queueRef.current;
+      void done.finally(() => api.meetingFinished?.());
+    });
+  }, [hasUnsavedMeeting, snapshot, queueSummary]);
 
   useEffect(() => () => runningRef.current?.abort(), []);
 

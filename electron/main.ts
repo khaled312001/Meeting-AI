@@ -15,6 +15,7 @@ import { installSingleInstanceAndDeepLinks } from "./deepLink";
 import { registerAppIpc } from "./ipc/app";
 import { registerCalendarIpc } from "./ipc/calendar";
 import { registerSummaryIpc } from "./ipc/summary";
+import { registerQuitGuard } from "./quitGuard";
 import { registerCaptureAndAskShortcut, registerScreenIpc } from "./ipc/screen";
 import { attachWindowFocusNotifier, registerWindowIpc } from "./ipc/window";
 import {
@@ -401,6 +402,7 @@ registerWindowIpc(getMainWindow);
 registerScreenIpc(getMainWindow);
 registerAppIpc();
 registerSummaryIpc();
+registerQuitGuard(getMainWindow);
 registerCalendarIpc(getMainWindow);
 
 // Clean up global shortcuts on quit. We must guard with `app.isReady()`
