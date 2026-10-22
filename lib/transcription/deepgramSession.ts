@@ -86,7 +86,16 @@ interface Channel {
   interimId: string;
   connection: DeepgramLiveConnection | null;
   recorder: MediaRecorder | null;
+  /** Last time Deepgram sent anything on this channel's connection. */
+  heardAt: number;
 }
+
+/** A connection that hasn't opened by now is retried. */
+const OPEN_TIMEOUT_MS = 10_000;
+/** Deepgram answers about every second, silence included; a connection
+ *  quiet for this long has stalled without closing and is replaced. */
+const STALL_MS = 12_000;
+const WATCHDOG_MS = 2_000;
 
 /** Recent meeting lines kept to spot mic echo of the speakers. */
 const ECHO_WINDOW_MS = 12_000;
@@ -188,6 +197,7 @@ export async function startDeepgramSession(
   let currentState: SessionState = "idle";
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let watchdog: ReturnType<typeof setInterval> | null = null;
   let hasStartedOnce = false;
   // Bumped per teardown so a connect still in flight knows it was replaced.
   let connectionGen = 0;
@@ -226,13 +236,20 @@ export async function startDeepgramSession(
     connectionGen++;
     for (const ch of channels) {
       stopRecorder(ch);
-      if (ch.connection) closeDeepgramLive(ch.connection);
+      // Detach first: closing can fire "close" right away, and that must
+      // not count as a fresh drop (it used to use up the retries at once).
+      const conn = ch.connection;
       ch.connection = null;
+      if (conn) closeDeepgramLive(conn);
     }
   }
 
   function teardown() {
     clearReconnectTimer();
+    if (watchdog !== null) {
+      clearInterval(watchdog);
+      watchdog = null;
+    }
     teardownConnections();
     clearInterims();
     for (const ch of channels) ch.media.getTracks().forEach((t) => t.stop());
@@ -274,6 +291,7 @@ export async function startDeepgramSession(
   function bindMessageHandler(ch: Channel, conn: DeepgramLiveConnection) {
     conn.on("message", (data: unknown) => {
       if (stale || ch.connection !== conn) return;
+      ch.heardAt = Date.now();
       if (!isDeepgramResultsMessage(data)) return;
 
       const alt = data.channel?.alternatives?.[0];
@@ -393,9 +411,17 @@ export async function startDeepgramSession(
       return;
     }
     ch.connection = conn;
+    ch.heardAt = Date.now();
     bindMessageHandler(ch, conn);
 
+    let opened = false;
+    const openTimer = setTimeout(() => {
+      if (!opened) onDrop("open_timeout");
+    }, OPEN_TIMEOUT_MS);
+
     conn.on("open", () => {
+      opened = true;
+      clearTimeout(openTimer);
       if (stale || ch.connection !== conn) {
         closeDeepgramLive(conn);
         return;
@@ -407,14 +433,21 @@ export async function startDeepgramSession(
       startRecorder(ch);
     });
 
-    const onDrop = (reason: string) => {
+    function onDrop(reason: string) {
+      clearTimeout(openTimer);
       if (ch.connection !== conn || stale) return;
-      if (currentState === "live" || currentState === "reconnecting") {
+      // Also while the first connection is still opening: left alone, a
+      // drop there would leave the session "starting" forever.
+      if (
+        currentState === "live" ||
+        currentState === "reconnecting" ||
+        currentState === "connecting"
+      ) {
         scheduleReconnect(reason);
         return;
       }
       teardownConnections();
-    };
+    }
     conn.on("close", () => onDrop("websocket_closed"));
     conn.on("error", (error) => {
       console.error(`Deepgram (${ch.source}) connection error:`, error);
@@ -469,6 +502,7 @@ export async function startDeepgramSession(
     interimId: `${baseId}-interim-them`,
     connection: null,
     recorder: null,
+    heardAt: 0,
   });
 
   if (includeMic) {
@@ -491,6 +525,7 @@ export async function startDeepgramSession(
           interimId: `${baseId}-interim-me`,
           connection: null,
           recorder: null,
+          heardAt: 0,
         });
       }
     } catch (error) {
@@ -524,6 +559,13 @@ export async function startDeepgramSession(
   liveSessionId = live.sessionId;
 
   setState("connecting");
+  watchdog = setInterval(() => {
+    if (stale || currentState !== "live") return;
+    const now = Date.now();
+    if (channels.some((ch) => ch.connection && now - ch.heardAt > STALL_MS)) {
+      scheduleReconnect("stalled");
+    }
+  }, WATCHDOG_MS);
 
   try {
     const apiKey = await mintDeepgramKey(live.sessionId);
