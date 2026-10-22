@@ -37,6 +37,8 @@ export interface StreamCompletionParams {
   previousAnswers?: string[];
   /** What the user said aloud (reviews). */
   myAnswer?: string;
+  /** The app shows the question itself; the reply is the answer alone. */
+  answerOnly?: boolean;
   resolveErrorMessage?: (
     response: Response,
     defaultMessage: string,
@@ -57,6 +59,7 @@ export async function streamCompletion({
   question,
   previousAnswers,
   myAnswer,
+  answerOnly,
 }: StreamCompletionParams): Promise<void> {
   const response = await ricFetch("/api/completion", {
     method: "POST",
@@ -73,6 +76,7 @@ export async function streamCompletion({
       ...(question ? { question } : {}),
       ...(previousAnswers?.length ? { previousAnswers } : {}),
       ...(myAnswer ? { myAnswer } : {}),
+      ...(answerOnly ? { answerOnly } : {}),
     }),
     signal,
   });

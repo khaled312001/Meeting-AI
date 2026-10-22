@@ -137,6 +137,9 @@ export async function handleCompletion(
   const lang: MeetingLanguage | undefined = isMeetingLanguage(payload.lang)
     ? payload.lang
     : undefined;
+  if (payload.answerOnly !== undefined && typeof payload.answerOnly !== "boolean") {
+    return jsonResponse({ error: "answerOnly must be a boolean" }, 400);
+  }
   if (payload.flag === FLAGS.REVIEW && !payload.myAnswer?.trim()) {
     return jsonResponse({ error: "myAnswer is required for a review" }, 400);
   }
@@ -342,7 +345,7 @@ export async function handleCompletion(
   const completionFn = useAnthropic
     ? streamAnthropicCompletion({
         messages: wireMessages,
-        system: buildAnthropicSystemPrompt(payload.flag, lang),
+        system: buildAnthropicSystemPrompt(payload.flag, lang, payload.answerOnly === true),
         background:
           payload.flag === FLAGS.SUMMARIZER
             ? buildSummaryContext(payload.bg)
@@ -605,7 +608,7 @@ function buildWireMessages(
   } else {
     let text = basePrompt;
     if (payload.flag === FLAGS.ASSISTANT) {
-      text = buildPrompt(bg, liveTurn(payload, basePrompt), lang);
+      text = buildPrompt(bg, liveTurn(payload, basePrompt), lang, payload.answerOnly === true);
     } else if (payload.flag === FLAGS.REVIEW) {
       text = buildReviewPrompt(bg, liveTurn(payload, basePrompt), lang);
     } else if (payload.flag === FLAGS.ASK_AI) {

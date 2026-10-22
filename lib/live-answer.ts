@@ -9,6 +9,21 @@ export interface LiveAnswerOptions {
   myAnswer?: string;
 }
 
+/** Labels of a live answer (the server's prompt uses the same ones). */
+const ANSWER_LABELS: Record<string, { question: string; answer: string }> = {
+  ar: { question: "السؤال", answer: "الإجابة" },
+  en: { question: "Question", answer: "Answer" },
+  de: { question: "Frage", answer: "Antwort" },
+};
+
+/** Shown the moment a live answer starts: the question as heard. The
+ *  model then writes only the answer after it (`answerOnly`), so the
+ *  answer itself starts sooner. */
+export function answerHeading(question: string, lang: string): string {
+  const l = ANSWER_LABELS[lang] ?? ANSWER_LABELS.en;
+  return `**${l.question}:** ${question.trim()}\n\n**${l.answer}:** `;
+}
+
 /** Screenshot → answer, in the meeting language. */
 export const SCREEN_PROMPT: Record<string, string> = {
   ar: "حلّل لقطة الشاشة هذه. إذا كان فيها سؤال مقابلة أو مسألة برمجية، أجب عنه كاملاً وبدقة. اكتب بالعربية فقط.",

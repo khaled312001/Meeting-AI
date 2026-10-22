@@ -44,7 +44,7 @@ interface UseAutoAnswerArgs {
  *  one is not charged. */
 const QUESTION_PAUSE_MS = 0;
 /** Pause after speech that does not end in a question mark. */
-const SENTENCE_PAUSE_MS = 500;
+const SENTENCE_PAUSE_MS = 300;
 /** Words the user must say before their reply counts as "question over". */
 const REPLY_MIN_WORDS = 3;
 const MIN_WORDS = 3;

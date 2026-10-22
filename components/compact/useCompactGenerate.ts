@@ -18,7 +18,7 @@ import { FLAGS } from "@/lib/types";
 import { addCitation } from "@/lib/citations";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
 import { useTranscription } from "@/components/TranscriptionContext";
-import { isQuietReview, type LiveAnswerOptions } from "@/lib/live-answer";
+import { answerHeading, isQuietReview, type LiveAnswerOptions } from "@/lib/live-answer";
 import {
   isVisionScreenshotDataUrl,
   VISION_FALLBACK_PROMPT,
@@ -144,11 +144,16 @@ export function useCompactGenerate({
 
       try {
         // Accumulate tokens locally; apply to state at a bounded rate.
-        let acc = "";
+        // A live answer shows its question at once; the reply follows it.
+        const liveQuestion =
+          flag === FLAGS.ASSISTANT && !isTypedAsk ? opts.question?.trim() : undefined;
+        let acc = liveQuestion ? answerHeading(liveQuestion, language) : "";
         const flusher = createStreamFlusher(() => setCompletion(acc));
+        if (acc) flusher.schedule();
         try {
           await streamCompletion({
             flag,
+            answerOnly: !!liveQuestion,
             bg,
             prompt,
             image: imagePayload,

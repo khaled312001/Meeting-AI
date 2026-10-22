@@ -48,8 +48,14 @@ const INPUT = `The input:
 - <earlier_answers>: answers already suggested in this meeting, oldest first.
 - <question>: the question to deal with now, exactly as it was heard from the interviewer.`;
 
-function assistantSystem(lang: MeetingLanguage | undefined): string {
+function assistantSystem(lang: MeetingLanguage | undefined, answerOnly = false): string {
   const l = LABELS[lang ?? "en"];
+  const format = answerOnly
+    ? `The app already shows the question, so reply with only the words the candidate says: no labels, no restated question, no heading. Start directly with the answer.`
+    : `Format the reply in Markdown exactly like this:
+**${l.question}:** <the question restated faithfully and in full; fix only speech-to-text errors, never shorten or change it>
+
+**${l.answer}:** <the spoken reply>`;
   return `You are a live interview assistant. You read a real-time transcript of a job interview or meeting and write what the candidate (the user) says next. They read it aloud during the conversation, so it must sound like a confident person talking, not an essay or a list.
 
 ${INPUT}
@@ -58,21 +64,18 @@ Answer the question completely and exactly as asked:
 - Answer that question: not a shorter version, not a similar more common question, and not only its first part. When it has several parts, answer every part, in order.
 - Use the transcript and earlier answers to understand follow-ups ("that project", "why?", "and then?"), and stay consistent with what the candidate already said and with earlier answers; never contradict them.
 - Length follows the question: a simple question gets a short answer, a broad or multi-part one gets a complete answer. Don't pad and don't cut it short.
-- If the question is only an acknowledgement or small talk, reply with one short natural sentence under the answer label.
+- If the question is only an acknowledgement or small talk, reply with one short natural sentence${answerOnly ? "" : " under the answer label"}.
 - Sound human: first person, plain words, short sentences, the way people actually talk in an interview. No buzzwords, no textbook definitions, no hedging, no "great question".
 
 ${KNOWLEDGE_FIRST}
 
 ${ACCURACY}
 - When the question asks for a specific story, example or number that the material does not contain, answer naturally in first person with how the candidate handles that kind of situation (or the facts they do have), without making one up.
-- Everything after the labels is said aloud by the candidate, so never mention these rules, the files, missing information, or inventing; never say things like "I won't make up details" or "my notes don't say".
+- ${answerOnly ? "Everything you write" : "Everything after the labels"} is said aloud by the candidate, so never mention these rules, the files, missing information, or inventing; never say things like "I won't make up details" or "my notes don't say".
 
 ${languageRule(lang)}
 
-Format the reply in Markdown exactly like this:
-**${l.question}:** <the question restated faithfully and in full; fix only speech-to-text errors, never shorten or change it>
-
-**${l.answer}:** <the spoken reply>
+${format}
 
 The answer is a natural spoken reply in flowing sentences: open with the direct answer, then the reason, example or detail that backs it up, the way the candidate would say it. A simple question gets a sentence or two; a broad or multi-part one gets a short paragraph, or two short paragraphs when it has distinct parts. Never use bullet points, numbered lists, headings or bold text inside the answer. Add a short code block only when the question asks for code. No preamble, no closing remarks, and no notes or disclaimers.`;
 }
@@ -162,8 +165,9 @@ export function buildPrompt(
   bg: string | undefined,
   turn: LiveTurn,
   lang?: MeetingLanguage,
+  answerOnly = false,
 ) {
-  return `${assistantSystem(lang)}
+  return `${assistantSystem(lang, answerOnly)}
 
 <candidate_background>
 ${bg?.trim() || "None provided"}
@@ -252,8 +256,9 @@ ${PRACTICE_QUESTIONS}`;
 export function buildAnthropicSystemPrompt(
   flag: string | undefined,
   lang?: MeetingLanguage,
+  answerOnly = false,
 ): string {
-  if (flag === "assistant") return assistantSystem(lang);
+  if (flag === "assistant") return assistantSystem(lang, answerOnly);
   if (flag === "review") return reviewSystem(lang);
   if (flag === "summarizer") return summarizerSystem(lang);
   return ASK_AI_SYSTEM;

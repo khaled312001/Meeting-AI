@@ -17,7 +17,7 @@ import { FLAGS } from "@/lib/types";
 import { addCitation } from "@/lib/citations";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
 import { useTranscription } from "@/components/TranscriptionContext";
-import { isQuietReview, type LiveAnswerOptions } from "@/lib/live-answer";
+import { answerHeading, isQuietReview, type LiveAnswerOptions } from "@/lib/live-answer";
 
 interface UseAssistantSubmitArgs {
   flag: FLAGS;
@@ -123,11 +123,16 @@ export function useAssistantSubmit({
       try {
         // Accumulate tokens locally and apply to React state at a bounded
         // rate — one render per token is wasteful for long answers.
-        let acc = "";
+        // A live answer shows its question at once; the reply follows it.
+        const liveQuestion =
+          runFlag === FLAGS.ASSISTANT ? opts.question?.trim() : undefined;
+        let acc = liveQuestion ? answerHeading(liveQuestion, language) : "";
         const flusher = createStreamFlusher(() => setCompletion(acc));
+        if (acc) flusher.schedule();
         try {
           await streamCompletion({
             flag: runFlag,
+            answerOnly: !!liveQuestion,
             bg: runBg,
             prompt,
             lang: language,

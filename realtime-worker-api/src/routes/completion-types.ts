@@ -77,6 +77,9 @@ export interface CompletionRequestBody {
   previousAnswers?: string[];
   /** What the candidate said aloud (Review). */
   myAnswer?: string;
+  /** Assistant: the app shows the question itself, so the reply is the
+   *  answer text alone and starts sooner. */
+  answerOnly?: boolean;
 }
 
 export interface InlineImage {

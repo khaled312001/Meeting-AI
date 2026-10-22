@@ -42,6 +42,12 @@ test("buildAnthropicSystemPrompt selects per-flag instructions", () => {
   assert.match(buildAnthropicSystemPrompt("ask-ai"), /Ask AI/);
 });
 
+test("answerOnly drops the question line so the answer starts at once", () => {
+  const p = buildAnthropicSystemPrompt("assistant", "en", true);
+  assert.doesNotMatch(p, /\*\*Question:\*\*/);
+  assert.match(p, /no restated question/);
+});
+
 test("buildAnthropicSystemPrompt fixes the language and its labels", () => {
   const ar = buildAnthropicSystemPrompt("assistant", "ar");
   assert.match(ar, /\*\*السؤال:\*\*/);
