@@ -24,6 +24,7 @@ import {
   type LiveAnswerOptions,
 } from "@/lib/live-answer";
 import { collectSaidFigures } from "@/lib/said-figures";
+import { getInterviewFiles } from "@/lib/interview-files";
 import {
   isVisionScreenshotDataUrl,
   VISION_FALLBACK_PROMPT,
@@ -117,7 +118,12 @@ export function useCompactGenerate({
         flag === FLAGS.ASSISTANT && !isTypedAsk && !!opts.question?.trim();
       const { previous: previousAnswers, n } = isReview
         ? { previous: getRememberedAnswers(), n: undefined }
-        : startNewAnswer({ replace: opts.replace, numbered });
+        : startNewAnswer({
+            replace: opts.replace,
+            numbered,
+            question: opts.question?.trim(),
+            updated: opts.updated,
+          });
       let shown = !isReview;
       setIsLoading(true);
       setActiveFlag(flag);
@@ -168,6 +174,7 @@ export function useCompactGenerate({
             flag,
             answerOnly: !!liveQuestion,
             questionLine: !!liveQuestion,
+            ...getInterviewFiles(),
             // Live answers and reviews keep to the figures already said.
             saidFigures:
               liveQuestion || isReview

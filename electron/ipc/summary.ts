@@ -18,10 +18,10 @@ function safeBaseName(name: unknown): string {
   return cleaned || "Meeting summary";
 }
 
-function uniquePath(dir: string, base: string): string {
-  let candidate = path.join(dir, `${base}.pdf`);
+function uniquePath(dir: string, base: string, ext = "pdf"): string {
+  let candidate = path.join(dir, `${base}.${ext}`);
   for (let i = 2; fs.existsSync(candidate); i++) {
-    candidate = path.join(dir, `${base} (${i}).pdf`);
+    candidate = path.join(dir, `${base} (${i}).${ext}`);
   }
   return candidate;
 }
@@ -61,6 +61,24 @@ export function registerSummaryIpc(): void {
       const pdf = await htmlToPdf(html);
       const target = uniquePath(app.getPath("downloads"), safeBaseName(baseName));
       await fs.promises.writeFile(target, pdf);
+      saved.add(target);
+      return target;
+    },
+  );
+
+  // The interview log: a Markdown file in Downloads.
+  ipcMain.handle(
+    "summary:save-text",
+    async (_, text: unknown, baseName: unknown): Promise<string> => {
+      if (typeof text !== "string" || text.length === 0 || text.length > 5_000_000) {
+        throw new Error("Invalid log");
+      }
+      const target = uniquePath(
+        app.getPath("downloads"),
+        safeBaseName(baseName),
+        "md",
+      );
+      await fs.promises.writeFile(target, text, "utf8");
       saved.add(target);
       return target;
     },

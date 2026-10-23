@@ -91,6 +91,11 @@ export interface CompletionRequestBody {
   /** Sentences with figures already said in this meeting (Assistant /
    *  Review), so later answers keep to them. */
   saidFigures?: string[];
+  /** The files chosen for this interview: the instructions file (its rules
+   *  govern the answers) and the feed. When either is set, only these are
+   *  loaded, instead of every enabled file. */
+  instructionsDocId?: string;
+  feedDocId?: string;
 }
 
 export interface InlineImage {

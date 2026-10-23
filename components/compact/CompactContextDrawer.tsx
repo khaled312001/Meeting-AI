@@ -5,6 +5,7 @@
 
 import { overlayInput } from "@/components/compact/compactTextStyles";
 import { KnowledgeUploadButton } from "@/components/KnowledgeUploadButton";
+import { InterviewFilesPicker } from "@/components/InterviewFilesPicker";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { focusGlass } from "./FocusBar";
@@ -40,6 +41,7 @@ export function CompactContextDrawer({
         </p>
       )}
       <KnowledgeUploadButton />
+      <InterviewFilesPicker />
       <Textarea
         placeholder="Topics, facts to mention, things to avoid…"
         className={cn(

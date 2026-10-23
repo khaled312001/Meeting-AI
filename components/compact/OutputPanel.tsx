@@ -19,13 +19,13 @@ import {
 } from "lucide-react";
 import posthog from "posthog-js";
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import SafeMarkdown from "@/components/SafeMarkdown";
 import { ChatThread } from "@/components/ui/ChatThread";
 import type { ChatMessage } from "@/hooks/useAskChat";
 import { overlayErrorBlock } from "@/components/compact/compactTextStyles";
 import { FLAGS, type AnswerCitation } from "@/lib/types";
 import { AnswerSources } from "@/components/AnswerSources";
 import { AnswerHistory } from "@/components/AnswerHistory";
+import { AnswerBody } from "@/components/AnswerBody";
 import { CopyButton, formatClock } from "@/components/AnswerHeader";
 import type {
   AnswerKind,
@@ -37,7 +37,6 @@ import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { cn } from "@/lib/utils";
 import {
   ANSWER_FONT_PX,
-  sentencePerLine,
   useAnswerTextSize,
 } from "@/lib/answer-display";
 import {
@@ -162,10 +161,14 @@ export function OutputPanel({
   onResize,
   onResizeEnd,
 }: OutputPanelProps) {
-  // Follow new answers, unless the user scrolled up to read an older one.
+  const isChat = outputMode === "chat";
+  // Chat follows new messages at the bottom; answers put the newest on top.
   const { ref, showLatest, handleScroll, scrollToLatest } = useStickToBottom(
-    `${pastAnswers.length}:${completion.length}:${chatMessages.length}`,
+    isChat ? `${chatMessages.length}:${chatMessages.at(-1)?.text.length ?? 0}` : "answers",
   );
+  useEffect(() => {
+    if (!isChat) ref.current?.scrollTo({ top: 0 });
+  }, [answerAt, isChat, ref]);
 
   const { size: textSize, cycle: cycleTextSize } = useAnswerTextSize();
   const fontPx = ANSWER_FONT_PX.compact[textSize];
@@ -213,7 +216,6 @@ export function OutputPanel({
   };
   const resizable = !!size && !!onResize;
 
-  const isChat = outputMode === "chat";
   const title = isChat
     ? "Chat"
     : activeFlag === FLAGS.SUMMARIZER
@@ -345,14 +347,6 @@ export function OutputPanel({
             </div>
           ) : (
             <>
-              {pastAnswers.length > 0 && (
-                <AnswerHistory
-                  answers={pastAnswers}
-                  proseClassName={COMPACT_PROSE}
-                  fontPx={fontPx}
-                  compact
-                />
-              )}
               {error ? (
                 <ErrorRow message={error} onDismiss={onDismissError} />
               ) : completion ? (
@@ -365,9 +359,11 @@ export function OutputPanel({
                       "border-l-2 border-l-amber-300/50 pl-2",
                   )}
                 >
-                  <div className={COMPACT_PROSE} style={{ fontSize: fontPx }}>
-                    <SafeMarkdown>{sentencePerLine(completion)}</SafeMarkdown>
-                  </div>
+                  <AnswerBody
+                    text={completion}
+                    proseClassName={COMPACT_PROSE}
+                    fontPx={fontPx}
+                  />
                   <AnswerSources citations={citations} compact className="mt-2" />
                 </div>
               ) : null}
@@ -404,11 +400,19 @@ export function OutputPanel({
                   Answer
                 </p>
               )}
+              {pastAnswers.length > 0 && (
+                <AnswerHistory
+                  answers={pastAnswers}
+                  proseClassName={COMPACT_PROSE}
+                  fontPx={fontPx}
+                  compact
+                />
+              )}
             </>
           )}
         </div>
 
-        {showLatest && (
+        {isChat && showLatest && (
           <button
             type="button"
             onClick={scrollToLatest}

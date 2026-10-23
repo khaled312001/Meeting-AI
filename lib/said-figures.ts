@@ -19,6 +19,8 @@ const FIGURE_RE = new RegExp(
 
 const sentences = (text: string) =>
   text
+    // Part lines ("[1/3 Current role]") are display marks, not figures.
+    .replace(/^[ \t]*\[\d+\s*\/\s*\d+[^\]\n]*\][ \t]*$/gm, "")
     .split(/(?<=[.!?؟])\s+|\n+/)
     .map((s) => s.replace(/\*\*/g, "").replace(/\s+/g, " ").trim())
     .filter(Boolean);

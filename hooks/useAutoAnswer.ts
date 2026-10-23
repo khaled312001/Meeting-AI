@@ -18,6 +18,8 @@ export interface AutoAnswerTrigger {
   question: string;
   /** True when this replaces the previous answer (the question went on). */
   replace: boolean;
+  /** Asked for with Update. */
+  updated?: boolean;
 }
 
 interface UseAutoAnswerArgs {
@@ -283,6 +285,24 @@ export function useAutoAnswer({
     setWaiting(true);
   }, [takeQuestion, setWaiting]);
 
+  /** Update: Answer was pressed too early and the question went on. The
+   *  answer on screen stops and the whole question, old part plus new, is
+   *  answered once more in its place, so each question keeps one answer. */
+  const [updateRequested, setUpdateRequested] = useState(false);
+  const updateAnswer = useCallback(() => {
+    if (triggeredAt.current === 0) return;
+    setWaiting(false);
+    continuing.current = true;
+    manualAnswer.current = true;
+    if (running.current === "answer") onInterruptRef.current();
+    setUpdateRequested(true);
+  }, [setWaiting]);
+  useEffect(() => {
+    if (!updateRequested || isBusy) return;
+    setUpdateRequested(false);
+    onTriggerRef.current({ ...take(transcriptRef.current), updated: true });
+  }, [updateRequested, isBusy, take]);
+
   /** Answer one earlier stretch of speech that was never sent (a gap). */
   const answerRange = useCallback((from: number, to: number) => {
     const question = transcriptRef.current.slice(from, to).trim();
@@ -302,5 +322,6 @@ export function useAutoAnswer({
     sentRanges,
     answeredTo,
     answerRange,
+    updateAnswer,
   };
 }

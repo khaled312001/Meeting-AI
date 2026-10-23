@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   appQuit: () => ipcRenderer.invoke("app-quit"),
   saveSummaryPdf: (html: string, baseName: string) =>
     ipcRenderer.invoke("summary:save-pdf", html, baseName),
+  saveTextFile: (text: string, baseName: string) =>
+    ipcRenderer.invoke("summary:save-text", text, baseName),
   openSavedFile: (file: string) => ipcRenderer.invoke("summary:open", file),
   showSavedFile: (file: string) => ipcRenderer.invoke("summary:show", file),
   setMeetingPending: (pending: boolean) =>

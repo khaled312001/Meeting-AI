@@ -160,6 +160,9 @@ interface FocusBarProps {
   isLoading: boolean;
   /** Manual mode: waiting for the question to end before answering. */
   waitingForEnd?: boolean;
+  /** Update is offered: there is an answer to a heard question. */
+  canUpdate?: boolean;
+  onUpdate?: () => void;
   isCapturing: boolean;
   askMode: boolean;
   showContext: boolean;
@@ -186,6 +189,8 @@ export function FocusBar({
   isElectron,
   isLoading,
   waitingForEnd = false,
+  canUpdate = false,
+  onUpdate,
   isCapturing,
   askMode,
   showContext,
@@ -326,6 +331,16 @@ export function FocusBar({
                 size="xs"
                 className="hidden opacity-70 sm:inline-flex"
               />
+            </PillButton>
+          )}
+
+          {canUpdate && onUpdate && (
+            <PillButton
+              onClick={onUpdate}
+              title="Update: answer the whole question again, with what was said since — replaces the current answer"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Update
             </PillButton>
           )}
 

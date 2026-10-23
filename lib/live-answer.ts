@@ -5,6 +5,8 @@ export interface LiveAnswerOptions {
   question?: string;
   /** Replace the current answer instead of keeping it in the history. */
   replace?: boolean;
+  /** Update: the whole question asked again, replacing its answer. */
+  updated?: boolean;
   /** For a review: what the user said aloud. */
   myAnswer?: string;
 }

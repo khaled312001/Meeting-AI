@@ -6,31 +6,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-/** A live answer: "**Question 3:** …\n\n**Answer:** …". */
-const LIVE_ANSWER_RE = /^\*\*[^*\n]{1,40}:\*\*[^\n]*\n\n\*\*[^*\n]{1,30}:\*\*/;
-
 /** A sentence end followed by the next sentence; common abbreviations
  *  ("e.g.", "Dr.") and numbers ("2.5") don't end a sentence. */
 const SENTENCE_END_RE =
   /(?<!\b(?:e\.g|i\.e|etc|vs|approx|Mr|Mrs|Ms|Dr|Prof|St|Inc|Ltd|bzw|ca|z\.B|d\.h))([.!?؟…])["'”’»)]*[ \t]+(?=\S)/g;
 
-/** The live answer with each sentence of the reply on its own line (a
- *  Markdown line break). Other text, and code blocks, stay as they are. */
-export function sentencePerLine(text: string): string {
-  if (!LIVE_ANSWER_RE.test(text)) return text;
-  const headingEnd = text.indexOf("\n\n");
-  const heading = text.slice(0, headingEnd + 2);
-  const reply = text.slice(headingEnd + 2);
+/** The answer text with each sentence on its own line (a Markdown line
+ *  break). Code blocks stay as they are. */
+export function sentenceLines(reply: string): string {
   // Odd parts are fenced code blocks.
-  return (
-    heading +
-    reply
-      .split(/(```[\s\S]*?(?:```|$))/)
-      .map((part, i) =>
-        i % 2 === 1 ? part : part.replace(SENTENCE_END_RE, (m) => `${m.trimEnd()}  \n`),
-      )
-      .join("")
-  );
+  return reply
+    .split(/(```[\s\S]*?(?:```|$))/)
+    .map((part, i) =>
+      i % 2 === 1 ? part : part.replace(SENTENCE_END_RE, (m) => `${m.trimEnd()}  \n`),
+    )
+    .join("");
 }
 
 export type AnswerTextSize = "normal" | "large" | "larger";

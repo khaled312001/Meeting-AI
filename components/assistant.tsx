@@ -103,6 +103,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     answerWhenQuestionEnds,
     waitingForEnd,
     sentRanges,
+    updateAnswer,
   } = useAutoAnswer({
     enabled: auto,
     isLive: sessionState === "live",
@@ -110,8 +111,8 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     transcript: interviewerText,
     hasInterim: interviewerSpeaking,
     myTranscript: myText,
-    onTrigger: ({ question, replace }) =>
-      void generateNow({ question: question || undefined, replace }),
+    onTrigger: ({ question, replace, updated }) =>
+      void generateNow({ question: question || undefined, replace, updated }),
     onInterrupt: () => stop(),
   });
 
@@ -295,6 +296,11 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
             answerNumber={answerNumber}
             isGenerating={isLoading}
             waitingForEnd={waitingForEnd}
+            onUpdate={
+              sessionState === "live" && answerNumber !== null
+                ? updateAnswer
+                : undefined
+            }
             onSave={handleSave}
             onClear={() => {
               stop();

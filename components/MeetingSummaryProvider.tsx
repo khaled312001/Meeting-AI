@@ -27,11 +27,15 @@ import {
   useRef,
   useState,
 } from "react";
-import { useAssistantSession } from "@/components/AssistantSessionProvider";
+import {
+  type AnswerLogEntry,
+  useAssistantSession,
+} from "@/components/AssistantSessionProvider";
 import { useInterviewContext } from "@/components/InterviewContextProvider";
 import { useTab } from "@/components/TabContext";
 import { buildTranscriptTexts, useTranscription } from "@/components/TranscriptionContext";
 import { buildSummaryDocument, summaryFileBaseName } from "@/lib/meeting-summary";
+import { buildInterviewLog, interviewLogFileBaseName } from "@/lib/interview-log";
 import { buildContextBlock } from "@/lib/prompt-context";
 import { streamCompletion } from "@/lib/stream-completion";
 import { FLAGS, type TranscriptionSegment } from "@/lib/types";
@@ -70,11 +74,11 @@ const MeetingSummaryContext = createContext<MeetingSummaryContextValue | null>(n
 
 const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length;
 
-function downloadInBrowser(html: string, name: string) {
-  const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+function downloadInBrowser(content: string, name: string, type = "text/html", ext = "html") {
+  const url = URL.createObjectURL(new Blob([content], { type }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${name}.html`;
+  a.download = `${name}.${ext}`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -83,7 +87,8 @@ function downloadInBrowser(html: string, name: string) {
 
 export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
   const { sessionState, transcriptionSegments, language, stopSession } = useTranscription();
-  const { pastAnswers, completion, answerKind, answerAt } = useAssistantSession();
+  const { pastAnswers, completion, answerKind, answerAt, getAnswerLog } =
+    useAssistantSession();
   const { interviewNotes, jobDescription } = useInterviewContext();
   const { compactMode } = useTab();
   const [status, setStatus] = useState<MeetingSummaryStatus>({ state: "idle" });
@@ -116,6 +121,40 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     afterSegmentId: null,
     since: 0,
   });
+
+  /** The interview log: saved once per meeting, on its own, when the
+   *  meeting ends — however little was said, and even if the summary fails.
+   *  Kept from the last render too, so clearing everything still saves it. */
+  const getAnswerLogRef = useRef(getAnswerLog);
+  getAnswerLogRef.current = getAnswerLog;
+  const lastLogRef = useRef<AnswerLogEntry[]>([]);
+  const meetingLog = getAnswerLog(meetingStartRef.current.since);
+  if (meetingLog.length > 0) lastLogRef.current = meetingLog;
+  const loggedRef = useRef<string | null>(null);
+  const saveInterviewLog = useCallback((entries: AnswerLogEntry[]) => {
+    if (entries.length === 0) return;
+    const key = entries.map((e) => `${e.at}:${e.answer.length}`).join("|");
+    if (key === loggedRef.current) return;
+    loggedRef.current = key;
+    const at = new Date(entries[0]?.at ?? Date.now());
+    const text = buildInterviewLog(entries, at);
+    const name = interviewLogFileBaseName(at);
+    const api = typeof window !== "undefined" ? window.electronAPI : undefined;
+    if (api?.saveTextFile) {
+      void api.saveTextFile(text, name).catch((err) => {
+        console.error("Interview log not saved:", err);
+        loggedRef.current = null;
+      });
+    } else {
+      downloadInBrowser(text, name, "text/markdown", "md");
+    }
+  }, []);
+  const takeMeetingLog = useCallback(() => {
+    const live = getAnswerLogRef.current(meetingStartRef.current.since);
+    const entries = live.length > 0 ? live : lastLogRef.current;
+    lastLogRef.current = [];
+    return entries;
+  }, []);
 
   const meetingSegments = useCallback(() => {
     const all = segmentsRef.current;
@@ -254,6 +293,7 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     const i = afterSegmentId ? before.findIndex((s) => s.id === afterSegmentId) : -1;
     const segments = i < 0 ? before : before.slice(i + 1);
     const last = segments.at(-1)?.id ?? null;
+    saveInterviewLog(takeMeetingLog());
     if (
       last &&
       last !== summarizedUpToRef.current &&
@@ -266,7 +306,7 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     }
     meetingStartRef.current = { afterSegmentId: null, since: Date.now() };
     wordsAtStartRef.current = 0;
-  }, [transcriptEmpty, queueSummary, meetingAnswers]);
+  }, [transcriptEmpty, queueSummary, meetingAnswers, saveInterviewLog, takeMeetingLog]);
 
   /** Speech in this listening session that no summary covers yet. */
   const hasUnsavedMeeting = useCallback(() => {
@@ -282,11 +322,20 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
       wordsAtStartRef.current = wordCount(meetingTranscript());
       setStatus((s) => (s.state === "writing" ? s : { state: "idle" }));
     }
-    if (!listening && listeningRef.current && !quittingRef.current && hasUnsavedMeeting()) {
-      void queueSummary(snapshot(), true);
+    if (!listening && listeningRef.current && !quittingRef.current) {
+      saveInterviewLog(takeMeetingLog());
+      if (hasUnsavedMeeting()) void queueSummary(snapshot(), true);
     }
     listeningRef.current = listening;
-  }, [sessionState, meetingTranscript, hasUnsavedMeeting, queueSummary, snapshot]);
+  }, [
+    sessionState,
+    meetingTranscript,
+    hasUnsavedMeeting,
+    queueSummary,
+    snapshot,
+    saveInterviewLog,
+    takeMeetingLog,
+  ]);
 
   // Desktop: quitting mid-meeting saves the summary first (see quitGuard).
   const writing = status.state === "writing";
@@ -302,13 +351,14 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     const api = typeof window !== "undefined" ? window.electronAPI : undefined;
     return api?.onFinishMeetingBeforeQuit?.(() => {
       quittingRef.current = true;
+      if (listeningNowRef.current) saveInterviewLog(takeMeetingLog());
       const save = listeningNowRef.current && hasUnsavedMeeting();
       const meeting = { ...snapshot(), endsMeeting: true };
       if (listeningNowRef.current) stopSessionRef.current();
       const done = save ? queueSummary(meeting, true) : queueRef.current;
       void done.finally(() => api.meetingFinished?.());
     });
-  }, [hasUnsavedMeeting, snapshot, queueSummary]);
+  }, [hasUnsavedMeeting, snapshot, queueSummary, saveInterviewLog, takeMeetingLog]);
 
   useEffect(() => () => runningRef.current?.abort(), []);
 

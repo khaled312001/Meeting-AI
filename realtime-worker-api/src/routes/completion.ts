@@ -18,6 +18,7 @@ import {
   type AuthedUser,
 } from "../middleware/auth";
 import { encoder, jsonResponse } from "../lib/http";
+import { SAFE_RESOURCE_ID_RE } from "../lib/ids";
 import {
   appendKnowledgeToBackground,
   buildAskAiPrompt,
@@ -66,6 +67,7 @@ import {
   loadEnabledKnowledgeDocs,
   type KnowledgeDocForPrompt,
   instructionsBlock,
+  loadKnowledgeDocsByIds,
   splitInstructionDocs,
 } from "./knowledge";
 
@@ -141,6 +143,12 @@ export async function handleCompletion(
   const lang: MeetingLanguage | undefined = isMeetingLanguage(payload.lang)
     ? payload.lang
     : undefined;
+  for (const field of ["instructionsDocId", "feedDocId"] as const) {
+    const id: unknown = payload[field];
+    if (id !== undefined && (typeof id !== "string" || !SAFE_RESOURCE_ID_RE.test(id))) {
+      return jsonResponse({ error: `${field} must be a file id` }, 400);
+    }
+  }
   for (const field of ["answerOnly", "questionLine"] as const) {
     if (payload[field] !== undefined && typeof payload[field] !== "boolean") {
       return jsonResponse({ error: `${field} must be a boolean` }, 400);
@@ -206,6 +214,10 @@ export async function handleCompletion(
   // Knowledge files ground Assistant and Ask AI answers. A failed lookup
   // degrades to answering without them rather than failing the request.
   let knowledgeDocs: KnowledgeDocForPrompt[] = [];
+  // The files chosen for this interview, when there are any: only these.
+  const chosen = [payload.instructionsDocId, payload.feedDocId].filter(
+    (id): id is string => !!id,
+  );
   if (
     payload.useKnowledge !== false &&
     (payload.flag === FLAGS.ASSISTANT ||
@@ -213,14 +225,30 @@ export async function handleCompletion(
       payload.flag === FLAGS.ASK_AI)
   ) {
     try {
-      knowledgeDocs = await loadEnabledKnowledgeDocs(env, trackedUser.id);
+      knowledgeDocs = chosen.length
+        ? await loadKnowledgeDocsByIds(env, trackedUser.id, chosen)
+        : await loadEnabledKnowledgeDocs(env, trackedUser.id);
     } catch (err) {
       console.warn("[Worker] knowledge lookup failed:", err);
     }
   }
 
+  // The candidate's instructions go into the system prompt, whole and
+  // cached; the rest of their files stay document blocks to answer from.
+  // A chosen instructions file is that one; otherwise one named so.
+  const { instructions, material } = !useAnthropic
+    ? { instructions: [], material: knowledgeDocs }
+    : chosen.length
+      ? {
+          instructions: knowledgeDocs.filter((d) => d.id === payload.instructionsDocId),
+          material: knowledgeDocs.filter((d) => d.id !== payload.instructionsDocId),
+        }
+      : splitInstructionDocs(knowledgeDocs);
+  // With an instructions file, live answers take every rule from the files.
+  const rulesFromFiles = payload.flag === FLAGS.ASSISTANT && instructions.length > 0;
+
   const wireMessages = useAnthropic
-    ? buildAnthropicWireMessages(payload, hasChatHistory, basePrompt)
+    ? buildAnthropicWireMessages(payload, hasChatHistory, basePrompt, rulesFromFiles)
     : buildWireMessages(
         payload,
         hasChatHistory,
@@ -348,16 +376,12 @@ export async function handleCompletion(
       ? { ...modelParams, thinkingBudget: "off" as const }
       : modelParams;
 
-  // The candidate's instruction files go into the system prompt, whole and
-  // cached; the rest of their files stay document blocks to answer from.
-  const { instructions, material } = useAnthropic
-    ? splitInstructionDocs(knowledgeDocs)
-    : { instructions: [], material: knowledgeDocs };
   const baseSystem = buildAnthropicSystemPrompt(
     payload.flag,
     lang,
     payload.answerOnly === true,
     payload.questionLine === true,
+    rulesFromFiles,
   );
 
   const completionFn = useAnthropic
@@ -529,8 +553,10 @@ function validateLiveFields(payload: CompletionRequestBody): Response | null {
 function liveTurn(
   payload: CompletionRequestBody,
   transcript: string,
+  rulesFromFiles = false,
 ): LiveTurn {
   return {
+    rulesFromFiles,
     transcript,
     question: payload.question,
     previousAnswers: payload.previousAnswers,
@@ -673,6 +699,7 @@ function buildAnthropicWireMessages(
   payload: CompletionRequestBody,
   hasChatHistory: boolean,
   basePrompt: string,
+  rulesFromFiles: boolean,
 ): WireMessage[] {
   if (
     !hasChatHistory &&
@@ -682,7 +709,7 @@ function buildAnthropicWireMessages(
       {
         role: "user",
         text: buildLiveTurn(
-          liveTurn(payload, basePrompt),
+          liveTurn(payload, basePrompt, rulesFromFiles),
           payload.flag === FLAGS.REVIEW ? "review" : "answer",
         ),
         images: parseImageDataUrls(payload.image),

@@ -141,6 +141,8 @@ export interface ElectronAPI {
   appQuit: () => Promise<void>;
   /** Render a meeting summary (HTML) to a PDF in Downloads; returns its path. */
   saveSummaryPdf?: (html: string, baseName: string) => Promise<string>;
+  /** Save a Markdown file (the interview log) in Downloads; returns its path. */
+  saveTextFile?: (text: string, baseName: string) => Promise<string>;
   /** Open / reveal a file saved by saveSummaryPdf. */
   openSavedFile?: (file: string) => Promise<boolean>;
   showSavedFile?: (file: string) => Promise<boolean>;

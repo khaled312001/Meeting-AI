@@ -23,6 +23,7 @@ import {
   type LiveAnswerOptions,
 } from "@/lib/live-answer";
 import { collectSaidFigures } from "@/lib/said-figures";
+import { getInterviewFiles } from "@/lib/interview-files";
 
 interface UseAssistantSubmitArgs {
   flag: FLAGS;
@@ -116,7 +117,12 @@ export function useAssistantSubmit({
       const numbered = runFlag === FLAGS.ASSISTANT && !!opts.question?.trim();
       const { previous: previousAnswers, n } = isReview
         ? { previous: getRememberedAnswers(), n: undefined }
-        : startNewAnswer({ replace: opts.replace, numbered });
+        : startNewAnswer({
+            replace: opts.replace,
+            numbered,
+            question: opts.question?.trim(),
+            updated: opts.updated,
+          });
       let shown = !isReview;
       setIsLoading(true);
       controller.current = new AbortController();
@@ -147,6 +153,7 @@ export function useAssistantSubmit({
             flag: runFlag,
             answerOnly: !!liveQuestion,
             questionLine: !!liveQuestion,
+            ...getInterviewFiles(),
             // Live answers and reviews keep to the figures already said.
             saidFigures:
               liveQuestion || isReview

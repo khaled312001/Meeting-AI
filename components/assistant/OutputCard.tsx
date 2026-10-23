@@ -1,8 +1,7 @@
 "use client";
 
-import { memo } from "react";
-import { ALargeSmall, BookmarkPlus } from "lucide-react";
-import SafeMarkdown from "@/components/SafeMarkdown";
+import { memo, useEffect, useRef } from "react";
+import { ALargeSmall, BookmarkPlus, RefreshCw } from "lucide-react";
 import {
   compactTextSurface,
   overlayPanel,
@@ -11,16 +10,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { AnswerSources } from "@/components/AnswerSources";
 import { AnswerHistory } from "@/components/AnswerHistory";
+import { AnswerBody } from "@/components/AnswerBody";
+import { InterviewFilesSummary } from "@/components/InterviewFilesPicker";
 import type {
   AnswerKind,
   PastAnswer,
 } from "@/components/AssistantSessionProvider";
 import { AnswerHeader } from "@/components/AnswerHeader";
-import { useStickToBottom } from "@/hooks/useStickToBottom";
 import type { AnswerCitation } from "@/lib/types";
 import {
   ANSWER_FONT_PX,
-  sentencePerLine,
   useAnswerTextSize,
 } from "@/lib/answer-display";
 
@@ -42,6 +41,8 @@ interface OutputCardProps {
   waitingForEnd?: boolean;
   onSave: () => void;
   onClear?: () => void;
+  /** Update: answer the whole question again in place of this answer. */
+  onUpdate?: () => void;
 }
 
 export const OutputCard = memo(function OutputCard({
@@ -55,11 +56,13 @@ export const OutputCard = memo(function OutputCard({
   waitingForEnd = false,
   onSave,
   onClear,
+  onUpdate,
 }: OutputCardProps) {
-  // Follow new answers, unless the user scrolled up to read an older one.
-  const { ref, showLatest, handleScroll, scrollToLatest } = useStickToBottom(
-    `${pastAnswers.length}:${completion.length}`,
-  );
+  // The newest answer is on top: back to the top when one starts.
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    ref.current?.scrollTo({ top: 0 });
+  }, [answerAt]);
   const { size: textSize, cycle: cycleTextSize } = useAnswerTextSize();
   const fontPx = ANSWER_FONT_PX.full[textSize];
   const isEmpty =
@@ -86,6 +89,19 @@ export const OutputCard = memo(function OutputCard({
         >
           <ALargeSmall className="h-4 w-4" />
         </Button>
+        {onUpdate && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-[11px] text-text-secondary"
+            onClick={onUpdate}
+            title="Answer the whole question again, with what was said since — replaces the current answer"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Update
+          </Button>
+        )}
         {onClear && (
           <Button
             type="button"
@@ -115,7 +131,6 @@ export const OutputCard = memo(function OutputCard({
       <div className="relative min-h-0 flex-1">
       <div
         ref={ref}
-        onScroll={handleScroll}
         className="custom-scrollbar h-full overflow-y-auto px-4 py-4 sm:px-5 sm:py-5"
       >
         {isEmpty ? (
@@ -130,14 +145,10 @@ export const OutputCard = memo(function OutputCard({
               each question is answered as soon as the speaker finishes; in
               Manual mode press Answer.
             </p>
+            <InterviewFilesSummary className="mt-2" />
           </div>
         ) : (
           <div className={`${compactTextSurface} ${overlayTextShadow}`}>
-            <AnswerHistory
-              answers={pastAnswers}
-              proseClassName={PROSE}
-              fontPx={fontPx}
-            />
             {completion ? (
               <div
                 key={answerAt ?? "answer"}
@@ -155,9 +166,7 @@ export const OutputCard = memo(function OutputCard({
                   live={isGenerating}
                   text={completion}
                 />
-                <div className={PROSE} style={{ fontSize: fontPx }}>
-                  <SafeMarkdown>{sentencePerLine(completion)}</SafeMarkdown>
-                </div>
+                <AnswerBody text={completion} proseClassName={PROSE} fontPx={fontPx} />
                 <AnswerSources citations={citations} className="not-prose mt-4" />
               </div>
             ) : null}
@@ -169,18 +178,14 @@ export const OutputCard = memo(function OutputCard({
                   : "Writing the answer…"}
               </p>
             )}
+            <AnswerHistory
+              answers={pastAnswers}
+              proseClassName={PROSE}
+              fontPx={fontPx}
+            />
           </div>
         )}
       </div>
-      {showLatest && (
-        <button
-          type="button"
-          onClick={scrollToLatest}
-          className="absolute bottom-3 left-1/2 -translate-x-1/2 animate-fade-in-scale rounded-full border border-border-subtle bg-surface-raised px-3 py-1 text-[10px] font-medium text-text-secondary shadow-sm transition-colors hover:text-text-primary"
-        >
-          Latest ↓
-        </button>
-      )}
       </div>
     </div>
   );

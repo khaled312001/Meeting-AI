@@ -37,6 +37,19 @@ export interface PastAnswer {
   kind?: AnswerKind;
   /** The question's number in this meeting (live answers only). */
   n?: number;
+  /** The question as it was sent, word for word. */
+  question?: string;
+  /** Answered again with Update (the question went on). */
+  updated?: boolean;
+}
+
+/** One question of the interview log saved when the meeting ends. */
+export interface AnswerLogEntry {
+  n?: number;
+  question?: string;
+  answer: string;
+  at?: number;
+  updated: boolean;
 }
 
 /** Answer on their own when a question ends, or only on request. */
@@ -54,6 +67,8 @@ interface AnswerMeta {
   at: number | null;
   kind: AnswerKind;
   n?: number;
+  question?: string;
+  updated?: boolean;
 }
 
 function readAnswerMeta(): AnswerMeta {
@@ -65,6 +80,8 @@ function readAnswerMeta(): AnswerMeta {
       at: typeof parsed.at === "number" ? parsed.at : null,
       kind: parsed.kind === "review" ? "review" : "answer",
       n: typeof parsed.n === "number" ? parsed.n : undefined,
+      question: typeof parsed.question === "string" ? parsed.question : undefined,
+      updated: parsed.updated === true,
     };
   } catch {
     return { at: null, kind: "answer" };
@@ -86,6 +103,10 @@ interface NewAnswerOptions {
   replace?: boolean;
   kind?: AnswerKind;
   numbered?: boolean;
+  /** The question as sent, for the interview log. */
+  question?: string;
+  /** Update: the answer replaces the current one for the whole question. */
+  updated?: boolean;
 }
 
 interface NewAnswer {
@@ -119,6 +140,11 @@ type AssistantSessionValue = {
   getRememberedAnswers: () => string[];
   /** Every answer kept this meeting (not reviews), oldest first. */
   getAnswerHistory: () => string[];
+  /** Every answer with its question, time and Update mark, oldest first,
+   *  from `since` (ms) on: the interview log. */
+  getAnswerLog: (since?: number) => AnswerLogEntry[];
+  /** The current answer was given again with Update. */
+  answerUpdated: boolean;
   answerMode: AnswerMode;
   setAnswerMode: (mode: AnswerMode) => void;
   /** Drop the history and the current answer. */
@@ -190,6 +216,29 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     return all.filter((t) => t.trim());
   }, []);
 
+  const getAnswerLog = useCallback((since = 0) => {
+    const entries: AnswerLogEntry[] = pastAnswersRef.current
+      .filter((a) => a.kind !== "review" && a.text.trim() && (a.at ?? 0) >= since)
+      .map((a) => ({
+        n: a.n,
+        question: a.question,
+        answer: a.text,
+        at: a.at,
+        updated: a.updated === true,
+      }));
+    const meta = answerMetaRef.current;
+    if (completionRef.current.trim() && meta.kind !== "review" && (meta.at ?? 0) >= since) {
+      entries.push({
+        n: meta.n,
+        question: meta.question,
+        answer: completionRef.current,
+        at: meta.at ?? undefined,
+        updated: meta.updated === true,
+      });
+    }
+    return entries;
+  }, []);
+
   const startNewAnswer = useCallback(
     (opts?: NewAnswerOptions): NewAnswer => {
       const text = completionRef.current;
@@ -210,6 +259,8 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
           at: current.at ?? undefined,
           kind: current.kind,
           n: current.n,
+          question: current.question,
+          updated: current.updated,
         };
         past = [...past, entry].slice(-MAX_PAST_ANSWERS);
         pastAnswersRef.current = past;
@@ -222,6 +273,9 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
         at: Date.now(),
         kind: opts?.kind ?? "answer",
         n,
+        question: opts?.question,
+        // A replaced answer that was updated stays marked as updated.
+        updated: opts?.updated || (opts?.replace && current.updated) || undefined,
       };
       answerMetaRef.current = meta;
       setAnswerMeta(meta);
@@ -310,6 +364,8 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
         startNewAnswer,
         getRememberedAnswers,
         getAnswerHistory,
+        getAnswerLog,
+        answerUpdated: answerMeta.updated === true,
         answerMode,
         setAnswerMode,
         clearAnswers,

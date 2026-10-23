@@ -46,6 +46,9 @@ export interface StreamCompletionParams {
   questionLine?: boolean;
   /** Sentences with figures said so far (see collectSaidFigures). */
   saidFigures?: string[];
+  /** The files chosen for this interview (see interview-files). */
+  instructionsDocId?: string;
+  feedDocId?: string;
   resolveErrorMessage?: (
     response: Response,
     defaultMessage: string,
@@ -69,6 +72,8 @@ export async function streamCompletion({
   answerOnly,
   questionLine,
   saidFigures,
+  instructionsDocId,
+  feedDocId,
 }: StreamCompletionParams): Promise<void> {
   const response = await ricFetch("/api/completion", {
     method: "POST",
@@ -88,6 +93,8 @@ export async function streamCompletion({
       ...(answerOnly ? { answerOnly } : {}),
       ...(questionLine ? { questionLine } : {}),
       ...(saidFigures?.length ? { saidFigures } : {}),
+      ...(instructionsDocId ? { instructionsDocId } : {}),
+      ...(feedDocId ? { feedDocId } : {}),
     }),
     signal,
   });

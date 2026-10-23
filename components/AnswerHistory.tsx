@@ -1,15 +1,17 @@
 "use client";
 
-/** Earlier answers, oldest first, shown above the live one so the user can
- *  scroll back while new answers keep arriving. */
+/** Earlier answers below the current one, newest first. Each is a closed
+ *  line with its number and the first words of its question; a click opens
+ *  it, another closes it. The list is the interview history the model gets
+ *  with every new question, with the same numbers and order. */
 
-import { memo } from "react";
-import SafeMarkdown from "@/components/SafeMarkdown";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { memo, useState } from "react";
+import { AnswerBody, parseLiveAnswer } from "@/components/AnswerBody";
 import { AnswerSources } from "@/components/AnswerSources";
-import { AnswerHeader } from "@/components/AnswerHeader";
+import { CopyButton, formatClock } from "@/components/AnswerHeader";
 import type { PastAnswer } from "@/components/AssistantSessionProvider";
 import { cn } from "@/lib/utils";
-import { sentencePerLine } from "@/lib/answer-display";
 
 interface AnswerHistoryProps {
   answers: PastAnswer[];
@@ -20,6 +22,78 @@ interface AnswerHistoryProps {
   compact?: boolean;
 }
 
+/** The closed line's text: the question's first words, or what it is. */
+function summaryLine(a: PastAnswer): string {
+  const parsed = parseLiveAnswer(a.text);
+  const words = (parsed?.question ?? a.text.replace(/[*#>`[\]]/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+  const lead = words.length > 70 ? `${words.slice(0, 70).trimEnd()}…` : words;
+  if (a.kind === "review") return `Notes on your answer · ${lead}`;
+  return lead;
+}
+
+function HistoryItem({
+  answer,
+  proseClassName,
+  fontPx,
+  compact,
+}: {
+  answer: PastAnswer;
+  proseClassName: string;
+  fontPx?: number;
+  compact: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const Chevron = open ? ChevronDown : ChevronRight;
+  return (
+    <div
+      className={cn(
+        "border-t border-border-subtle/40",
+        answer.kind === "review" && "border-l-2 border-l-amber-300/50 pl-2",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 py-1.5 text-left text-[12px] text-text-secondary hover:text-text-primary"
+      >
+        <Chevron className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
+        {answer.n ? (
+          <span className="shrink-0 font-mono font-semibold text-accent-text">
+            {answer.n}
+          </span>
+        ) : null}
+        <span dir="auto" className="min-w-0 flex-1 truncate">
+          {summaryLine(answer)}
+        </span>
+        {answer.updated && (
+          <span className="shrink-0 text-[10px] text-text-tertiary">updated</span>
+        )}
+        {answer.at ? (
+          <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-tertiary">
+            {formatClock(answer.at)}
+          </span>
+        ) : null}
+      </button>
+      {open && (
+        <div className={cn("pl-5", compact ? "pb-2" : "pb-4")}>
+          <div className="mb-1 flex justify-end">
+            <CopyButton text={answer.text} />
+          </div>
+          <AnswerBody text={answer.text} proseClassName={proseClassName} fontPx={fontPx} />
+          <AnswerSources
+            citations={answer.citations}
+            compact={compact}
+            className={compact ? "mt-2" : "not-prose mt-3"}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const AnswerHistory = memo(function AnswerHistory({
   answers,
   proseClassName,
@@ -28,30 +102,15 @@ export const AnswerHistory = memo(function AnswerHistory({
 }: AnswerHistoryProps) {
   if (answers.length === 0) return null;
   return (
-    <div className="flex flex-col">
-      {answers.map((a) => (
-        <div
+    <div className="mt-3 flex flex-col">
+      {[...answers].reverse().map((a) => (
+        <HistoryItem
           key={a.id}
-          dir="auto"
-          className={cn(
-            "border-b border-border-subtle/40 opacity-75 transition-opacity hover:opacity-100",
-            compact ? "pb-2 mb-2" : "pb-4 mb-4",
-            a.kind === "review" && "border-l-2 border-l-amber-300/50 pl-2",
-          )}
-        >
-          <AnswerHeader kind={a.kind} at={a.at} n={a.n} text={a.text} />
-          <div
-            className={proseClassName}
-            style={fontPx ? { fontSize: fontPx } : undefined}
-          >
-            <SafeMarkdown>{sentencePerLine(a.text)}</SafeMarkdown>
-          </div>
-          <AnswerSources
-            citations={a.citations}
-            compact={compact}
-            className={compact ? "mt-2" : "not-prose mt-3"}
-          />
-        </div>
+          answer={a}
+          proseClassName={proseClassName}
+          fontPx={fontPx}
+          compact={compact}
+        />
       ))}
     </div>
   );

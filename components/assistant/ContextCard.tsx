@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/Kbd";
 import { KnowledgeUploadButton } from "@/components/KnowledgeUploadButton";
+import { InterviewFilesPicker } from "@/components/InterviewFilesPicker";
 import { LiveControls } from "@/components/LiveControls";
 import { useMeetingSummary } from "@/components/MeetingSummaryProvider";
 import { hasAttachedContext } from "@/lib/prompt-context";
@@ -199,6 +200,7 @@ export const ContextCard = memo(function ContextCard({
               <Label className="mb-1 block">Knowledge files</Label>
               <KnowledgeUploadButton />
             </div>
+            <InterviewFilesPicker />
             <div>
               <Label htmlFor="interview_notes" className="mb-1 block">
                 Interview notes

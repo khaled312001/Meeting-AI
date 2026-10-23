@@ -30,6 +30,42 @@ function safeUrlTransform(url: string): string {
   return trimmed;
 }
 
+interface HastNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+}
+
+/** "**" left as text is bold the parser couldn't take (e.g. "**46%**"
+ *  right before a letter): a pair becomes bold all the same, a lone one is
+ *  dropped, so the stars never show. Code keeps its text. */
+function boldStrayMarks() {
+  const split = (value: string): HastNode[] => {
+    const out: HastNode[] = [];
+    const parts = value.split("**");
+    const pairs = parts.length % 2 === 1 ? parts.length : parts.length - 1;
+    parts.forEach((part, i) => {
+      if (i % 2 === 1 && i < pairs) {
+        out.push({ type: "element", tagName: "strong", properties: {}, children: [{ type: "text", value: part }] });
+      } else if (part) {
+        out.push({ type: "text", value: part });
+      }
+    });
+    return out;
+  };
+  const walk = (node: HastNode) => {
+    if (node.type === "element" && (node.tagName === "code" || node.tagName === "pre")) return;
+    if (!node.children) return;
+    node.children = node.children.flatMap((child) =>
+      child.type === "text" && child.value?.includes("**") ? split(child.value) : [child],
+    );
+    node.children.forEach(walk);
+  };
+  return (tree: HastNode) => walk(tree);
+}
+
 type SafeMarkdownProps = Omit<
   Options,
   "remarkPlugins" | "rehypePlugins" | "urlTransform"
@@ -44,7 +80,7 @@ export default function SafeMarkdown(props: SafeMarkdownProps) {
       <ReactMarkdown
         {...props}
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeSanitize, schema]]}
+        rehypePlugins={[[rehypeSanitize, schema], boldStrayMarks]}
         urlTransform={safeUrlTransform}
       />
     </div>

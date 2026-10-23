@@ -4,7 +4,7 @@
  *  uploads only the text. Enabled files are loaded by /api/completion and
  *  sent to Anthropic as citable document blocks. */
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db";
 import { userKnowledgeDoc } from "../db/schema";
 import {
@@ -40,6 +40,7 @@ const docMetaColumns = {
 };
 
 export interface KnowledgeDocForPrompt {
+  id?: string;
   fileName: string;
   content: string;
 }
@@ -66,6 +67,30 @@ export function instructionsBlock(docs: KnowledgeDocForPrompt[]): string {
         `<candidate_instructions file="${d.fileName.replace(/"/g, "'")}">\n${d.content.trim()}\n</candidate_instructions>`,
     )
     .join("\n\n");
+}
+
+/** The files the user chose for this interview, by id (their own only,
+ *  enabled or not). */
+export async function loadKnowledgeDocsByIds(
+  env: Env,
+  userId: string,
+  ids: string[],
+): Promise<KnowledgeDocForPrompt[]> {
+  if (ids.length === 0) return [];
+  const db = getDb(env);
+  return db
+    .select({
+      id: userKnowledgeDoc.id,
+      fileName: userKnowledgeDoc.fileName,
+      content: userKnowledgeDoc.content,
+    })
+    .from(userKnowledgeDoc)
+    .where(
+      and(
+        eq(userKnowledgeDoc.userId, userId),
+        inArray(userKnowledgeDoc.id, ids),
+      ),
+    );
 }
 
 /** Enabled docs for one user, oldest first. The order must be stable:

@@ -51,6 +51,40 @@ const INPUT = `The input:
 - <figures_so_far>: sentences with numbers, dates, amounts or durations already said in this meeting (by the other side, by the candidate, or in earlier answers), including ones from talk too old to be in the transcript. The same figure must stay the same in every later answer: reuse it exactly and never contradict it.
 - <question>: everything the interviewer said since the last answer, as heard. It can hold context before the question, several sentences, or a rephrasing ("let me put it differently"): answer the real question (its latest wording when it was rephrased), using the context given, and answer every question in it together.`;
 
+/** Live answers when the candidate has an instructions file: every rule
+ *  for the answer (length, parts, figures, repetition, what is said) comes
+ *  from their files, so none is written here. Only the inputs and the two
+ *  marks the app displays are described, plus the question line the app
+ *  shows as the answer's title. */
+function filesRuleSystem(
+  lang: MeetingLanguage | undefined,
+  questionLine: boolean,
+): string {
+  const language = lang
+    ? `Write in ${LANGUAGE_NAME[lang]}.`
+    : "Write in the language of the interviewer's question.";
+  const shape = questionLine
+    ? `Reply in this shape:
+<line 1: the question as you understood it, on one short line, cleaned of speech-to-text errors and filler; the app shows it as the answer's title and it is not said aloud>
+<a blank line>
+<the answer>`
+    : "Reply with the answer only.";
+  return `You write, live, what the candidate says next in a conversation (a job interview or another meeting). They read it aloud.
+
+The candidate's instructions (<candidate_instructions>) set every rule for the answer: its length, its parts, its figures, what may be repeated, and what is and is not said. Follow them exactly. The attached files are the candidate's material.
+
+The input:
+- <transcript>: live speech-to-text of the call. "Interviewer:" lines are the call audio, the other side; "Me:" lines are the candidate's microphone.
+- <interview_so_far>: every question asked and answer given so far in this meeting, in order (Q1 and A1, Q2 and A2, …).
+- <question>: everything the interviewer said since the last answer, as heard.
+
+The app shows two marks as they are written: a part line "[n/N label]" on its own line above each part of an answer, and **bold** text. Use them as the instructions say.
+
+${language}
+
+${shape}`;
+}
+
 function assistantSystem(
   lang: MeetingLanguage | undefined,
   answerOnly = false,
@@ -183,6 +217,8 @@ export interface LiveTurn {
   previousAnswers?: string[];
   myAnswer?: string;
   saidFigures?: string[];
+  /** The candidate's files set the answer's rules (see filesRuleSystem). */
+  rulesFromFiles?: boolean;
 }
 
 export function buildPrompt(
@@ -283,8 +319,13 @@ export function buildAnthropicSystemPrompt(
   lang?: MeetingLanguage,
   answerOnly = false,
   questionLine = false,
+  rulesFromFiles = false,
 ): string {
-  if (flag === "assistant") return assistantSystem(lang, answerOnly, questionLine);
+  if (flag === "assistant") {
+    return rulesFromFiles
+      ? filesRuleSystem(lang, answerOnly && questionLine)
+      : assistantSystem(lang, answerOnly, questionLine);
+  }
   if (flag === "review") return reviewSystem(lang);
   if (flag === "summarizer") return summarizerSystem(lang);
   return ASK_AI_SYSTEM;
@@ -327,7 +368,9 @@ export function buildLiveTurn(turn: LiveTurn, kind: "answer" | "review"): string
   if (earlier.length > 0) {
     parts.push(`<interview_so_far>\n${interviewSoFar(earlier)}\n</interview_so_far>`);
   }
-  const figures = (turn.saidFigures ?? []).filter((f) => f.trim());
+  const figures = turn.rulesFromFiles
+    ? []
+    : (turn.saidFigures ?? []).filter((f) => f.trim());
   if (figures.length > 0) {
     parts.push(
       `<figures_so_far>\n${figures.map((f) => `- ${f.trim()}`).join("\n")}\n</figures_so_far>`,
@@ -340,9 +383,11 @@ export function buildLiveTurn(turn: LiveTurn, kind: "answer" | "review"): string
     parts.push("Review my answer.");
   } else {
     parts.push(
-      question
-        ? `Answer the question above, exactly as asked. ${SHORT_REMINDER}`
-        : `Answer the interviewer's latest question, exactly as asked. ${SHORT_REMINDER}`,
+      turn.rulesFromFiles
+        ? "Answer the question above."
+        : question
+          ? `Answer the question above, exactly as asked. ${SHORT_REMINDER}`
+          : `Answer the interviewer's latest question, exactly as asked. ${SHORT_REMINDER}`,
     );
   }
   return parts.join("\n\n");

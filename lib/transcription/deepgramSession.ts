@@ -100,6 +100,9 @@ const WATCHDOG_MS = 2_000;
 /** Recent meeting lines kept to spot mic echo of the speakers. */
 const ECHO_WINDOW_MS = 12_000;
 const ECHO_OVERLAP = 0.6;
+/** The mic can finish a line before the meeting audio does: a mic line
+ *  this recent is dropped too once the meeting's line shows it was echo. */
+const ECHO_LATE_MS = 5_000;
 
 async function mintDeepgramKey(sessionId: string): Promise<string> {
   const res = await ricFetch(
@@ -204,6 +207,10 @@ export async function startDeepgramSession(
   const baseId = nextSegmentId();
   /** Recent meeting words, for dropping mic lines that only echo them. */
   const recentThem: Array<{ at: number; words: string[] }> = [];
+  /** The meeting words still being heard (not final yet). */
+  let themInterim: string[] = [];
+  /** Recent mic lines, rechecked when the meeting's line arrives. */
+  const recentMine: Array<{ at: number; id: string; words: string[] }> = [];
 
   function setState(s: SessionState) {
     currentState = s;
@@ -280,12 +287,35 @@ export async function startDeepgramSession(
     getLiveSessionId: () => liveSessionId,
   };
 
-  function isEcho(text: string): boolean {
+  // The other side is who the meeting audio carries, the user is the mic —
+  // never a speaker label. A mic line that only repeats the meeting audio
+  // (speakers heard by the mic) is not the user speaking and is dropped.
+  function theirWords(): Set<string> {
     const now = Date.now();
     while (recentThem.length > 0 && now - recentThem[0].at > ECHO_WINDOW_MS)
       recentThem.shift();
-    const theirs = new Set(recentThem.flatMap((r) => r.words));
-    return overlap(normalizeWords(text), theirs) >= ECHO_OVERLAP;
+    return new Set([...recentThem.flatMap((r) => r.words), ...themInterim]);
+  }
+
+  function isEcho(text: string): boolean {
+    return overlap(normalizeWords(text), theirWords()) >= ECHO_OVERLAP;
+  }
+
+  /** The meeting's line arrived after the mic's: drop mic lines it echoed. */
+  function dropLateEcho() {
+    const now = Date.now();
+    while (recentMine.length > 0 && now - recentMine[0].at > ECHO_LATE_MS)
+      recentMine.shift();
+    if (recentMine.length === 0) return;
+    const theirs = theirWords();
+    const echoed = new Set<string>();
+    for (let i = recentMine.length - 1; i >= 0; i--) {
+      if (overlap(recentMine[i].words, theirs) >= ECHO_OVERLAP) {
+        echoed.add(recentMine[i].id);
+        recentMine.splice(i, 1);
+      }
+    }
+    if (echoed.size > 0) onSegments((prev) => prev.filter((s) => !echoed.has(s.id)));
   }
 
   function bindMessageHandler(ch: Channel, conn: DeepgramLiveConnection) {
@@ -314,6 +344,7 @@ export async function startDeepgramSession(
         if (text === "") return;
         if (ch.source === "them") {
           recentThem.push({ at: Date.now(), words: normalizeWords(text) });
+          themInterim = [];
         } else if (isEcho(text)) {
           onSegments(dropInterim);
           return;
@@ -327,8 +358,12 @@ export async function startDeepgramSession(
           speaker,
         );
         onSegments((prev) => [...dropInterim(prev), final]);
+        if (ch.source === "them") dropLateEcho();
+        else recentMine.push({ at: Date.now(), id: final.id, words: normalizeWords(text) });
         return;
       }
+
+      if (ch.source === "them") themInterim = normalizeWords(text);
 
       // One live "typing" line per channel for the words still being heard.
       if (text === "") {
