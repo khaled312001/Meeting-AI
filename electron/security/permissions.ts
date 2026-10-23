@@ -53,7 +53,12 @@ export function installDisplayMediaHandler(s: Session): void {
   s.setDisplayMediaRequestHandler(
     async (_request, callback) => {
       try {
-        const sources = await desktopCapturer.getSources({ types: ["screen"] });
+        // Only the loopback audio is used: skip rendering screen thumbnails,
+        // which slowed down the first listen.
+        const sources = await desktopCapturer.getSources({
+          types: ["screen"],
+          thumbnailSize: { width: 0, height: 0 },
+        });
         if (sources.length === 0) {
           callback({});
           return;

@@ -106,9 +106,11 @@ export function useAssistantSubmit({
       const isReview = runFlag === FLAGS.REVIEW;
       setError(null);
       // A review only takes the answer slot once it has something to say.
-      const previousAnswers = isReview
-        ? getRememberedAnswers()
-        : startNewAnswer({ replace: opts.replace });
+      // A live answer to a heard question gets the question's number.
+      const numbered = runFlag === FLAGS.ASSISTANT && !!opts.question?.trim();
+      const { previous: previousAnswers, n } = isReview
+        ? { previous: getRememberedAnswers(), n: undefined }
+        : startNewAnswer({ replace: opts.replace, numbered });
       let shown = !isReview;
       setIsLoading(true);
       controller.current = new AbortController();
@@ -126,7 +128,7 @@ export function useAssistantSubmit({
         // A live answer shows its question at once; the reply follows it.
         const liveQuestion =
           runFlag === FLAGS.ASSISTANT ? opts.question?.trim() : undefined;
-        let acc = liveQuestion ? answerHeading(liveQuestion, language) : "";
+        let acc = liveQuestion ? answerHeading(liveQuestion, language, n) : "";
         const flusher = createStreamFlusher(() => setCompletion(acc));
         if (acc) flusher.schedule();
         try {

@@ -84,6 +84,7 @@ export function CompactAssistant({
     setAnswerMode,
     answerAt,
     answerKind,
+    answerNumber,
   } = useAssistantSession();
   const [askMode, setAskMode] = useState<boolean>(false);
   const [askInput, setAskInput] = useState<string>("");
@@ -200,7 +201,7 @@ export function CompactAssistant({
 
   // Stays quiet while the user is typing an Ask AI question.
   const auto = compactMode && !askMode && answerMode === "auto";
-  const { takeQuestion } = useAutoAnswer({
+  const { takeQuestion, answerWhenQuestionEnds, waitingForEnd } = useAutoAnswer({
     enabled: auto,
     isLive: sessionState === "live",
     isBusy: isLoading,
@@ -209,13 +210,17 @@ export function CompactAssistant({
     myTranscript: myText,
     onTrigger: ({ question, replace }) => {
       setAskMode(false);
-      void generate(FLAGS.ASSISTANT, undefined, { question, replace });
+      void generate(FLAGS.ASSISTANT, undefined, {
+        question: question || undefined,
+        replace,
+      });
     },
     onInterrupt: () => abortGeneration(),
   });
 
-  /** Manual Answer: the question heard since the last answer, word for
-   *  word (or the last one again). Falls back to the whole transcript. */
+  /** Answer button: in Auto, answers the question heard since the last
+   *  answer at once. In Manual, waits until the other side has finished
+   *  the question (pressing again answers at once). */
   const answerNow = useCallback(() => {
     if (isLoading) return;
     if (!transcribedText.trim()) {
@@ -224,13 +229,25 @@ export function CompactAssistant({
       );
       return;
     }
-    const { question, replace } = takeQuestion();
     setAskMode(false);
+    if (answerMode === "manual" && sessionState === "live") {
+      answerWhenQuestionEnds();
+      return;
+    }
+    const { question, replace } = takeQuestion();
     void generate(FLAGS.ASSISTANT, undefined, {
       question: question || undefined,
       replace,
     });
-  }, [generate, isLoading, takeQuestion, transcribedText]);
+  }, [
+    answerMode,
+    answerWhenQuestionEnds,
+    generate,
+    isLoading,
+    sessionState,
+    takeQuestion,
+    transcribedText,
+  ]);
 
   /** Clears what the answer panel shows: the answers, and the Chat
    *  thread when the panel is showing Chat. */
@@ -518,6 +535,7 @@ export function CompactAssistant({
     completion.length > 0 ||
     chatMessages.length > 0 ||
     isLoading ||
+    waitingForEnd ||
     chatIsStreaming ||
     error !== null ||
     chatError !== null;
@@ -550,6 +568,7 @@ export function CompactAssistant({
       <FocusBar
         isElectron={isElectron}
         isLoading={isLoading}
+        waitingForEnd={waitingForEnd}
         isCapturing={isCapturing}
         askMode={askMode}
         showContext={showContext}
@@ -611,6 +630,8 @@ export function CompactAssistant({
           pastAnswers={pastAnswers}
           answerAt={answerAt}
           answerKind={answerKind}
+          answerNumber={answerNumber}
+          waitingForEnd={waitingForEnd && outputMode !== "chat"}
           isGenerating={isLoading && activeFlag !== FLAGS.REVIEW}
           error={error}
           activeFlag={activeFlag}

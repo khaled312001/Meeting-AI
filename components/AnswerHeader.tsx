@@ -56,12 +56,15 @@ export function CopyButton({
 export function AnswerHeader({
   kind = "answer",
   at,
+  n,
   live = false,
   text,
   className,
 }: {
   kind?: AnswerKind;
   at?: number | null;
+  /** The question's number in the meeting. */
+  n?: number | null;
   /** Still being written. */
   live?: boolean;
   text: string;
@@ -79,7 +82,7 @@ export function AnswerHeader({
         {live && (
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
         )}
-        {kind === "review" ? "Notes on your answer" : "Answer"}
+        {kind === "review" ? "Notes on your answer" : n ? `Answer ${n}` : "Answer"}
       </span>
       {clock && (
         <span className="font-mono text-[10px] tabular-nums text-text-tertiary">

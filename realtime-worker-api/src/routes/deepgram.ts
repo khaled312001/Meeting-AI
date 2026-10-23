@@ -35,6 +35,30 @@ type DeepgramKeyResponse = Record<string, unknown> & {
   api_key_id?: string;
 };
 
+/** The projects of each Deepgram API key. They don't change, and looking
+ *  them up on every mint added a round trip before each listen started.
+ *  Dropped when a key mint fails, in case the project went away. */
+const projectCache = new Map<string, DeepgramProjectsResponse>();
+
+async function fetchProjects(
+  apiKey: string,
+  headers: Record<string, string>,
+): Promise<{
+  response: { ok: boolean; status: number };
+  body: DeepgramProjectsResponse;
+}> {
+  const cached = projectCache.get(apiKey);
+  if (cached) return { response: { ok: true, status: 200 }, body: cached };
+  const response = await fetch("https://api.deepgram.com/v1/projects", {
+    method: "GET",
+    headers,
+    signal: AbortSignal.timeout(DEEPGRAM_TIMEOUT_MS),
+  });
+  const body = (await response.json()) as DeepgramProjectsResponse;
+  if (response.ok && body.projects?.length) projectCache.set(apiKey, body);
+  return { response, body };
+}
+
 export async function handleDeepgram(
   request: Request,
   env: Env,
@@ -127,17 +151,8 @@ export async function handleDeepgram(
   };
 
   try {
-    const projectsResponse = await fetch(
-      "https://api.deepgram.com/v1/projects",
-      {
-        method: "GET",
-        headers: authHeaders,
-        signal: AbortSignal.timeout(DEEPGRAM_TIMEOUT_MS),
-      },
-    );
-
-    const projectsBody =
-      (await projectsResponse.json()) as DeepgramProjectsResponse;
+    const { response: projectsResponse, body: projectsBody } =
+      await fetchProjects(apiKey, authHeaders);
 
     if (!projectsResponse.ok) {
       tracker.finish({
@@ -182,6 +197,7 @@ export async function handleDeepgram(
     );
 
     const createBody = (await createResponse.json()) as DeepgramKeyResponse;
+    if (!createResponse.ok) projectCache.delete(apiKey);
 
     tracker.finish({
       status: createResponse.ok ? "ok" : "error",
@@ -296,17 +312,8 @@ export async function handleDeepgramAsk(
   };
 
   try {
-    const projectsResponse = await fetch(
-      "https://api.deepgram.com/v1/projects",
-      {
-        method: "GET",
-        headers: authHeaders,
-        signal: AbortSignal.timeout(DEEPGRAM_TIMEOUT_MS),
-      },
-    );
-
-    const projectsBody =
-      (await projectsResponse.json()) as DeepgramProjectsResponse;
+    const { response: projectsResponse, body: projectsBody } =
+      await fetchProjects(apiKey, authHeaders);
 
     if (!projectsResponse.ok) {
       tracker.finish({
@@ -350,6 +357,7 @@ export async function handleDeepgramAsk(
     );
 
     const createBody = (await createResponse.json()) as DeepgramKeyResponse;
+    if (!createResponse.ok) projectCache.delete(apiKey);
 
     tracker.finish({
       status: createResponse.ok ? "ok" : "error",

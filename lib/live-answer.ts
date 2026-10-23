@@ -16,12 +16,17 @@ const ANSWER_LABELS: Record<string, { question: string; answer: string }> = {
   de: { question: "Frage", answer: "Antwort" },
 };
 
-/** Shown the moment a live answer starts: the question as heard. The
- *  model then writes only the answer after it (`answerOnly`), so the
- *  answer itself starts sooner. */
-export function answerHeading(question: string, lang: string): string {
+/** Shown the moment a live answer starts: the question as heard, with its
+ *  number in the meeting. The model then writes only the answer after it
+ *  (`answerOnly`), so the answer itself starts sooner. */
+export function answerHeading(
+  question: string,
+  lang: string,
+  n?: number,
+): string {
   const l = ANSWER_LABELS[lang] ?? ANSWER_LABELS.en;
-  return `**${l.question}:** ${question.trim()}\n\n**${l.answer}:** `;
+  const label = n ? `${l.question} ${n}` : l.question;
+  return `**${label}:** ${question.trim()}\n\n**${l.answer}:** `;
 }
 
 /** Screenshot → answer, in the meeting language. */

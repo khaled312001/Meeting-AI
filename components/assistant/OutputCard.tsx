@@ -30,7 +30,11 @@ interface OutputCardProps {
   /** When the current answer was started, and what it is. */
   answerAt?: number | null;
   answerKind?: AnswerKind;
+  /** The current answer's question number. */
+  answerNumber?: number | null;
   isGenerating?: boolean;
+  /** Manual mode: waiting for the question to end before answering. */
+  waitingForEnd?: boolean;
   onSave: () => void;
   onClear?: () => void;
 }
@@ -41,7 +45,9 @@ export const OutputCard = memo(function OutputCard({
   pastAnswers = [],
   answerAt = null,
   answerKind = "answer",
+  answerNumber = null,
   isGenerating = false,
+  waitingForEnd = false,
   onSave,
   onClear,
 }: OutputCardProps) {
@@ -49,7 +55,8 @@ export const OutputCard = memo(function OutputCard({
   const { ref, showLatest, handleScroll, scrollToLatest } = useStickToBottom(
     `${pastAnswers.length}:${completion.length}`,
   );
-  const isEmpty = !completion && pastAnswers.length === 0 && !isGenerating;
+  const isEmpty =
+    !completion && pastAnswers.length === 0 && !isGenerating && !waitingForEnd;
 
   return (
     <div
@@ -123,6 +130,7 @@ export const OutputCard = memo(function OutputCard({
                 <AnswerHeader
                   kind={answerKind}
                   at={answerAt}
+                  n={answerNumber}
                   live={isGenerating}
                   text={completion}
                 />
@@ -131,12 +139,15 @@ export const OutputCard = memo(function OutputCard({
                 </div>
                 <AnswerSources citations={citations} className="not-prose mt-4" />
               </div>
-            ) : isGenerating ? (
+            ) : null}
+            {(waitingForEnd || (isGenerating && !completion)) && (
               <p className="inline-flex items-center gap-2 text-sm text-text-secondary">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-                Writing the answer…
+                {waitingForEnd
+                  ? "Listening to the full question… (press Answer to answer now)"
+                  : "Writing the answer…"}
               </p>
-            ) : null}
+            )}
           </div>
         )}
       </div>

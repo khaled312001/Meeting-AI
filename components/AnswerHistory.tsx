@@ -35,7 +35,7 @@ export const AnswerHistory = memo(function AnswerHistory({
             a.kind === "review" && "border-l-2 border-l-amber-300/50 pl-2",
           )}
         >
-          <AnswerHeader kind={a.kind} at={a.at} text={a.text} />
+          <AnswerHeader kind={a.kind} at={a.at} n={a.n} text={a.text} />
           <div className={proseClassName}>
             <SafeMarkdown>{a.text}</SafeMarkdown>
           </div>

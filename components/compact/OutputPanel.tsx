@@ -54,7 +54,11 @@ interface OutputPanelProps {
   /** When the current answer was started, and what it is. */
   answerAt?: number | null;
   answerKind?: AnswerKind;
+  /** The current answer's question number. */
+  answerNumber?: number | null;
   isGenerating?: boolean;
+  /** Manual mode: waiting for the question to end before answering. */
+  waitingForEnd?: boolean;
   error: string | null;
   activeFlag: FLAGS | null;
   expanded?: boolean;
@@ -126,7 +130,9 @@ export function OutputPanel({
   pastAnswers = [],
   answerAt = null,
   answerKind = "answer",
+  answerNumber = null,
   isGenerating = false,
+  waitingForEnd = false,
   error,
   activeFlag,
   expanded = false,
@@ -193,7 +199,9 @@ export function OutputPanel({
       ? "Summary"
       : answerKind === "review"
         ? "Notes on your answer"
-        : "Answer";
+        : answerNumber
+          ? `Answer ${answerNumber}`
+          : "Answer";
   const lastChat = chatMessages[chatMessages.length - 1];
   const copyText = isChat
     ? lastChat?.role === "assistant"
@@ -330,14 +338,17 @@ export function OutputPanel({
                   </div>
                   <AnswerSources citations={citations} compact className="mt-2" />
                 </div>
-              ) : isGenerating ? (
+              ) : null}
+              {!error && (waitingForEnd || (isGenerating && !completion)) && (
                 <p className="inline-flex items-center gap-2 text-[13px] text-text-secondary">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-                  {activeFlag === FLAGS.SUMMARIZER
-                    ? "Writing the summary…"
-                    : "Writing the answer…"}
+                  {waitingForEnd
+                    ? "Listening to the full question… (press Answer to answer now)"
+                    : activeFlag === FLAGS.SUMMARIZER
+                      ? "Writing the summary…"
+                      : "Writing the answer…"}
                 </p>
-              ) : null}
+              )}
             </>
           )}
         </div>

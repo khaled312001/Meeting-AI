@@ -62,6 +62,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     setAnswerMode,
     answerAt,
     answerKind,
+    answerNumber,
   } = useAssistantSession();
   const {
     ref: transcriptionBoxRef,
@@ -96,24 +97,37 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
   });
 
   const auto = isActive && answerMode === "auto";
-  const { takeQuestion } = useAutoAnswer({
+  const { takeQuestion, answerWhenQuestionEnds, waitingForEnd } = useAutoAnswer({
     enabled: auto,
     isLive: sessionState === "live",
     isBusy: isLoading,
     transcript: interviewerText,
     hasInterim: interviewerSpeaking,
     myTranscript: myText,
-    onTrigger: ({ question, replace }) => void generateNow({ question, replace }),
+    onTrigger: ({ question, replace }) =>
+      void generateNow({ question: question || undefined, replace }),
     onInterrupt: () => stop(),
   });
 
-  /** Manual Answer: the question heard since the last answer, word for
-   *  word (or the last one again). Falls back to the whole transcript. */
+  /** Answer button: in Auto, answers the question heard since the last
+   *  answer at once. In Manual, waits until the other side has finished
+   *  the question (pressing again answers at once). */
   const answerNow = useCallback(() => {
     if (isLoading) return;
+    if (answerMode === "manual" && sessionState === "live") {
+      answerWhenQuestionEnds();
+      return;
+    }
     const { question, replace } = takeQuestion();
     void generateNow({ question: question || undefined, replace });
-  }, [generateNow, isLoading, takeQuestion]);
+  }, [
+    answerMode,
+    answerWhenQuestionEnds,
+    generateNow,
+    isLoading,
+    sessionState,
+    takeQuestion,
+  ]);
 
   // Ctrl/⌘+Alt shortcuts from any app (desktop).
   useMeetingShortcuts(isActive, {
@@ -259,7 +273,9 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
             pastAnswers={pastAnswers}
             answerAt={answerAt}
             answerKind={answerKind}
+            answerNumber={answerNumber}
             isGenerating={isLoading}
+            waitingForEnd={waitingForEnd}
             onSave={handleSave}
             onClear={() => {
               stop();

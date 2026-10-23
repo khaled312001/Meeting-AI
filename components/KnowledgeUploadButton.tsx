@@ -1,8 +1,8 @@
 "use client";
 
 /** Upload knowledge files from the assistant views (the same library as the
- *  dashboard's Knowledge base). Any material the candidate wants answers to
- *  come from: CV, project stories, notes, prepared answers. */
+ *  dashboard's Knowledge base). Any material answers should come from: a
+ *  CV, slides, reports, spreadsheets, notes, prepared answers. */
 
 import { BookOpen, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -65,7 +65,7 @@ export function KnowledgeUploadButton({
         className={cn("h-7 gap-1.5 text-[10px]", buttonClassName)}
         disabled={status.state === "busy"}
         onClick={() => inputRef.current?.click()}
-        title="CV, project stories, notes, prepared answers — answers come from these files first"
+        title="Any file: PDF, Word, PowerPoint, Excel, Markdown, text… (a CV, slides, reports, notes) — answers come from these files first"
       >
         {status.state === "busy" ? (
           <Loader2 className="h-3 w-3 animate-spin" />
@@ -89,7 +89,7 @@ export function KnowledgeUploadButton({
         </span>
       ) : (
         <span className="text-[10px] text-text-tertiary">
-          CV, stories, notes, prepared answers · several at once
+          PDF, Word, PowerPoint, Excel, Markdown… · several at once
         </span>
       )}
     </div>

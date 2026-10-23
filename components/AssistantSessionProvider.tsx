@@ -35,6 +35,8 @@ export interface PastAnswer {
   /** When it was written (ms since epoch). */
   at?: number;
   kind?: AnswerKind;
+  /** The question's number in this meeting (live answers only). */
+  n?: number;
 }
 
 /** Answer on their own when a question ends, or only on request. */
@@ -49,6 +51,7 @@ const ANSWER_MODE_KEY = "meeting-ai-answer-mode";
 interface AnswerMeta {
   at: number | null;
   kind: AnswerKind;
+  n?: number;
 }
 
 function readAnswerMeta(): AnswerMeta {
@@ -59,6 +62,7 @@ function readAnswerMeta(): AnswerMeta {
     return {
       at: typeof parsed.at === "number" ? parsed.at : null,
       kind: parsed.kind === "review" ? "review" : "answer",
+      n: typeof parsed.n === "number" ? parsed.n : undefined,
     };
   } catch {
     return { at: null, kind: "answer" };
@@ -76,6 +80,17 @@ function readPastAnswers(): PastAnswer[] {
   }
 }
 
+interface NewAnswerOptions {
+  replace?: boolean;
+  kind?: AnswerKind;
+  numbered?: boolean;
+}
+
+interface NewAnswer {
+  previous: string[];
+  n?: number;
+}
+
 type AssistantSessionValue = {
   completion: string;
   setCompletion: Dispatch<SetStateAction<string>>;
@@ -91,10 +106,13 @@ type AssistantSessionValue = {
   /** When the current answer was started, and what it is. */
   answerAt: number | null;
   answerKind: AnswerKind;
+  /** The current answer's question number, when it has one. */
+  answerNumber: number | null;
   /** Move the current answer into the history (or drop it, with
    *  `replace`) and start an empty one. Returns the earlier answers, oldest
-   *  first, for the model to stay consistent with. */
-  startNewAnswer: (opts?: { replace?: boolean; kind?: AnswerKind }) => string[];
+   *  first, for the model to stay consistent with, and with `numbered` the
+   *  new answer's question number (kept when it replaces the last one). */
+  startNewAnswer: (opts?: NewAnswerOptions) => NewAnswer;
   /** Earlier answers (not reviews), oldest first, trimmed for a request. */
   getRememberedAnswers: () => string[];
   answerMode: AnswerMode;
@@ -160,16 +178,25 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
   }, []);
 
   const startNewAnswer = useCallback(
-    (opts?: { replace?: boolean; kind?: AnswerKind }) => {
+    (opts?: NewAnswerOptions): NewAnswer => {
       const text = completionRef.current;
+      const current = answerMetaRef.current;
       let past = pastAnswersRef.current;
+      let n: number | undefined;
+      if (opts?.numbered) {
+        n =
+          opts.replace && current.n
+            ? current.n
+            : Math.max(0, current.n ?? 0, ...past.map((a) => a.n ?? 0)) + 1;
+      }
       if (text.trim() && !opts?.replace) {
         const entry: PastAnswer = {
           id: `answer-${Date.now().toString(36)}`,
           text,
           citations: citationsRef.current,
-          at: answerMetaRef.current.at ?? undefined,
-          kind: answerMetaRef.current.kind,
+          at: current.at ?? undefined,
+          kind: current.kind,
+          n: current.n,
         };
         past = [...past, entry].slice(-MAX_PAST_ANSWERS);
         pastAnswersRef.current = past;
@@ -178,13 +205,18 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
       completionRef.current = "";
       setCompletion("");
       setCitations([]);
-      const meta: AnswerMeta = { at: Date.now(), kind: opts?.kind ?? "answer" };
+      const meta: AnswerMeta = {
+        at: Date.now(),
+        kind: opts?.kind ?? "answer",
+        n,
+      };
       answerMetaRef.current = meta;
       setAnswerMeta(meta);
-      return past
+      const previous = past
         .filter((a) => a.kind !== "review" && a.text.trim())
         .slice(-MAX_REMEMBERED_ANSWERS)
         .map((a) => a.text.trim().slice(0, MAX_REMEMBERED_CHARS));
+      return { previous, n };
     },
     [],
   );
@@ -198,7 +230,9 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     setPastAnswers([]);
     setCompletion("");
     setCitations([]);
-    setAnswerMeta({ at: null, kind: "answer" });
+    const meta: AnswerMeta = { at: null, kind: "answer" };
+    answerMetaRef.current = meta;
+    setAnswerMeta(meta);
   }, []);
   const [ready, setReady] = useState(false);
 
@@ -259,6 +293,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
         pastAnswers,
         answerAt: answerMeta.at,
         answerKind: answerMeta.kind,
+        answerNumber: answerMeta.n ?? null,
         startNewAnswer,
         getRememberedAnswers,
         answerMode,

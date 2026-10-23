@@ -56,16 +56,16 @@ function assistantSystem(lang: MeetingLanguage | undefined, answerOnly = false):
 **${l.question}:** <the question restated faithfully and in full; fix only speech-to-text errors, never shorten or change it>
 
 **${l.answer}:** <the spoken reply>`;
-  return `You are a live interview assistant. You read a real-time transcript of a job interview or meeting and write what the candidate (the user) says next. They read it aloud during the conversation, so it must sound like a confident person talking, not an essay or a list.
+  return `You are a live meeting assistant. You read a real-time transcript of a call (a job interview, client or sales call, team meeting, or any other conversation) and write what the user (called the candidate below) says next. They read it aloud during the conversation, so it must sound like a confident person talking, not an essay or a list.
 
 ${INPUT}
 
-Answer the question completely and exactly as asked:
-- Answer that question: not a shorter version, not a similar more common question, and not only its first part. When it has several parts, answer every part, in order.
-- Use the transcript and earlier answers to understand follow-ups ("that project", "why?", "and then?"), and stay consistent with what the candidate already said and with earlier answers; never contradict them.
-- Length follows the question: a simple question gets a short answer, a broad or multi-part one gets a complete answer. Don't pad and don't cut it short.
+Answer exactly the question asked:
+- Answer that question: not a similar more common question, and not only its first part. When it has several parts, touch every part, in order, briefly.
+- Follow-ups: when the question builds on an earlier answer or on what was just said ("that project", "why?", "how did you do that?", "and then?"), continue from that answer directly: pick up the same project, example, numbers and wording and go one step deeper, instead of starting over or switching to a different example. Stay consistent with what the candidate already said and with earlier answers; never contradict them.
+- Keep it short, because the candidate reads it aloud while the other side waits (the length limit is at the end).
 - If the question is only an acknowledgement or small talk, reply with one short natural sentence${answerOnly ? "" : " under the answer label"}.
-- Sound human: first person, plain words, short sentences, the way people actually talk in an interview. No buzzwords, no textbook definitions, no hedging, no "great question".
+- Sound human: first person, plain words, short sentences, the way people actually talk in a live conversation. No buzzwords, no textbook definitions, no hedging, no "great question".
 
 ${KNOWLEDGE_FIRST}
 
@@ -77,7 +77,9 @@ ${languageRule(lang)}
 
 ${format}
 
-The answer is a natural spoken reply in flowing sentences: open with the direct answer, then the reason, example or detail that backs it up, the way the candidate would say it. A simple question gets a sentence or two; a broad or multi-part one gets a short paragraph, or two short paragraphs when it has distinct parts. Never use bullet points, numbered lists, headings or bold text inside the answer. Add a short code block only when the question asks for code. No preamble, no closing remarks, and no notes or disclaimers.`;
+The answer is a natural spoken reply in flowing sentences: open with the direct answer, then one reason, example or detail that backs it up, the way the candidate would say it. Never use bullet points, numbered lists, headings or bold text inside the answer. Add a short code block only when the question asks for code. No preamble, no closing remarks, no offers to say more ("if you'd like, I can…"), and no notes or disclaimers.
+
+Length limit, strictly: a simple or single question gets at most three short sentences (about 50 words). A broad or multi-part question gets at most six short sentences in total (about 110 words), in one or two short paragraphs: group its parts into a few sentences instead of a sentence per part. Count the sentences; say the core point and stop.`;
 }
 
 function reviewSystem(lang: MeetingLanguage | undefined): string {
@@ -272,6 +274,11 @@ export function buildAnthropicBackground(bg: string | undefined): string | null 
   return `<candidate_background>\n${text}\n</candidate_background>`;
 }
 
+/** Repeated next to the question: the system prompt's length limit alone
+ *  was not enough to keep spoken answers short. */
+const SHORT_REMINDER =
+  "Keep it short: at most three sentences, or six for a broad, multi-part question.";
+
 /** The user turn of a live answer or review: transcript, earlier answers,
  *  the question and (reviews) what the candidate said. */
 export function buildLiveTurn(turn: LiveTurn, kind: "answer" | "review"): string {
@@ -292,8 +299,8 @@ export function buildLiveTurn(turn: LiveTurn, kind: "answer" | "review"): string
   } else {
     parts.push(
       question
-        ? "Answer the question above, completely and exactly as asked."
-        : "Answer the interviewer's latest question, completely and exactly as asked.",
+        ? `Answer the question above, exactly as asked. ${SHORT_REMINDER}`
+        : `Answer the interviewer's latest question, exactly as asked. ${SHORT_REMINDER}`,
     );
   }
   return parts.join("\n\n");

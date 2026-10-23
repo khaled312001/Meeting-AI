@@ -480,10 +480,46 @@ export async function startDeepgramSession(
 
   setState("fetching-key");
 
+  // Everything that doesn't wait on another step starts at once: the first
+  // listen used to wait for the audio, then the mic, then the session and
+  // then the key, one after another.
+  const sessionStart = startLiveSession({
+    surface: isElectron ? "electron" : "web",
+    metadata: {
+      capture_mode: isElectron ? "system_audio_loopback" : "screen_share_audio",
+      with_mic: includeMic,
+    },
+  });
+  const keyMint = sessionStart.then((live) =>
+    live ? mintDeepgramKey(live.sessionId) : null,
+  );
+  keyMint.catch(() => {}); // handled where it is awaited
+  // Echo cancellation on: keeps the speakers out of the mic as much as the
+  // device allows; what still leaks through is dropped as echo.
+  const micOpen = includeMic
+    ? navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      })
+    : null;
+  micOpen?.catch(() => {}); // handled where it is awaited
+
+  /** Undo what started in parallel when the start gives up early. */
+  const abandon = (reason: string) => {
+    void micOpen?.then((mic) => mic.getTracks().forEach((t) => t.stop()));
+    void sessionStart.then((live) => {
+      if (live) void endLiveSession(live.sessionId, reason);
+    });
+  };
+
   let meeting: MediaStream;
   try {
     meeting = await captureMeetingAudio();
   } catch (error) {
+    abandon("capture_failed");
     const msg = error instanceof Error ? error.message : String(error);
     const hint = isElectron
       ? "Grant Screen Recording permission in System Settings, then try again."
@@ -494,6 +530,7 @@ export async function startDeepgramSession(
   }
   if (stale) {
     meeting.getTracks().forEach((t) => t.stop());
+    abandon("stopped");
     return handle;
   }
   channels.push({
@@ -505,17 +542,9 @@ export async function startDeepgramSession(
     heardAt: 0,
   });
 
-  if (includeMic) {
+  if (micOpen) {
     try {
-      // Echo cancellation on: keeps the speakers out of the mic as much as
-      // the device allows; what still leaks through is dropped as echo.
-      const mic = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      const mic = await micOpen;
       if (stale) {
         mic.getTracks().forEach((t) => t.stop());
       } else {
@@ -536,18 +565,14 @@ export async function startDeepgramSession(
     }
   }
   if (stale) {
+    abandon("stopped");
     teardown();
     return handle;
   }
 
-  const live = await startLiveSession({
-    surface: isElectron ? "electron" : "web",
-    metadata: {
-      capture_mode: isElectron ? "system_audio_loopback" : "screen_share_audio",
-      with_mic: channels.length > 1,
-    },
-  });
+  const live = await sessionStart;
   if (stale) {
+    abandon("stopped");
     teardown();
     return handle;
   }
@@ -568,11 +593,12 @@ export async function startDeepgramSession(
   }, WATCHDOG_MS);
 
   try {
-    const apiKey = await mintDeepgramKey(live.sessionId);
+    const apiKey = await keyMint;
     if (stale) {
       teardown();
       return handle;
     }
+    if (!apiKey) throw new Error("No Deepgram key");
     await openConnections(apiKey);
   } catch (e) {
     console.error("Failed to start Deepgram session:", e);
