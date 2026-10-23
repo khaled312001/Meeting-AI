@@ -49,6 +49,8 @@ import {
   MAX_MESSAGES_PER_REQUEST,
   MAX_MY_ANSWER_CHARS,
   MAX_PREVIOUS_ANSWER_CHARS,
+  MAX_SAID_FIGURE_CHARS,
+  MAX_SAID_FIGURES,
   MAX_PREVIOUS_ANSWERS,
   MAX_PROMPT_CHARS,
   MAX_SUMMARY_PROMPT_CHARS,
@@ -137,8 +139,10 @@ export async function handleCompletion(
   const lang: MeetingLanguage | undefined = isMeetingLanguage(payload.lang)
     ? payload.lang
     : undefined;
-  if (payload.answerOnly !== undefined && typeof payload.answerOnly !== "boolean") {
-    return jsonResponse({ error: "answerOnly must be a boolean" }, 400);
+  for (const field of ["answerOnly", "questionLine"] as const) {
+    if (payload[field] !== undefined && typeof payload[field] !== "boolean") {
+      return jsonResponse({ error: `${field} must be a boolean` }, 400);
+    }
   }
   if (payload.flag === FLAGS.REVIEW && !payload.myAnswer?.trim()) {
     return jsonResponse({ error: "myAnswer is required for a review" }, 400);
@@ -345,7 +349,12 @@ export async function handleCompletion(
   const completionFn = useAnthropic
     ? streamAnthropicCompletion({
         messages: wireMessages,
-        system: buildAnthropicSystemPrompt(payload.flag, lang, payload.answerOnly === true),
+        system: buildAnthropicSystemPrompt(
+          payload.flag,
+          lang,
+          payload.answerOnly === true,
+          payload.questionLine === true,
+        ),
         background:
           payload.flag === FLAGS.SUMMARIZER
             ? buildSummaryContext(payload.bg)
@@ -485,6 +494,23 @@ function validateLiveFields(payload: CompletionRequestBody): Response | null {
       );
     }
   }
+  const figures: unknown = payload.saidFigures;
+  if (figures !== undefined) {
+    if (!Array.isArray(figures) || !figures.every((f) => typeof f === "string")) {
+      return jsonResponse({ error: "saidFigures must be an array of strings" }, 400);
+    }
+    if (
+      figures.length > MAX_SAID_FIGURES ||
+      figures.some((f: string) => f.length > MAX_SAID_FIGURE_CHARS)
+    ) {
+      return jsonResponse(
+        {
+          error: `saidFigures is limited to ${MAX_SAID_FIGURES} entries of ${MAX_SAID_FIGURE_CHARS} characters`,
+        },
+        413,
+      );
+    }
+  }
   return null;
 }
 
@@ -498,6 +524,7 @@ function liveTurn(
     question: payload.question,
     previousAnswers: payload.previousAnswers,
     myAnswer: payload.myAnswer,
+    saidFigures: payload.saidFigures,
   };
 }
 
@@ -608,7 +635,13 @@ function buildWireMessages(
   } else {
     let text = basePrompt;
     if (payload.flag === FLAGS.ASSISTANT) {
-      text = buildPrompt(bg, liveTurn(payload, basePrompt), lang, payload.answerOnly === true);
+      text = buildPrompt(
+        bg,
+        liveTurn(payload, basePrompt),
+        lang,
+        payload.answerOnly === true,
+        payload.questionLine === true,
+      );
     } else if (payload.flag === FLAGS.REVIEW) {
       text = buildReviewPrompt(bg, liveTurn(payload, basePrompt), lang);
     } else if (payload.flag === FLAGS.ASK_AI) {

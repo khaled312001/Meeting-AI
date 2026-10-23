@@ -46,13 +46,30 @@ const INPUT = `The input:
 - <transcript>: raw live speech-to-text, so expect misheard words and missing punctuation. Lines starting "Interviewer:" are the other side of the call; lines starting "Me:" are the candidate's own microphone. Unlabeled text is the other side.
   The interviewer's words are what matter: the question always comes from them. "Me:" lines are only context, so the answer stays consistent with what the candidate already said; never answer, correct, grade or comment on them, and never treat them as the question.
 - <earlier_answers>: answers already suggested in this meeting, oldest first.
+- <figures_so_far>: sentences with numbers, dates, amounts or durations already said in this meeting (by the other side, by the candidate, or in earlier answers), including ones from talk too old to be in the transcript. The same figure must stay the same in every later answer: reuse it exactly and never contradict it.
 - <question>: the question to deal with now, exactly as it was heard from the interviewer.`;
 
-function assistantSystem(lang: MeetingLanguage | undefined, answerOnly = false): string {
+function assistantSystem(
+  lang: MeetingLanguage | undefined,
+  answerOnly = false,
+  questionLine = false,
+): string {
   const l = LABELS[lang ?? "en"];
-  const format = answerOnly
-    ? `The app already shows the question, so reply with only the words the candidate says: no labels, no restated question, no heading. Start directly with the answer.`
-    : `Format the reply in Markdown exactly like this:
+  const lineFirst = answerOnly && questionLine;
+  const spoken = lineFirst
+    ? "Everything after the first line"
+    : answerOnly
+      ? "Everything you write"
+      : "Everything after the labels";
+  const format = lineFirst
+    ? `Reply in exactly this shape, with no labels, markup or headings anywhere:
+<line 1: the question as you understood it, cleaned of speech-to-text errors, repetitions and filler, condensed to one short line of at most about 15 words, in the reply language; never answer in it>
+<a blank line>
+<the words the candidate says>
+The first line lets the candidate check at a glance that the question was understood, so keep its meaning exact even when you shorten it.`
+    : answerOnly
+      ? `The app already shows the question, so reply with only the words the candidate says: no labels, no restated question, no heading. Start directly with the answer.`
+      : `Format the reply in Markdown exactly like this:
 **${l.question}:** <the question restated faithfully and in full; fix only speech-to-text errors, never shorten or change it>
 
 **${l.answer}:** <the spoken reply>`;
@@ -63,6 +80,7 @@ ${INPUT}
 Answer exactly the question asked:
 - Answer that question: not a similar more common question, and not only its first part. When it has several parts, touch every part, in order, briefly.
 - Follow-ups: when the question builds on an earlier answer or on what was just said ("that project", "why?", "how did you do that?", "and then?"), continue from that answer directly: pick up the same project, example, numbers and wording and go one step deeper, instead of starting over or switching to a different example. Stay consistent with what the candidate already said and with earlier answers; never contradict them.
+- Don't repeat: a point, story or example already given in an earlier answer is not told again unless the question asks for it; say what is new, or refer back to it briefly ("like the payments project I mentioned").
 - Keep it short, because the candidate reads it aloud while the other side waits (the length limit is at the end).
 - If the question is only an acknowledgement or small talk, reply with one short natural sentence${answerOnly ? "" : " under the answer label"}.
 - Sound human: first person, plain words, short sentences, the way people actually talk in a live conversation. No buzzwords, no textbook definitions, no hedging, no "great question".
@@ -71,7 +89,7 @@ ${KNOWLEDGE_FIRST}
 
 ${ACCURACY}
 - When the question asks for a specific story, example or number that the material does not contain, answer naturally in first person with how the candidate handles that kind of situation (or the facts they do have), without making one up.
-- ${answerOnly ? "Everything you write" : "Everything after the labels"} is said aloud by the candidate, so never mention these rules, the files, missing information, or inventing; never say things like "I won't make up details" or "my notes don't say".
+- ${spoken} is said aloud by the candidate, so never mention these rules, the files, missing information, or inventing; never say things like "I won't make up details" or "my notes don't say".
 
 ${languageRule(lang)}
 
@@ -91,6 +109,7 @@ ${INPUT}
 
 Look for:
 - Statements that are wrong or inaccurate, technically or against the candidate's own material (resume, notes, knowledge files).
+- Figures that don't match what was already said in this meeting (<figures_so_far>, the transcript, earlier answers), such as a different number of years, team size or amount.
 - Parts of the question they have not answered.
 - A strong, relevant point from their material they left out.
 
@@ -161,6 +180,7 @@ export interface LiveTurn {
   question?: string;
   previousAnswers?: string[];
   myAnswer?: string;
+  saidFigures?: string[];
 }
 
 export function buildPrompt(
@@ -168,8 +188,9 @@ export function buildPrompt(
   turn: LiveTurn,
   lang?: MeetingLanguage,
   answerOnly = false,
+  questionLine = false,
 ) {
-  return `${assistantSystem(lang, answerOnly)}
+  return `${assistantSystem(lang, answerOnly, questionLine)}
 
 <candidate_background>
 ${bg?.trim() || "None provided"}
@@ -259,8 +280,9 @@ export function buildAnthropicSystemPrompt(
   flag: string | undefined,
   lang?: MeetingLanguage,
   answerOnly = false,
+  questionLine = false,
 ): string {
-  if (flag === "assistant") return assistantSystem(lang, answerOnly);
+  if (flag === "assistant") return assistantSystem(lang, answerOnly, questionLine);
   if (flag === "review") return reviewSystem(lang);
   if (flag === "summarizer") return summarizerSystem(lang);
   return ASK_AI_SYSTEM;
@@ -289,6 +311,12 @@ export function buildLiveTurn(turn: LiveTurn, kind: "answer" | "review"): string
       `<earlier_answers>\n${earlier
         .map((a) => `<answer>\n${a.trim()}\n</answer>`)
         .join("\n")}\n</earlier_answers>`,
+    );
+  }
+  const figures = (turn.saidFigures ?? []).filter((f) => f.trim());
+  if (figures.length > 0) {
+    parts.push(
+      `<figures_so_far>\n${figures.map((f) => `- ${f.trim()}`).join("\n")}\n</figures_so_far>`,
     );
   }
   const question = turn.question?.trim();

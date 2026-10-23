@@ -29,6 +29,62 @@ export function answerHeading(
   return `**${label}:** ${question.trim()}\n\n**${l.answer}:** `;
 }
 
+/** A long question as heard, cut to one line while the clean one comes. */
+const HEARD_MAX_CHARS = 140;
+/** A first line longer than this is not the question line: the model
+ *  started with the answer, so it is all shown as the answer. */
+const QUESTION_LINE_MAX_CHARS = 400;
+
+function oneLine(question: string): string {
+  const text = question.replace(/\s+/g, " ").trim();
+  if (text.length <= HEARD_MAX_CHARS) return text;
+  const cut = text.slice(0, HEARD_MAX_CHARS);
+  const space = cut.lastIndexOf(" ");
+  return `${space > 80 ? cut.slice(0, space) : cut}…`;
+}
+
+/** The model's question line, without any label or markup it added. */
+function cleanQuestionLine(line: string): string {
+  return line
+    .replace(/\*\*/g, "")
+    .replace(/^\s*(question|q|frage|السؤال)\s*\d*\s*[:：]\s*/i, "")
+    .replace(/^["'“”«»]+|["'“”«»]+$/g, "")
+    .trim();
+}
+
+/** The text of a live answer as it streams in (`questionLine` replies):
+ *  the heading shows the question as heard, on one line, until the model's
+ *  one-line restatement arrives and takes its place; the answer follows. */
+export function createLiveAnswer(question: string, lang: string, n?: number) {
+  const heard = oneLine(question);
+  let reply = "";
+  let done = false;
+  return {
+    push(chunk: string) {
+      reply += chunk;
+    },
+    /** The reply is complete: a single line left is the answer itself. */
+    finish() {
+      done = true;
+    },
+    text(): string {
+      const body = reply.replace(/^\s+/, "");
+      const nl = body.indexOf("\n");
+      if (nl < 0) {
+        return done || body.length > QUESTION_LINE_MAX_CHARS
+          ? answerHeading(heard, lang, n) + body
+          : answerHeading(heard, lang, n);
+      }
+      const line = cleanQuestionLine(body.slice(0, nl));
+      const answer = body.slice(nl + 1).replace(/^\s+/, "");
+      if (!line || line.length > QUESTION_LINE_MAX_CHARS) {
+        return answerHeading(heard, lang, n) + body;
+      }
+      return answerHeading(line, lang, n) + answer;
+    },
+  };
+}
+
 /** Screenshot → answer, in the meeting language. */
 export const SCREEN_PROMPT: Record<string, string> = {
   ar: "حلّل لقطة الشاشة هذه. إذا كان فيها سؤال مقابلة أو مسألة برمجية، أجب عنه كاملاً وبدقة. اكتب بالعربية فقط.",

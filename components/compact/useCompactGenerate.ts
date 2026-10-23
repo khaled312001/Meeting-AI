@@ -18,7 +18,12 @@ import { FLAGS } from "@/lib/types";
 import { addCitation } from "@/lib/citations";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
 import { useTranscription } from "@/components/TranscriptionContext";
-import { answerHeading, isQuietReview, type LiveAnswerOptions } from "@/lib/live-answer";
+import {
+  createLiveAnswer,
+  isQuietReview,
+  type LiveAnswerOptions,
+} from "@/lib/live-answer";
+import { collectSaidFigures } from "@/lib/said-figures";
 import {
   isVisionScreenshotDataUrl,
   VISION_FALLBACK_PROMPT,
@@ -61,7 +66,7 @@ export function useCompactGenerate({
   setOutputMode,
 }: UseCompactGenerateArgs): CompactGenerateHandle {
   const controllerRef = useRef<AbortController | null>(null);
-  const { setCitations, startNewAnswer, getRememberedAnswers } =
+  const { setCitations, startNewAnswer, getRememberedAnswers, getAnswerHistory } =
     useAssistantSession();
   const { language } = useTranscription();
 
@@ -150,13 +155,24 @@ export function useCompactGenerate({
         // A live answer shows its question at once; the reply follows it.
         const liveQuestion =
           flag === FLAGS.ASSISTANT && !isTypedAsk ? opts.question?.trim() : undefined;
-        let acc = liveQuestion ? answerHeading(liveQuestion, language, n) : "";
+        // It shows the question as heard until the model's clean one-line
+        // version of it arrives.
+        const live = liveQuestion
+          ? createLiveAnswer(liveQuestion, language, n)
+          : null;
+        let acc = live ? live.text() : "";
         const flusher = createStreamFlusher(() => setCompletion(acc));
         if (acc) flusher.schedule();
         try {
           await streamCompletion({
             flag,
             answerOnly: !!liveQuestion,
+            questionLine: !!liveQuestion,
+            // Live answers and reviews keep to the figures already said.
+            saidFigures:
+              liveQuestion || isReview
+                ? collectSaidFigures(getAnswerHistory(), prompt)
+                : undefined,
             bg,
             prompt,
             image: imagePayload,
@@ -180,7 +196,12 @@ export function useCompactGenerate({
                 firstTokenMs = Math.round(performance.now() - t0);
                 dbg("ask-completion", "first token at", firstTokenMs, "ms");
               }
-              acc += text;
+              if (live) {
+                live.push(text);
+                acc = live.text();
+              } else {
+                acc += text;
+              }
               if (!shown) {
                 if (isQuietReview(acc)) return;
                 startNewAnswer({ kind: "review" });
@@ -192,6 +213,10 @@ export function useCompactGenerate({
             onCitation: (citation) =>
               setCitations((prev) => addCitation(prev, citation)),
           });
+          if (live) {
+            live.finish();
+            acc = live.text();
+          }
           flusher.flush();
         } finally {
           flusher.dispose();
@@ -229,6 +254,7 @@ export function useCompactGenerate({
     [
       attachedImages,
       bg,
+      getAnswerHistory,
       getRememberedAnswers,
       isLoading,
       language,

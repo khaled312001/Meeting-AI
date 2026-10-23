@@ -39,6 +39,11 @@ export interface StreamCompletionParams {
   myAnswer?: string;
   /** The app shows the question itself; the reply is the answer alone. */
   answerOnly?: boolean;
+  /** With `answerOnly`: the reply starts with the question restated on
+   *  one clean line (see createLiveAnswer). */
+  questionLine?: boolean;
+  /** Sentences with figures said so far (see collectSaidFigures). */
+  saidFigures?: string[];
   resolveErrorMessage?: (
     response: Response,
     defaultMessage: string,
@@ -60,6 +65,8 @@ export async function streamCompletion({
   previousAnswers,
   myAnswer,
   answerOnly,
+  questionLine,
+  saidFigures,
 }: StreamCompletionParams): Promise<void> {
   const response = await ricFetch("/api/completion", {
     method: "POST",
@@ -77,6 +84,8 @@ export async function streamCompletion({
       ...(previousAnswers?.length ? { previousAnswers } : {}),
       ...(myAnswer ? { myAnswer } : {}),
       ...(answerOnly ? { answerOnly } : {}),
+      ...(questionLine ? { questionLine } : {}),
+      ...(saidFigures?.length ? { saidFigures } : {}),
     }),
     signal,
   });

@@ -115,6 +115,8 @@ type AssistantSessionValue = {
   startNewAnswer: (opts?: NewAnswerOptions) => NewAnswer;
   /** Earlier answers (not reviews), oldest first, trimmed for a request. */
   getRememberedAnswers: () => string[];
+  /** Every answer kept this meeting (not reviews), oldest first. */
+  getAnswerHistory: () => string[];
   answerMode: AnswerMode;
   setAnswerMode: (mode: AnswerMode) => void;
   /** Drop the history and the current answer. */
@@ -175,6 +177,15 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
       .filter((a) => a.kind !== "review" && a.text.trim())
       .slice(-MAX_REMEMBERED_ANSWERS)
       .map((a) => a.text.trim().slice(0, MAX_REMEMBERED_CHARS));
+  }, []);
+
+  const getAnswerHistory = useCallback(() => {
+    const all = pastAnswersRef.current
+      .filter((a) => a.kind !== "review")
+      .map((a) => a.text);
+    if (completionRef.current.trim() && answerMetaRef.current.kind !== "review")
+      all.push(completionRef.current);
+    return all.filter((t) => t.trim());
   }, []);
 
   const startNewAnswer = useCallback(
@@ -296,6 +307,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
         answerNumber: answerMeta.n ?? null,
         startNewAnswer,
         getRememberedAnswers,
+        getAnswerHistory,
         answerMode,
         setAnswerMode,
         clearAnswers,

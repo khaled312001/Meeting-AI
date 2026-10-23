@@ -48,6 +48,25 @@ test("answerOnly drops the question line so the answer starts at once", () => {
   assert.match(p, /no restated question/);
 });
 
+test("questionLine asks for the question on one clean line first", () => {
+  const p = buildAnthropicSystemPrompt("assistant", "en", true, true);
+  assert.match(p, /line 1: the question as you understood it/);
+  assert.match(p, /Everything after the first line is said aloud/);
+  assert.doesNotMatch(p, /no restated question/);
+});
+
+test("buildLiveTurn sends the figures said so far", () => {
+  const turn = buildLiveTurn(
+    { transcript: "t", question: "q?", saidFigures: ["Me: five years", " "] },
+    "answer",
+  );
+  assert.match(turn, /<figures_so_far>\n- Me: five years\n<\/figures_so_far>/);
+  assert.doesNotMatch(
+    buildLiveTurn({ transcript: "t", question: "q?" }, "answer"),
+    /figures_so_far/,
+  );
+});
+
 test("buildAnthropicSystemPrompt fixes the language and its labels", () => {
   const ar = buildAnthropicSystemPrompt("assistant", "ar");
   assert.match(ar, /\*\*السؤال:\*\*/);

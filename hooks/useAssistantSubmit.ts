@@ -17,7 +17,12 @@ import { FLAGS } from "@/lib/types";
 import { addCitation } from "@/lib/citations";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
 import { useTranscription } from "@/components/TranscriptionContext";
-import { answerHeading, isQuietReview, type LiveAnswerOptions } from "@/lib/live-answer";
+import {
+  createLiveAnswer,
+  isQuietReview,
+  type LiveAnswerOptions,
+} from "@/lib/live-answer";
+import { collectSaidFigures } from "@/lib/said-figures";
 
 interface UseAssistantSubmitArgs {
   flag: FLAGS;
@@ -56,6 +61,7 @@ export function useAssistantSubmit({
     setCitations,
     startNewAnswer,
     getRememberedAnswers,
+    getAnswerHistory,
   } = useAssistantSession();
   const { language } = useTranscription();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -128,13 +134,24 @@ export function useAssistantSubmit({
         // A live answer shows its question at once; the reply follows it.
         const liveQuestion =
           runFlag === FLAGS.ASSISTANT ? opts.question?.trim() : undefined;
-        let acc = liveQuestion ? answerHeading(liveQuestion, language, n) : "";
+        // It shows the question as heard until the model's clean one-line
+        // version of it arrives.
+        const live = liveQuestion
+          ? createLiveAnswer(liveQuestion, language, n)
+          : null;
+        let acc = live ? live.text() : "";
         const flusher = createStreamFlusher(() => setCompletion(acc));
         if (acc) flusher.schedule();
         try {
           await streamCompletion({
             flag: runFlag,
             answerOnly: !!liveQuestion,
+            questionLine: !!liveQuestion,
+            // Live answers and reviews keep to the figures already said.
+            saidFigures:
+              liveQuestion || isReview
+                ? collectSaidFigures(getAnswerHistory(), prompt)
+                : undefined,
             bg: runBg,
             prompt,
             lang: language,
@@ -143,7 +160,12 @@ export function useAssistantSubmit({
             myAnswer: opts.myAnswer,
             signal: controller.current.signal,
             onChunk: (text) => {
-              acc += text;
+              if (live) {
+                live.push(text);
+                acc = live.text();
+              } else {
+                acc += text;
+              }
               if (!shown) {
                 if (isQuietReview(acc)) return;
                 startNewAnswer({ kind: "review" });
@@ -154,6 +176,10 @@ export function useAssistantSubmit({
             onCitation: (citation) =>
               setCitations((prev) => addCitation(prev, citation)),
           });
+          if (live) {
+            live.finish();
+            acc = live.text();
+          }
           flusher.flush();
         } finally {
           flusher.dispose();
@@ -178,6 +204,7 @@ export function useAssistantSubmit({
       }
     },
     [
+      getAnswerHistory,
       getRememberedAnswers,
       isLoading,
       language,

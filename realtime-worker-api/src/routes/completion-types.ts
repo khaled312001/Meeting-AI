@@ -35,6 +35,9 @@ export const MAX_MY_ANSWER_CHARS = 8_000;
 /** Earlier answers sent with a live answer for follow-up context. */
 export const MAX_PREVIOUS_ANSWERS = 10;
 export const MAX_PREVIOUS_ANSWER_CHARS = 2_000;
+/** Figures said so far, sent with a live answer or review. */
+export const MAX_SAID_FIGURES = 40;
+export const MAX_SAID_FIGURE_CHARS = 400;
 
 /** Knowledge-file budget folded into the plain-text background for
  *  providers without document blocks (Gemini, OpenAI-compatible). Anthropic
@@ -80,6 +83,12 @@ export interface CompletionRequestBody {
   /** Assistant: the app shows the question itself, so the reply is the
    *  answer text alone and starts sooner. */
   answerOnly?: boolean;
+  /** With `answerOnly`: the reply starts with the question restated on one
+   *  clean line, then a blank line, then the answer. */
+  questionLine?: boolean;
+  /** Sentences with figures already said in this meeting (Assistant /
+   *  Review), so later answers keep to them. */
+  saidFigures?: string[];
 }
 
 export interface InlineImage {
