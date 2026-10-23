@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { BookmarkPlus } from "lucide-react";
+import { ALargeSmall, BookmarkPlus } from "lucide-react";
 import SafeMarkdown from "@/components/SafeMarkdown";
 import {
   compactTextSurface,
@@ -18,6 +18,11 @@ import type {
 import { AnswerHeader } from "@/components/AnswerHeader";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import type { AnswerCitation } from "@/lib/types";
+import {
+  ANSWER_FONT_PX,
+  sentencePerLine,
+  useAnswerTextSize,
+} from "@/lib/answer-display";
 
 const PROSE =
   "prose prose-invert max-w-none text-[15px] leading-7 text-text-primary prose-p:my-2 prose-ul:my-2 prose-li:my-1 prose-strong:text-accent-text";
@@ -55,6 +60,8 @@ export const OutputCard = memo(function OutputCard({
   const { ref, showLatest, handleScroll, scrollToLatest } = useStickToBottom(
     `${pastAnswers.length}:${completion.length}`,
   );
+  const { size: textSize, cycle: cycleTextSize } = useAnswerTextSize();
+  const fontPx = ANSWER_FONT_PX.full[textSize];
   const isEmpty =
     !completion && pastAnswers.length === 0 && !isGenerating && !waitingForEnd;
 
@@ -69,6 +76,16 @@ export const OutputCard = memo(function OutputCard({
           Output
         </span>
         <div className="flex shrink-0 items-center gap-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-text-tertiary"
+          onClick={cycleTextSize}
+          title={`Answer text size: ${textSize} (click to change)`}
+        >
+          <ALargeSmall className="h-4 w-4" />
+        </Button>
         {onClear && (
           <Button
             type="button"
@@ -116,7 +133,11 @@ export const OutputCard = memo(function OutputCard({
           </div>
         ) : (
           <div className={`${compactTextSurface} ${overlayTextShadow}`}>
-            <AnswerHistory answers={pastAnswers} proseClassName={PROSE} />
+            <AnswerHistory
+              answers={pastAnswers}
+              proseClassName={PROSE}
+              fontPx={fontPx}
+            />
             {completion ? (
               <div
                 key={answerAt ?? "answer"}
@@ -134,8 +155,8 @@ export const OutputCard = memo(function OutputCard({
                   live={isGenerating}
                   text={completion}
                 />
-                <div className={PROSE}>
-                  <SafeMarkdown>{completion}</SafeMarkdown>
+                <div className={PROSE} style={{ fontSize: fontPx }}>
+                  <SafeMarkdown>{sentencePerLine(completion)}</SafeMarkdown>
                 </div>
                 <AnswerSources citations={citations} className="not-prose mt-4" />
               </div>

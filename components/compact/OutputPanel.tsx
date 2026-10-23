@@ -9,6 +9,7 @@
  *  and corner can be dragged to size it. */
 
 import {
+  ALargeSmall,
   Maximize2,
   Minimize2,
   ThumbsDown,
@@ -34,6 +35,15 @@ import type { AnswerPanelSize } from "@/hooks/useAnswerPanelSize";
 import { COMPACT_WINDOW_WIDTH } from "@/hooks/useCompactWindowSize";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { cn } from "@/lib/utils";
+import {
+  ANSWER_FONT_PX,
+  sentencePerLine,
+  useAnswerTextSize,
+} from "@/lib/answer-display";
+import {
+  type InterviewerSegment,
+  numberRuns,
+} from "@/lib/interviewer-segments";
 import { focusGlass } from "./FocusBar";
 
 const COMPACT_PROSE =
@@ -59,6 +69,11 @@ interface OutputPanelProps {
   isGenerating?: boolean;
   /** Manual mode: waiting for the question to end before answering. */
   waitingForEnd?: boolean;
+  /** Interviewer segments skipped without an answer; a click answers one. */
+  gaps?: InterviewerSegment[];
+  onAnswerGap?: (segment: InterviewerSegment) => void;
+  /** Numbers of the segments heard since the last answer (Manual). */
+  pending?: number[];
   error: string | null;
   activeFlag: FLAGS | null;
   expanded?: boolean;
@@ -133,6 +148,9 @@ export function OutputPanel({
   answerNumber = null,
   isGenerating = false,
   waitingForEnd = false,
+  gaps = [],
+  onAnswerGap,
+  pending = [],
   error,
   activeFlag,
   expanded = false,
@@ -148,6 +166,9 @@ export function OutputPanel({
   const { ref, showLatest, handleScroll, scrollToLatest } = useStickToBottom(
     `${pastAnswers.length}:${completion.length}:${chatMessages.length}`,
   );
+
+  const { size: textSize, cycle: cycleTextSize } = useAnswerTextSize();
+  const fontPx = ANSWER_FONT_PX.compact[textSize];
 
   // Feedback belongs to the answer it was given on.
   const [vote, setVote] = useState<"up" | "down" | null>(null);
@@ -263,6 +284,16 @@ export function OutputPanel({
             </span>
           )}
           <span className="ml-auto flex items-center gap-0.5">
+            {!isChat && (
+              <button
+                type="button"
+                onClick={cycleTextSize}
+                title={`Answer text size: ${textSize} (click to change)`}
+                className={iconButton}
+              >
+                <ALargeSmall className="h-3.5 w-3.5" />
+              </button>
+            )}
             <CopyButton text={copyText} />
             {onClear && (
               <button
@@ -318,6 +349,7 @@ export function OutputPanel({
                 <AnswerHistory
                   answers={pastAnswers}
                   proseClassName={COMPACT_PROSE}
+                  fontPx={fontPx}
                   compact
                 />
               )}
@@ -333,8 +365,8 @@ export function OutputPanel({
                       "border-l-2 border-l-amber-300/50 pl-2",
                   )}
                 >
-                  <div className={COMPACT_PROSE}>
-                    <SafeMarkdown>{completion}</SafeMarkdown>
+                  <div className={COMPACT_PROSE} style={{ fontSize: fontPx }}>
+                    <SafeMarkdown>{sentencePerLine(completion)}</SafeMarkdown>
                   </div>
                   <AnswerSources citations={citations} compact className="mt-2" />
                 </div>
@@ -347,6 +379,29 @@ export function OutputPanel({
                     : activeFlag === FLAGS.SUMMARIZER
                       ? "Writing the summary…"
                       : "Writing the answer…"}
+                </p>
+              )}
+              {gaps.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[12px] text-amber-200">
+                  <span>Not answered:</span>
+                  {gaps.map((seg) => (
+                    <button
+                      key={seg.id}
+                      type="button"
+                      onClick={() => onAnswerGap?.(seg)}
+                      disabled={isGenerating}
+                      title={`Answer #${seg.n}: ${seg.text.slice(0, 160)}`}
+                      className="rounded-full border border-amber-300/40 bg-amber-400/10 px-2 py-0.5 font-mono text-[11px] hover:bg-amber-400/25 disabled:opacity-50"
+                    >
+                      #{seg.n}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {pending.length > 0 && !isGenerating && !waitingForEnd && (
+                <p className="mt-2 text-[12px] text-text-tertiary">
+                  Heard since the last answer: {numberRuns(pending).join(", ")} · press
+                  Answer
                 </p>
               )}
             </>

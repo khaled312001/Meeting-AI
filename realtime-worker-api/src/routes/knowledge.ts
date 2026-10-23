@@ -44,6 +44,30 @@ export interface KnowledgeDocForPrompt {
   content: string;
 }
 
+/** A knowledge file named as instructions ("…_Instructions_….md") is the
+ *  candidate's rule book for answering, not material to answer from. */
+const INSTRUCTIONS_NAME_RE = /instruction|تعليمات|anweisung/i;
+
+/** Split the candidate's instruction files from the rest of their files. */
+export function splitInstructionDocs(docs: KnowledgeDocForPrompt[]): {
+  instructions: KnowledgeDocForPrompt[];
+  material: KnowledgeDocForPrompt[];
+} {
+  const instructions = docs.filter((d) => INSTRUCTIONS_NAME_RE.test(d.fileName));
+  const material = docs.filter((d) => !INSTRUCTIONS_NAME_RE.test(d.fileName));
+  return { instructions, material };
+}
+
+/** The instruction files as a system-prompt block. */
+export function instructionsBlock(docs: KnowledgeDocForPrompt[]): string {
+  return docs
+    .map(
+      (d) =>
+        `<candidate_instructions file="${d.fileName.replace(/"/g, "'")}">\n${d.content.trim()}\n</candidate_instructions>`,
+    )
+    .join("\n\n");
+}
+
 /** Enabled docs for one user, oldest first. The order must be stable:
  *  the docs form part of the model's cached prompt prefix. */
 export async function loadEnabledKnowledgeDocs(

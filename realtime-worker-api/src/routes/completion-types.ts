@@ -30,10 +30,12 @@ export const MAX_PROMPT_CHARS = 32_000;
 export const MAX_SUMMARY_PROMPT_CHARS = 200_000;
 /** Notes + resume + job description, labelled (see lib/prompt-context.ts). */
 export const MAX_BG_CHARS = 100_000;
-export const MAX_QUESTION_CHARS = 6_000;
+/** Everything the other side said since the last answer, context included. */
+export const MAX_QUESTION_CHARS = 12_000;
 export const MAX_MY_ANSWER_CHARS = 8_000;
-/** Earlier answers sent with a live answer for follow-up context. */
-export const MAX_PREVIOUS_ANSWERS = 10;
+/** The interview so far, sent with each live answer: every answer of the
+ *  meeting, so nothing already said is said again. */
+export const MAX_PREVIOUS_ANSWERS = 60;
 export const MAX_PREVIOUS_ANSWER_CHARS = 2_000;
 /** Figures said so far, sent with a live answer or review. */
 export const MAX_SAID_FIGURES = 40;

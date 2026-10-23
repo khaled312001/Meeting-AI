@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 interface TranscriptionLineProps {
   segment: TranscriptionSegment;
   isFinal?: boolean;
+  /** Interviewer segments: their number, and whether an answer got them. */
+  number?: { n: number; sent: boolean };
   className?: string;
 }
 
@@ -23,6 +25,7 @@ const formatTime = (seconds: number): string => {
 export function TranscriptionLine({
   segment,
   isFinal = false,
+  number,
   className,
 }: TranscriptionLineProps) {
   const final = isFinal || segment.isFinal;
@@ -45,6 +48,17 @@ export function TranscriptionLine({
           )}
         >
           {isMe ? "Me" : "Interviewer"}
+          {number && (
+            <span
+              title={number.sent ? "Sent for an answer" : "Not sent for an answer yet"}
+              className={cn(
+                "mt-0.5 block font-mono normal-case tracking-normal",
+                number.sent ? "text-text-tertiary" : "text-amber-300",
+              )}
+            >
+              #{number.n} {number.sent ? "✓" : "•"}
+            </span>
+          )}
         </span>
       ) : (
         <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-tertiary">

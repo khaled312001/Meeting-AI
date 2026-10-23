@@ -9,6 +9,8 @@ const SSE_CLIENT_BUFFER_MAX = 1_000_000;
  *  travels separately, so older talk can be dropped. */
 const MAX_PROMPT_CHARS = 30_000;
 const MAX_SUMMARY_PROMPT_CHARS = 195_000;
+/** The question: everything said since the last answer (server: 12,000). */
+const MAX_QUESTION_CHARS = 11_800;
 
 /** The end of `text`, at most `max` characters, starting on a line. */
 function tail(text: string, max: number): string {
@@ -80,7 +82,7 @@ export async function streamCompletion({
       ...(image !== undefined ? { image } : {}),
       ...(useKnowledge !== undefined ? { useKnowledge } : {}),
       ...(lang ? { lang } : {}),
-      ...(question ? { question } : {}),
+      ...(question ? { question: tail(question, MAX_QUESTION_CHARS) } : {}),
       ...(previousAnswers?.length ? { previousAnswers } : {}),
       ...(myAnswer ? { myAnswer } : {}),
       ...(answerOnly ? { answerOnly } : {}),

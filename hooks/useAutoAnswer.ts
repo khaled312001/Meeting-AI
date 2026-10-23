@@ -129,11 +129,20 @@ export function useAutoAnswer({
     setWaitingForEnd(on);
   }, []);
 
+  /** Transcript ranges sent for an answer, so speech that never reached
+   *  one shows as a gap. */
+  const [sentRanges, setSentRanges] = useState<Array<[number, number]>>([]);
+  /** `answeredUpTo` for rendering: speech before it that no range covers
+   *  was skipped (a gap); speech after it waits for the next answer. */
+  const [answeredTo, setAnsweredTo] = useState(0);
+
   /** Mark the question as answered and return it. */
   const take = useCallback((text: string): AutoAnswerTrigger => {
     const replace = continuing.current;
     const from = replace ? questionStart.current : answeredUpTo.current;
     const question = text.slice(from).trim();
+    setSentRanges((ranges) => [...ranges, [from, text.length]]);
+    setAnsweredTo(text.length);
     questionStart.current = from;
     answeredUpTo.current = text.length;
     lastQuestion.current = question;
@@ -153,6 +162,7 @@ export function useAutoAnswer({
   useEffect(() => {
     if (isLive && !wasLive.current) {
       answeredUpTo.current = transcript.length;
+      setAnsweredTo(transcript.length);
       questionStart.current = transcript.length;
       triggeredAt.current = 0;
       continuing.current = false;
@@ -170,6 +180,8 @@ export function useAutoAnswer({
       answeredUpTo.current = transcript.length;
       questionStart.current = transcript.length;
       continuing.current = false;
+      setSentRanges([]);
+      setAnsweredTo(transcript.length);
     }
     if (!enabled) {
       // Manual: the question went on after Answer → stop that answer and
@@ -271,5 +283,24 @@ export function useAutoAnswer({
     setWaiting(true);
   }, [takeQuestion, setWaiting]);
 
-  return { takeQuestion, answerWhenQuestionEnds, waitingForEnd };
+  /** Answer one earlier stretch of speech that was never sent (a gap). */
+  const answerRange = useCallback((from: number, to: number) => {
+    const question = transcriptRef.current.slice(from, to).trim();
+    if (!question) return;
+    setSentRanges((ranges) => [...ranges, [from, to]]);
+    lastQuestion.current = question;
+    triggeredAt.current = Date.now();
+    running.current = "answer";
+    manualAnswer.current = false;
+    onTriggerRef.current({ question, replace: false });
+  }, []);
+
+  return {
+    takeQuestion,
+    answerWhenQuestionEnds,
+    waitingForEnd,
+    sentRanges,
+    answeredTo,
+    answerRange,
+  };
 }

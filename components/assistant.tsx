@@ -11,6 +11,7 @@ import { useTranscription } from "@/components/TranscriptionContext";
 import { useClientReady } from "@/hooks/useClientReady";
 import { useAssistantSubmit } from "@/hooks/useAssistantSubmit";
 import { useAutoAnswer } from "@/hooks/useAutoAnswer";
+import { numberInterviewerSegments } from "@/lib/interviewer-segments";
 import { useMeetingShortcuts } from "@/hooks/useMeetingShortcuts";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { useInterviewContext } from "@/components/InterviewContextProvider";
@@ -97,7 +98,12 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
   });
 
   const auto = isActive && answerMode === "auto";
-  const { takeQuestion, answerWhenQuestionEnds, waitingForEnd } = useAutoAnswer({
+  const {
+    takeQuestion,
+    answerWhenQuestionEnds,
+    waitingForEnd,
+    sentRanges,
+  } = useAutoAnswer({
     enabled: auto,
     isLive: sessionState === "live",
     isBusy: isLoading,
@@ -108,6 +114,18 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
       void generateNow({ question: question || undefined, replace }),
     onInterrupt: () => stop(),
   });
+
+  // Every interviewer segment numbered, marked when an answer got it.
+  const segmentNumbering = useMemo(
+    () =>
+      new Map(
+        numberInterviewerSegments(transcriptionSegments, sentRanges).map((seg) => [
+          seg.id,
+          { n: seg.n, sent: seg.sent },
+        ]),
+      ),
+    [transcriptionSegments, sentRanges],
+  );
 
   /** Answer button: in Auto, answers the question heard since the last
    *  answer at once. In Manual, waits until the other side has finished
@@ -260,6 +278,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
           <TranscriptionCard
             transcriptionBoxRef={transcriptionBoxRef}
             segments={transcriptionSegments}
+            numbering={segmentNumbering}
             onClear={clearTranscription}
             onScroll={handleTranscriptScroll}
             showLatest={showLatest}

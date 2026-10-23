@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -15,6 +16,7 @@ import { useSharedAskChat } from "@/components/AskChatProvider";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
 import { useAskMic } from "@/hooks/useAskMic";
 import { useAutoAnswer } from "@/hooks/useAutoAnswer";
+import { numberInterviewerSegments } from "@/lib/interviewer-segments";
 import { useMeetingShortcuts } from "@/hooks/useMeetingShortcuts";
 import { useTab } from "@/components/TabContext";
 import { useMicPushToTalk } from "@/hooks/useMicPushToTalk";
@@ -68,6 +70,7 @@ export function CompactAssistant({
     language,
     clearTranscription,
     sessionState,
+    transcriptionSegments,
   } = useTranscription();
   const { compactMode } = useTab();
   const {
@@ -201,7 +204,14 @@ export function CompactAssistant({
 
   // Stays quiet while the user is typing an Ask AI question.
   const auto = compactMode && !askMode && answerMode === "auto";
-  const { takeQuestion, answerWhenQuestionEnds, waitingForEnd } = useAutoAnswer({
+  const {
+    takeQuestion,
+    answerWhenQuestionEnds,
+    waitingForEnd,
+    sentRanges,
+    answeredTo,
+    answerRange,
+  } = useAutoAnswer({
     enabled: auto,
     isLive: sessionState === "live",
     isBusy: isLoading,
@@ -217,6 +227,19 @@ export function CompactAssistant({
     },
     onInterrupt: () => abortGeneration(),
   });
+
+  // Interviewer segments that no answer got: skipped ones (gaps) and the
+  // ones heard since the last answer.
+  const { gaps, pending } = useMemo(() => {
+    const unsent = numberInterviewerSegments(
+      transcriptionSegments,
+      sentRanges,
+    ).filter((seg) => !seg.sent);
+    return {
+      gaps: unsent.filter((seg) => seg.end <= answeredTo),
+      pending: unsent.filter((seg) => seg.start >= answeredTo).map((seg) => seg.n),
+    };
+  }, [transcriptionSegments, sentRanges, answeredTo]);
 
   /** Answer button: in Auto, answers the question heard since the last
    *  answer at once. In Manual, waits until the other side has finished
@@ -632,6 +655,13 @@ export function CompactAssistant({
           answerKind={answerKind}
           answerNumber={answerNumber}
           waitingForEnd={waitingForEnd && outputMode !== "chat"}
+          gaps={gaps}
+          pending={answerMode === "manual" ? pending : []}
+          onAnswerGap={(seg) => {
+            if (isLoading) return;
+            setAskMode(false);
+            answerRange(seg.start, seg.end);
+          }}
           isGenerating={isLoading && activeFlag !== FLAGS.REVIEW}
           error={error}
           activeFlag={activeFlag}

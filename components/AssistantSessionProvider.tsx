@@ -42,10 +42,12 @@ export interface PastAnswer {
 /** Answer on their own when a question ends, or only on request. */
 export type AnswerMode = "auto" | "manual";
 
-const MAX_PAST_ANSWERS = 30;
-/** Earlier answers sent along so follow-ups stay consistent. */
-const MAX_REMEMBERED_ANSWERS = 8;
-const MAX_REMEMBERED_CHARS = 1500;
+const MAX_PAST_ANSWERS = 60;
+/** The interview so far, sent with each answer: every answer of the
+ *  meeting (the server takes up to 60 of 2,000 characters), so nothing
+ *  already said is said again. Cleared with the answers. */
+const MAX_REMEMBERED_ANSWERS = 60;
+const MAX_REMEMBERED_CHARS = 2000;
 const ANSWER_MODE_KEY = "meeting-ai-answer-mode";
 
 interface AnswerMeta {

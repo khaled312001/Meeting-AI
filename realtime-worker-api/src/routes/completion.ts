@@ -65,6 +65,8 @@ import { streamAnthropicCompletion } from "./completion-anthropic";
 import {
   loadEnabledKnowledgeDocs,
   type KnowledgeDocForPrompt,
+  instructionsBlock,
+  splitInstructionDocs,
 } from "./knowledge";
 
 export async function handleCompletion(
@@ -346,20 +348,29 @@ export async function handleCompletion(
       ? { ...modelParams, thinkingBudget: "off" as const }
       : modelParams;
 
+  // The candidate's instruction files go into the system prompt, whole and
+  // cached; the rest of their files stay document blocks to answer from.
+  const { instructions, material } = useAnthropic
+    ? splitInstructionDocs(knowledgeDocs)
+    : { instructions: [], material: knowledgeDocs };
+  const baseSystem = buildAnthropicSystemPrompt(
+    payload.flag,
+    lang,
+    payload.answerOnly === true,
+    payload.questionLine === true,
+  );
+
   const completionFn = useAnthropic
     ? streamAnthropicCompletion({
         messages: wireMessages,
-        system: buildAnthropicSystemPrompt(
-          payload.flag,
-          lang,
-          payload.answerOnly === true,
-          payload.questionLine === true,
-        ),
+        system: instructions.length
+          ? `${baseSystem}\n\n${instructionsBlock(instructions)}`
+          : baseSystem,
         background:
           payload.flag === FLAGS.SUMMARIZER
             ? buildSummaryContext(payload.bg)
             : buildAnthropicBackground(payload.bg),
-        docs: knowledgeDocs,
+        docs: material,
         model: cfg.anthropicModel,
         apiKey: cfg.anthropicKey,
         writer: trackingWriter,

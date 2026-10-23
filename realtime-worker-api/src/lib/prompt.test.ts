@@ -67,6 +67,24 @@ test("buildLiveTurn sends the figures said so far", () => {
   );
 });
 
+test("the interview so far lists every question and answer, numbered", () => {
+  const turn = buildLiveTurn(
+    {
+      transcript: "t",
+      question: "q3?",
+      previousAnswers: [
+        "**Question 1:** Why us?\n\n**Answer:** Because of the role.",
+        "**السؤال 2:** ليه؟\n\n**الإجابة:** عشان كده.",
+      ],
+    },
+    "answer",
+  );
+  assert.match(
+    turn,
+    /<interview_so_far>\nQ1: Why us\?\nA1: Because of the role\.\n\nQ2: ليه؟\nA2: عشان كده\.\n<\/interview_so_far>/,
+  );
+});
+
 test("buildAnthropicSystemPrompt fixes the language and its labels", () => {
   const ar = buildAnthropicSystemPrompt("assistant", "ar");
   assert.match(ar, /\*\*السؤال:\*\*/);
@@ -84,7 +102,7 @@ test("buildLiveTurn includes question, earlier answers and my answer", () => {
   assert.match(answer, /<question>\nq\?\n<\/question>/);
   assert.match(
     answer,
-    /<earlier_answers>\n<answer>\na1\n<\/answer>\n<\/earlier_answers>/,
+    /<interview_so_far>\nA1: a1\n<\/interview_so_far>/,
   );
   assert.doesNotMatch(answer, /<my_answer>/);
   const review = buildLiveTurn(
@@ -92,5 +110,5 @@ test("buildLiveTurn includes question, earlier answers and my answer", () => {
     "review",
   );
   assert.match(review, /<my_answer>\nmine\n<\/my_answer>/);
-  assert.doesNotMatch(review, /<earlier_answers>/);
+  assert.doesNotMatch(review, /<interview_so_far>/);
 });

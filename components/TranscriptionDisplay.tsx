@@ -10,6 +10,8 @@ interface TranscriptionDisplayProps {
   className?: string;
   /** Render every segment (past meetings), not just the latest ones. */
   showAll?: boolean;
+  /** Number and sent state of each interviewer segment, by segment id. */
+  numbering?: ReadonlyMap<string, { n: number; sent: boolean }>;
 }
 
 /**
@@ -26,6 +28,7 @@ export function TranscriptionDisplay({
   segments,
   className,
   showAll = false,
+  numbering,
 }: TranscriptionDisplayProps) {
   const rendered =
     !showAll && segments.length > MAX_RENDERED ? segments.slice(-MAX_RENDERED) : segments;
@@ -41,6 +44,7 @@ export function TranscriptionDisplay({
           key={segment.id}
           segment={segment}
           isFinal={segment.isFinal}
+          number={numbering?.get(segment.id)}
         />
       ))}
     </div>

@@ -49,6 +49,11 @@ function thinkingOff(model: string): BetaThinkingConfigParam | undefined {
   return undefined;
 }
 
+/** The instructions, background and files stay cached for an hour: the
+ *  default five minutes ran out between questions, and each miss wrote the
+ *  whole prefix again before the answer could start. */
+const CACHE_1H = { type: "ephemeral" as const, ttl: "1h" as const };
+
 /** Citation payload forwarded to the client. */
 export interface AnthropicCitation {
   documentTitle: string | null;
@@ -98,7 +103,7 @@ function documentBlocks(docs: KnowledgeDocForPrompt[]): BetaRequestDocumentBlock
     citations: { enabled: true },
   }));
   if (blocks.length > 0) {
-    blocks[blocks.length - 1].cache_control = { type: "ephemeral" };
+    blocks[blocks.length - 1].cache_control = CACHE_1H;
   }
   return blocks;
 }
@@ -183,7 +188,7 @@ export async function streamAnthropicCompletion({
 
   const systemBlocks: BetaTextBlockParam[] = [{ type: "text", text: system }];
   if (background) systemBlocks.push({ type: "text", text: background });
-  systemBlocks[systemBlocks.length - 1].cache_control = { type: "ephemeral" };
+  systemBlocks[systemBlocks.length - 1].cache_control = CACHE_1H;
 
   const useFallbacks = FALLBACK_MODELS.test(model);
   const thinking =

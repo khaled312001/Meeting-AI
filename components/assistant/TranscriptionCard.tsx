@@ -19,6 +19,8 @@ import type { TranscriptionSegment } from "@/lib/types";
 interface TranscriptionCardProps {
   transcriptionBoxRef: RefObject<HTMLDivElement | null>;
   segments: TranscriptionSegment[];
+  /** Number and sent state of each interviewer segment, by segment id. */
+  numbering?: ReadonlyMap<string, { n: number; sent: boolean }>;
   onClear: () => void;
   onScroll?: () => void;
   showLatest?: boolean;
@@ -28,6 +30,7 @@ interface TranscriptionCardProps {
 export function TranscriptionCard({
   transcriptionBoxRef,
   segments,
+  numbering,
   onClear,
   onScroll,
   showLatest = false,
@@ -97,7 +100,7 @@ export function TranscriptionCard({
           onScroll={onScroll}
           className="custom-scrollbar -mr-1 h-full min-h-0 overflow-y-auto pr-1"
         >
-          <TranscriptionDisplay segments={segments} />
+          <TranscriptionDisplay segments={segments} numbering={numbering} />
         </div>
         {showLatest && onJumpToLatest && (
           <button

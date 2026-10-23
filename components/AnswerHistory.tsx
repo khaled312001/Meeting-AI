@@ -9,17 +9,21 @@ import { AnswerSources } from "@/components/AnswerSources";
 import { AnswerHeader } from "@/components/AnswerHeader";
 import type { PastAnswer } from "@/components/AssistantSessionProvider";
 import { cn } from "@/lib/utils";
+import { sentencePerLine } from "@/lib/answer-display";
 
 interface AnswerHistoryProps {
   answers: PastAnswer[];
   /** Markdown classes of the surface (full vs compact). */
   proseClassName: string;
+  /** Answer text size in px (the user's choice). */
+  fontPx?: number;
   compact?: boolean;
 }
 
 export const AnswerHistory = memo(function AnswerHistory({
   answers,
   proseClassName,
+  fontPx,
   compact = false,
 }: AnswerHistoryProps) {
   if (answers.length === 0) return null;
@@ -36,8 +40,11 @@ export const AnswerHistory = memo(function AnswerHistory({
           )}
         >
           <AnswerHeader kind={a.kind} at={a.at} n={a.n} text={a.text} />
-          <div className={proseClassName}>
-            <SafeMarkdown>{a.text}</SafeMarkdown>
+          <div
+            className={proseClassName}
+            style={fontPx ? { fontSize: fontPx } : undefined}
+          >
+            <SafeMarkdown>{sentencePerLine(a.text)}</SafeMarkdown>
           </div>
           <AnswerSources
             citations={a.citations}

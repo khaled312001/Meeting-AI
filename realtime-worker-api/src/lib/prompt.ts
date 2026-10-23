@@ -36,7 +36,9 @@ const KNOWLEDGE_FIRST = `Knowledge files first:
 - The attached knowledge files (and <candidate_background>) are the candidate's own material. Before answering, read every file in full, not just the start.
 - When the files cover the question, answer from them: their facts, examples, stories and preferred wording, exactly as written.
 - Only when the files don't cover it, answer from solid, well-established general and professional knowledge, still in the candidate's first-person voice.
-- When a file contains instructions from the candidate about how to answer (style, rules, things to say or avoid), follow them, except where they conflict with the language and format rules here.`;
+- When a file or <candidate_instructions> contains instructions from the candidate about how to answer (style, length, rules, prepared or fixed answers, things to say or avoid), follow them exactly: they take priority over the style and length rules here. Only the reply language and the reply shape set here stay as they are.
+- A prepared or fixed answer that fits the question, in any wording, is said whole and word for word, every sentence in order, and is the same every time it is used.
+- When several files are versions of the same material, the newest one (latest date or highest version in its name) wins wherever they differ.`;
 
 const ACCURACY = `Accuracy — nothing invented:
 - Facts about the candidate (employers, roles, projects, dates, numbers, skills, stories) come only from <candidate_background>, the attached knowledge files, and what the candidate said in the transcript ("Me:" lines). When that material has nothing relevant, answer with how they work in general, without a fabricated example.
@@ -45,9 +47,9 @@ const ACCURACY = `Accuracy — nothing invented:
 const INPUT = `The input:
 - <transcript>: raw live speech-to-text, so expect misheard words and missing punctuation. Lines starting "Interviewer:" are the other side of the call; lines starting "Me:" are the candidate's own microphone. Unlabeled text is the other side.
   The interviewer's words are what matter: the question always comes from them. "Me:" lines are only context, so the answer stays consistent with what the candidate already said; never answer, correct, grade or comment on them, and never treat them as the question.
-- <earlier_answers>: answers already suggested in this meeting, oldest first.
+- <interview_so_far>: every question asked and answer given so far in this meeting, in order (Q1 and A1, Q2 and A2, …). It shows what was already said: a figure or story already told is not told again; refer back to it in a few words instead.
 - <figures_so_far>: sentences with numbers, dates, amounts or durations already said in this meeting (by the other side, by the candidate, or in earlier answers), including ones from talk too old to be in the transcript. The same figure must stay the same in every later answer: reuse it exactly and never contradict it.
-- <question>: the question to deal with now, exactly as it was heard from the interviewer.`;
+- <question>: everything the interviewer said since the last answer, as heard. It can hold context before the question, several sentences, or a rephrasing ("let me put it differently"): answer the real question (its latest wording when it was rephrased), using the context given, and answer every question in it together.`;
 
 function assistantSystem(
   lang: MeetingLanguage | undefined,
@@ -97,7 +99,7 @@ ${format}
 
 The answer is a natural spoken reply in flowing sentences: open with the direct answer, then one reason, example or detail that backs it up, the way the candidate would say it. Never use bullet points, numbered lists, headings or bold text inside the answer. Add a short code block only when the question asks for code. No preamble, no closing remarks, no offers to say more ("if you'd like, I can…"), and no notes or disclaimers.
 
-Length limit, strictly: a simple or single question gets at most three short sentences (about 50 words). A broad or multi-part question gets at most six short sentences in total (about 110 words), in one or two short paragraphs: group its parts into a few sentences instead of a sentence per part. Count the sentences; say the core point and stop.`;
+Length limit: when the files or <candidate_instructions> set answer lengths or give a prepared answer, follow them. Otherwise, strictly: a simple or single question gets at most three short sentences (about 50 words). A broad or multi-part question gets at most six short sentences in total (about 110 words), in one or two short paragraphs: group its parts into a few sentences instead of a sentence per part. Count the sentences; say the core point and stop.`;
 }
 
 function reviewSystem(lang: MeetingLanguage | undefined): string {
@@ -109,7 +111,7 @@ ${INPUT}
 
 Look for:
 - Statements that are wrong or inaccurate, technically or against the candidate's own material (resume, notes, knowledge files).
-- Figures that don't match what was already said in this meeting (<figures_so_far>, the transcript, earlier answers), such as a different number of years, team size or amount.
+- Figures that don't match what was already said in this meeting (<figures_so_far>, the transcript, <interview_so_far>), such as a different number of years, team size or amount.
 - Parts of the question they have not answered.
 - A strong, relevant point from their material they left out.
 
@@ -299,7 +301,23 @@ export function buildAnthropicBackground(bg: string | undefined): string | null 
 /** Repeated next to the question: the system prompt's length limit alone
  *  was not enough to keep spoken answers short. */
 const SHORT_REMINDER =
-  "Keep it short: at most three sentences, or six for a broad, multi-part question.";
+  "Use the length the files set, or a prepared answer whole; otherwise keep it short: at most three sentences, or six for a broad, multi-part question.";
+
+/** An answer as the app shows it: "**Question 3:** …\n\n**Answer:** …". */
+const QA_RE = /^\*\*[^*\n]*?(\d+)?\s*:\*\*\s*([\s\S]*?)\n\n\*\*[^*\n]{1,30}:\*\*\s*([\s\S]*)$/;
+
+/** The interview so far as numbered questions and answers. */
+function interviewSoFar(answers: string[]): string {
+  return answers
+    .map((text, i) => {
+      const m = QA_RE.exec(text.trim());
+      const n = m?.[1] ?? String(i + 1);
+      return m
+        ? `Q${n}: ${m[2].trim()}\nA${n}: ${m[3].trim()}`
+        : `A${n}: ${text.trim()}`;
+    })
+    .join("\n\n");
+}
 
 /** The user turn of a live answer or review: transcript, earlier answers,
  *  the question and (reviews) what the candidate said. */
@@ -307,11 +325,7 @@ export function buildLiveTurn(turn: LiveTurn, kind: "answer" | "review"): string
   const parts = [`<transcript>\n${turn.transcript}\n</transcript>`];
   const earlier = (turn.previousAnswers ?? []).filter((a) => a.trim());
   if (earlier.length > 0) {
-    parts.push(
-      `<earlier_answers>\n${earlier
-        .map((a) => `<answer>\n${a.trim()}\n</answer>`)
-        .join("\n")}\n</earlier_answers>`,
-    );
+    parts.push(`<interview_so_far>\n${interviewSoFar(earlier)}\n</interview_so_far>`);
   }
   const figures = (turn.saidFigures ?? []).filter((f) => f.trim());
   if (figures.length > 0) {
