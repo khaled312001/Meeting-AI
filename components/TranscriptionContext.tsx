@@ -63,6 +63,8 @@ interface TranscriptionContextValue {
   myText: string;
   /** Words from the other side are being heard right now. */
   interviewerSpeaking: boolean;
+  /** Those words, as heard so far (not final yet). */
+  interviewerInterim: string;
   /** Words from the user's microphone are being heard right now. */
   meSpeaking: boolean;
   /** Transcribe the user's microphone too (applies from the next start). */
@@ -136,6 +138,11 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
     () => buildTranscriptTexts(transcriptionSegments),
     [transcriptionSegments],
   );
+  const interviewerInterim = transcriptionSegments
+    .filter((s) => !s.isFinal && s.source !== "me")
+    .map((s) => s.text.trim())
+    .join(" ")
+    .trim();
   const interviewerSpeaking = transcriptionSegments.some(
     (s) => !s.isFinal && s.source !== "me",
   );
@@ -361,6 +368,7 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       interviewerText,
       myText,
       interviewerSpeaking,
+      interviewerInterim,
       meSpeaking,
       includeMic,
       setIncludeMic,
@@ -385,6 +393,7 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       interviewerText,
       myText,
       interviewerSpeaking,
+      interviewerInterim,
       meSpeaking,
       includeMic,
       setIncludeMic,

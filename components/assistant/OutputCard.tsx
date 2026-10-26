@@ -37,8 +37,6 @@ interface OutputCardProps {
   /** The current answer's question number. */
   answerNumber?: number | null;
   isGenerating?: boolean;
-  /** Manual mode: waiting for the question to end before answering. */
-  waitingForEnd?: boolean;
   onSave: () => void;
   onClear?: () => void;
   /** Update: answer the whole question again in place of this answer. */
@@ -53,7 +51,6 @@ export const OutputCard = memo(function OutputCard({
   answerKind = "answer",
   answerNumber = null,
   isGenerating = false,
-  waitingForEnd = false,
   onSave,
   onClear,
   onUpdate,
@@ -66,7 +63,7 @@ export const OutputCard = memo(function OutputCard({
   const { size: textSize, cycle: cycleTextSize } = useAnswerTextSize();
   const fontPx = ANSWER_FONT_PX.full[textSize];
   const isEmpty =
-    !completion && pastAnswers.length === 0 && !isGenerating && !waitingForEnd;
+    !completion && pastAnswers.length === 0 && !isGenerating;
 
   return (
     <div
@@ -170,12 +167,10 @@ export const OutputCard = memo(function OutputCard({
                 <AnswerSources citations={citations} className="not-prose mt-4" />
               </div>
             ) : null}
-            {(waitingForEnd || (isGenerating && !completion)) && (
+            {isGenerating && !completion && (
               <p className="inline-flex items-center gap-2 text-sm text-text-secondary">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-                {waitingForEnd
-                  ? "Listening to the full question… (press Answer to answer now)"
-                  : "Writing the answer…"}
+                Writing the answer…
               </p>
             )}
             <AnswerHistory

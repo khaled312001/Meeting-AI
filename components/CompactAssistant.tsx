@@ -66,6 +66,7 @@ export function CompactAssistant({
     interviewerText,
     myText,
     interviewerSpeaking,
+    interviewerInterim,
     isActive: isListening,
     language,
     clearTranscription,
@@ -206,8 +207,7 @@ export function CompactAssistant({
   const auto = compactMode && !askMode && answerMode === "auto";
   const {
     takeQuestion,
-    answerWhenQuestionEnds,
-    waitingForEnd,
+    answerHeard,
     sentRanges,
     answeredTo,
     answerRange,
@@ -218,6 +218,7 @@ export function CompactAssistant({
     isBusy: isLoading,
     transcript: interviewerText,
     hasInterim: interviewerSpeaking,
+    interimText: interviewerInterim,
     myTranscript: myText,
     onTrigger: ({ question, replace, updated }) => {
       setAskMode(false);
@@ -243,9 +244,9 @@ export function CompactAssistant({
     };
   }, [transcriptionSegments, sentRanges, answeredTo]);
 
-  /** Answer button: in Auto, answers the question heard since the last
-   *  answer at once. In Manual, waits until the other side has finished
-   *  the question (pressing again answers at once). */
+  /** Answer button: answers what was heard since the last answer, at once.
+   *  In Manual the words still being heard go too; what is said after it
+   *  waits for the next press. */
   const answerNow = useCallback(() => {
     if (isLoading) return;
     if (!transcribedText.trim()) {
@@ -256,7 +257,7 @@ export function CompactAssistant({
     }
     setAskMode(false);
     if (answerMode === "manual" && sessionState === "live") {
-      answerWhenQuestionEnds();
+      answerHeard();
       return;
     }
     const { question, replace } = takeQuestion();
@@ -266,7 +267,7 @@ export function CompactAssistant({
     });
   }, [
     answerMode,
-    answerWhenQuestionEnds,
+    answerHeard,
     generate,
     isLoading,
     sessionState,
@@ -560,7 +561,6 @@ export function CompactAssistant({
     completion.length > 0 ||
     chatMessages.length > 0 ||
     isLoading ||
-    waitingForEnd ||
     chatIsStreaming ||
     error !== null ||
     chatError !== null;
@@ -593,7 +593,6 @@ export function CompactAssistant({
       <FocusBar
         isElectron={isElectron}
         isLoading={isLoading}
-        waitingForEnd={waitingForEnd}
         canUpdate={sessionState === "live" && answerNumber !== null}
         onUpdate={updateAnswer}
         isCapturing={isCapturing}
@@ -658,7 +657,6 @@ export function CompactAssistant({
           answerAt={answerAt}
           answerKind={answerKind}
           answerNumber={answerNumber}
-          waitingForEnd={waitingForEnd && outputMode !== "chat"}
           gaps={gaps}
           pending={answerMode === "manual" ? pending : []}
           onAnswerGap={(seg) => {

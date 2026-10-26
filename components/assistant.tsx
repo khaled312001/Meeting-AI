@@ -52,6 +52,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     interviewerText,
     myText,
     interviewerSpeaking,
+    interviewerInterim,
     sessionState,
   } = useTranscription();
   const {
@@ -100,8 +101,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
   const auto = isActive && answerMode === "auto";
   const {
     takeQuestion,
-    answerWhenQuestionEnds,
-    waitingForEnd,
+    answerHeard,
     sentRanges,
     updateAnswer,
   } = useAutoAnswer({
@@ -110,6 +110,7 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     isBusy: isLoading,
     transcript: interviewerText,
     hasInterim: interviewerSpeaking,
+    interimText: interviewerInterim,
     myTranscript: myText,
     onTrigger: ({ question, replace, updated }) =>
       void generateNow({ question: question || undefined, replace, updated }),
@@ -128,20 +129,20 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     [transcriptionSegments, sentRanges],
   );
 
-  /** Answer button: in Auto, answers the question heard since the last
-   *  answer at once. In Manual, waits until the other side has finished
-   *  the question (pressing again answers at once). */
+  /** Answer button: answers what was heard since the last answer, at once.
+   *  In Manual the words still being heard go too; what is said after it
+   *  waits for the next press. */
   const answerNow = useCallback(() => {
     if (isLoading) return;
     if (answerMode === "manual" && sessionState === "live") {
-      answerWhenQuestionEnds();
+      answerHeard();
       return;
     }
     const { question, replace } = takeQuestion();
     void generateNow({ question: question || undefined, replace });
   }, [
     answerMode,
-    answerWhenQuestionEnds,
+    answerHeard,
     generateNow,
     isLoading,
     sessionState,
@@ -295,7 +296,6 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
             answerKind={answerKind}
             answerNumber={answerNumber}
             isGenerating={isLoading}
-            waitingForEnd={waitingForEnd}
             onUpdate={
               sessionState === "live" && answerNumber !== null
                 ? updateAnswer

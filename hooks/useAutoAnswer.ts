@@ -31,6 +31,8 @@ interface UseAutoAnswerArgs {
   transcript: string;
   /** The other side is still being heard (not finalized yet). */
   hasInterim: boolean;
+  /** Their words still being heard, sent too when Answer is pressed. */
+  interimText?: string;
   /** Finalized speech from the user's microphone: when the user starts
    *  replying, the question is over, so the answer comes at once. */
   myTranscript?: string;
@@ -55,15 +57,6 @@ const CONTINUE_WINDOW_MS = 2500;
 /** …and must be at least this long to replace the answer. */
 const CONTINUE_MIN_WORDS = 3;
 
-/** Manual mode: Answer pressed while the other side is still talking waits
- *  for the whole question — this long after their last words (shorter
- *  when it ends in a question mark), however long the question is. */
-const MANUAL_END_PAUSE_MS = 1200;
-const MANUAL_QUESTION_END_PAUSE_MS = 500;
-/** Manual mode: more speech this soon after Answer means the question
- *  went on; it is answered again, whole, once it ends. */
-const MANUAL_CONTINUE_WINDOW_MS = 4000;
-
 const wordCount = (text: string) =>
   text.split(/\s+/).filter(Boolean).length;
 const words = (text: string) =>
@@ -87,6 +80,7 @@ export function useAutoAnswer({
   isBusy,
   transcript,
   hasInterim,
+  interimText = "",
   myTranscript = "",
   onTrigger,
   onInterrupt,
@@ -118,18 +112,11 @@ export function useAutoAnswer({
 
   const transcriptRef = useRef(transcript);
   transcriptRef.current = transcript;
-  const hasInterimRef = useRef(hasInterim);
-  hasInterimRef.current = hasInterim;
-
-  /** Manual mode: Answer was pressed and the question is still going. */
-  const [waitingForEnd, setWaitingForEnd] = useState(false);
-  const waitingRef = useRef(false);
-  /** Manual mode: the last answer came from the Answer button. */
-  const manualAnswer = useRef(false);
-  const setWaiting = useCallback((on: boolean) => {
-    waitingRef.current = on;
-    setWaitingForEnd(on);
-  }, []);
+  const interimRef = useRef(interimText);
+  interimRef.current = interimText;
+  /** Words still being heard when Answer was pressed: they went with that
+   *  answer, so once they come through as final they count as answered. */
+  const sentEarly = useRef<string[] | null>(null);
 
   /** Transcript ranges sent for an answer, so speech that never reached
    *  one shows as a gap. */
@@ -185,24 +172,24 @@ export function useAutoAnswer({
       setSentRanges([]);
       setAnsweredTo(transcript.length);
     }
-    if (!enabled) {
-      // Manual: the question went on after Answer → stop that answer and
-      // answer the whole question once it ends (see the wait below).
-      const more = transcript.slice(answeredUpTo.current).trim();
-      if (
-        manualAnswer.current &&
-        more &&
-        !waitingRef.current &&
-        !continuing.current &&
-        Date.now() - triggeredAt.current < MANUAL_CONTINUE_WINDOW_MS &&
-        wordCount(more) >= CONTINUE_MIN_WORDS
-      ) {
-        continuing.current = true;
-        if (isBusy && running.current === "answer") onInterruptRef.current();
-        setWaiting(true);
+    const early = sentEarly.current;
+    const arrived = transcript.slice(answeredUpTo.current);
+    if (early && arrived.trim()) {
+      sentEarly.current = null;
+      const got = words(arrived);
+      if (got.filter((w) => early.includes(w)).length / got.length >= 0.6) {
+        setSentRanges((ranges) =>
+          ranges.length > 0
+            ? [...ranges.slice(0, -1), [ranges[ranges.length - 1][0], transcript.length]]
+            : ranges,
+        );
+        answeredUpTo.current = transcript.length;
+        setAnsweredTo(transcript.length);
       }
-      return;
     }
+    // Manual: nothing happens on its own. What the other side says after
+    // an answer waits, below it, for the next press of Answer.
+    if (!enabled) return;
     const fresh = transcript.slice(answeredUpTo.current).trim();
     if ((fresh || hasInterim) && speechStartedAt.current === 0) {
       speechStartedAt.current = Date.now();
@@ -228,14 +215,11 @@ export function useAutoAnswer({
     // The user started replying: the interviewer is done, answer now.
     const replying = isOwnReply(myTranscript.slice(myStartAt.current), fresh);
     const timer = setTimeout(
-      () => {
-        manualAnswer.current = false;
-        onTriggerRef.current(take(transcript));
-      },
+      () => onTriggerRef.current(take(transcript)),
       replying ? 0 : endsWithQuestion(fresh) ? QUESTION_PAUSE_MS : SENTENCE_PAUSE_MS,
     );
     return () => clearTimeout(timer);
-  }, [enabled, isLive, isBusy, hasInterim, transcript, myTranscript, take, setWaiting]);
+  }, [enabled, isLive, isBusy, hasInterim, transcript, myTranscript, take]);
 
   /** For the manual Answer button: the speech not answered yet, or the
    *  last question again when nothing new was said. */
@@ -253,37 +237,25 @@ export function useAutoAnswer({
     return take(text);
   }, [take]);
 
-  // Manual: answer once the other side has finished the question.
-  useEffect(() => {
-    if (!waitingForEnd || hasInterim || isBusy) return;
-    const fresh = transcript.slice(answeredUpTo.current).trim();
-    const timer = setTimeout(
-      () => {
-        setWaiting(false);
-        onTriggerRef.current(takeQuestion());
-      },
-      endsWithQuestion(fresh) ? MANUAL_QUESTION_END_PAUSE_MS : MANUAL_END_PAUSE_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [waitingForEnd, hasInterim, isBusy, transcript, setWaiting, takeQuestion]);
+  /** Add the words still being heard to what is sent. */
+  const withHeard = useCallback((trigger: AutoAnswerTrigger): AutoAnswerTrigger => {
+    const heard = interimRef.current.trim();
+    sentEarly.current = heard ? words(heard) : null;
+    if (!heard) return trigger;
+    return { ...trigger, question: [trigger.question, heard].filter(Boolean).join(" ") };
+  }, []);
 
-  // Nothing to wait for once listening stops or Auto takes over.
-  useEffect(() => {
-    if ((!isLive || enabled) && waitingRef.current) setWaiting(false);
-  }, [isLive, enabled, setWaiting]);
-
-  /** Manual mode's Answer: while the other side is still talking, wait
-   *  for the end of the question and answer all of it (through
-   *  `onTrigger`). Pressed again while waiting, it answers right away. */
-  const answerWhenQuestionEnds = useCallback(() => {
-    manualAnswer.current = true;
-    if (waitingRef.current || !hasInterimRef.current) {
-      setWaiting(false);
+  /** Manual mode's Answer: answers at once, with everything heard since
+   *  the last answer, the words still being heard included (through
+   *  `onTrigger`). It never waits for the other side to finish. */
+  const answerHeard = useCallback(() => {
+    const fresh = transcriptRef.current.slice(answeredUpTo.current).trim();
+    if (!fresh && !interimRef.current.trim()) {
       onTriggerRef.current(takeQuestion());
       return;
     }
-    setWaiting(true);
-  }, [takeQuestion, setWaiting]);
+    onTriggerRef.current(withHeard(take(transcriptRef.current)));
+  }, [take, takeQuestion, withHeard]);
 
   /** Update: Answer was pressed too early and the question went on. The
    *  answer on screen stops and the whole question, old part plus new, is
@@ -291,17 +263,15 @@ export function useAutoAnswer({
   const [updateRequested, setUpdateRequested] = useState(false);
   const updateAnswer = useCallback(() => {
     if (triggeredAt.current === 0) return;
-    setWaiting(false);
     continuing.current = true;
-    manualAnswer.current = true;
     if (running.current === "answer") onInterruptRef.current();
     setUpdateRequested(true);
-  }, [setWaiting]);
+  }, []);
   useEffect(() => {
     if (!updateRequested || isBusy) return;
     setUpdateRequested(false);
-    onTriggerRef.current({ ...take(transcriptRef.current), updated: true });
-  }, [updateRequested, isBusy, take]);
+    onTriggerRef.current({ ...withHeard(take(transcriptRef.current)), updated: true });
+  }, [updateRequested, isBusy, take, withHeard]);
 
   /** Answer one earlier stretch of speech that was never sent (a gap). */
   const answerRange = useCallback((from: number, to: number) => {
@@ -311,14 +281,12 @@ export function useAutoAnswer({
     lastQuestion.current = question;
     triggeredAt.current = Date.now();
     running.current = "answer";
-    manualAnswer.current = false;
     onTriggerRef.current({ question, replace: false });
   }, []);
 
   return {
     takeQuestion,
-    answerWhenQuestionEnds,
-    waitingForEnd,
+    answerHeard,
     sentRanges,
     answeredTo,
     answerRange,

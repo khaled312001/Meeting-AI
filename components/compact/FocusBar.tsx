@@ -158,8 +158,6 @@ function SpeakingBars({ who }: { who: "them" | "me" | null }) {
 interface FocusBarProps {
   isElectron: boolean;
   isLoading: boolean;
-  /** Manual mode: waiting for the question to end before answering. */
-  waitingForEnd?: boolean;
   /** Update is offered: there is an answer to a heard question. */
   canUpdate?: boolean;
   onUpdate?: () => void;
@@ -188,7 +186,6 @@ interface FocusBarProps {
 export function FocusBar({
   isElectron,
   isLoading,
-  waitingForEnd = false,
   canUpdate = false,
   onUpdate,
   isCapturing,
@@ -311,21 +308,14 @@ export function FocusBar({
             <PillButton
               onClick={onAnswer}
               title={
-                waitingForEnd
-                  ? "Listening until the question ends — press again to answer now"
-                  : answerMode === "auto"
-                    ? "Answer now — questions are also answered on their own (Ctrl+Alt+Enter from any app)"
-                    : "Answer once the question ends (Ctrl+Alt+Enter from any app)"
+                answerMode === "auto"
+                  ? "Answer now — questions are also answered on their own (Ctrl+Alt+Enter from any app)"
+                  : "Answer now, with what was heard so far (Ctrl+Alt+Enter from any app)"
               }
-              active={waitingForEnd}
               className="bg-accent/15 text-accent-text hover:bg-accent/25"
             >
-              {waitingForEnd ? (
-                <LoadingDots color="bg-sky-300" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5 text-accent-text" />
-              )}
-              {waitingForEnd ? "Listening…" : "Answer"}
+              <Sparkles className="h-3.5 w-3.5 text-accent-text" />
+              Answer
               <Kbd
                 keys={["Mod", "Enter"]}
                 size="xs"

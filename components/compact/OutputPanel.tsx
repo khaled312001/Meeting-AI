@@ -66,8 +66,6 @@ interface OutputPanelProps {
   /** The current answer's question number. */
   answerNumber?: number | null;
   isGenerating?: boolean;
-  /** Manual mode: waiting for the question to end before answering. */
-  waitingForEnd?: boolean;
   /** Interviewer segments skipped without an answer; a click answers one. */
   gaps?: InterviewerSegment[];
   onAnswerGap?: (segment: InterviewerSegment) => void;
@@ -146,7 +144,6 @@ export function OutputPanel({
   answerKind = "answer",
   answerNumber = null,
   isGenerating = false,
-  waitingForEnd = false,
   gaps = [],
   onAnswerGap,
   pending = [],
@@ -367,14 +364,12 @@ export function OutputPanel({
                   <AnswerSources citations={citations} compact className="mt-2" />
                 </div>
               ) : null}
-              {!error && (waitingForEnd || (isGenerating && !completion)) && (
+              {!error && isGenerating && !completion && (
                 <p className="inline-flex items-center gap-2 text-[13px] text-text-secondary">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-                  {waitingForEnd
-                    ? "Listening to the full question… (press Answer to answer now)"
-                    : activeFlag === FLAGS.SUMMARIZER
-                      ? "Writing the summary…"
-                      : "Writing the answer…"}
+                  {activeFlag === FLAGS.SUMMARIZER
+                    ? "Writing the summary…"
+                    : "Writing the answer…"}
                 </p>
               )}
               {gaps.length > 0 && (
@@ -394,7 +389,7 @@ export function OutputPanel({
                   ))}
                 </div>
               )}
-              {pending.length > 0 && !isGenerating && !waitingForEnd && (
+              {pending.length > 0 && !isGenerating && (
                 <p className="mt-2 text-[12px] text-text-tertiary">
                   Heard since the last answer: {numberRuns(pending).join(", ")} · press
                   Answer
