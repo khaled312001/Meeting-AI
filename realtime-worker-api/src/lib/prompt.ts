@@ -25,7 +25,7 @@ const LABELS: Record<
 };
 
 /** Live answers and reviews without a chosen language (older clients). */
-const AUTO_LANGUAGE = `Language: write the whole reply in the language of the interviewer's question (the latest one if the transcript switched), labels included, translating the labels below. Never mix languages; only product names, technical terms with no common translation, and code stay as they are.`;
+const AUTO_LANGUAGE = `Language: write the whole reply in the language of the interviewer's question (the latest one if the transcript switched; the language most of it is in when it mixes languages, such as Arabic with English words), labels included, translating the labels below. Never mix languages; only product names, technical terms with no common translation, and code stay as they are.`;
 
 function languageRule(lang: MeetingLanguage | undefined): string {
   if (!lang) return AUTO_LANGUAGE;
@@ -62,7 +62,7 @@ function filesRuleSystem(
 ): string {
   const language = lang
     ? `Write in ${LANGUAGE_NAME[lang]}.`
-    : "Write in the language of the interviewer's question.";
+    : "Write in the language of the interviewer's question (the language most of it is in when it mixes languages).";
   const shape = questionLine
     ? `Reply in this shape:
 <line 1: the question as you understood it, on one short line, cleaned of speech-to-text errors and filler; the app shows it as the answer's title and it is not said aloud>

@@ -21,7 +21,12 @@ import {
 import { copyText } from "@/lib/copy-text";
 import { cn } from "@/lib/utils";
 
-const LANGUAGE_LABEL = { en: "English", ar: "Arabic", de: "German" } as const;
+const LANGUAGE_LABEL = {
+  auto: "Auto language",
+  en: "English",
+  ar: "Arabic",
+  de: "German",
+} as const;
 
 function when(ms: number): string {
   return new Date(ms).toLocaleString(undefined, {

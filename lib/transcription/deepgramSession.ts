@@ -11,8 +11,8 @@
  *  - "me": the user's microphone, optional. Lines the mic only picked up
  *    from the speakers (the other side, echoed) are dropped.
  *
- *  Both transcribe in the one meeting language the user picked, so a turn
- *  is never split across languages.
+ *  Both listen for the language the user picked, or, on Auto, for Arabic,
+ *  English and German at once, switches mid-sentence included.
  *
  *  On unexpected WebSocket drops while live, re-mints a key and reconnects
  *  with exponential backoff before surfacing a fatal error. */
@@ -27,7 +27,7 @@ import {
   startDeepgramLiveConnection,
   type DeepgramLiveConnection,
 } from "@/lib/transcription/deepgramLiveConnection";
-import type { MeetingLanguage } from "@/lib/meeting-language";
+import { deepgramLanguage, type ListenLanguage } from "@/lib/meeting-language";
 import posthog from "posthog-js";
 import { ricFetch } from "@/lib/ric-fetch";
 import {
@@ -60,7 +60,7 @@ type SegmentsUpdater = (prev: TranscriptionSegment[]) => TranscriptionSegment[];
 
 export interface DeepgramSessionCallbacks {
   isElectron: boolean;
-  language: MeetingLanguage;
+  language: ListenLanguage;
   /** Also transcribe the user's microphone as "me". */
   includeMic: boolean;
   nextSegmentId: () => string;
@@ -76,7 +76,7 @@ export interface DeepgramSessionCallbacks {
 export interface DeepgramSessionHandle {
   stop: () => void;
   /** Re-open transcription in another language on the same audio. */
-  switchLanguage: (language: MeetingLanguage) => void;
+  switchLanguage: (language: ListenLanguage) => void;
   getLiveSessionId: () => string | null;
 }
 
@@ -270,7 +270,7 @@ export async function startDeepgramSession(
     teardown();
   }
 
-  function switchLanguage(next: MeetingLanguage) {
+  function switchLanguage(next: ListenLanguage) {
     if (next === language) return;
     language = next;
     if (stale || !liveSessionId || channels.length === 0) return;
@@ -440,7 +440,9 @@ export async function startDeepgramSession(
   }
 
   async function openConnection(ch: Channel, apiKey: string, gen: number) {
-    const conn = await connectDeepgramLive(apiKey, { language });
+    const conn = await connectDeepgramLive(apiKey, {
+      language: deepgramLanguage(language),
+    });
     if (stale || gen !== connectionGen || ch.connection !== null) {
       closeDeepgramLive(conn);
       return;

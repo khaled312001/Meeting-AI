@@ -24,6 +24,7 @@ import {
 } from "@/lib/live-answer";
 import { collectSaidFigures } from "@/lib/said-figures";
 import { getInterviewFiles } from "@/lib/interview-files";
+import { guessLanguage } from "@/lib/meeting-language";
 
 interface UseAssistantSubmitArgs {
   flag: FLAGS;
@@ -64,7 +65,7 @@ export function useAssistantSubmit({
     getRememberedAnswers,
     getAnswerHistory,
   } = useAssistantSession();
-  const { language } = useTranscription();
+  const { replyLanguage } = useTranscription();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const [canRegenerate, setCanRegenerate] = useState(false);
@@ -143,7 +144,7 @@ export function useAssistantSubmit({
         // It shows the question as heard until the model's clean one-line
         // version of it arrives.
         const live = liveQuestion
-          ? createLiveAnswer(liveQuestion, language, n)
+          ? createLiveAnswer(liveQuestion, replyLanguage ?? guessLanguage(liveQuestion), n)
           : null;
         let acc = live ? live.text() : "";
         const flusher = createStreamFlusher(() => setCompletion(acc));
@@ -161,7 +162,7 @@ export function useAssistantSubmit({
                 : undefined,
             bg: runBg,
             prompt,
-            lang: language,
+            lang: replyLanguage,
             question: opts.question,
             previousAnswers,
             myAnswer: opts.myAnswer,
@@ -214,7 +215,7 @@ export function useAssistantSubmit({
       getAnswerHistory,
       getRememberedAnswers,
       isLoading,
-      language,
+      replyLanguage,
       setCitations,
       setCompletion,
       startNewAnswer,

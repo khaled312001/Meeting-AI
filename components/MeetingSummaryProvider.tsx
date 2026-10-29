@@ -36,6 +36,7 @@ import { useTab } from "@/components/TabContext";
 import { buildTranscriptTexts, useTranscription } from "@/components/TranscriptionContext";
 import { buildSummaryDocument, summaryFileBaseName } from "@/lib/meeting-summary";
 import { buildInterviewLog, interviewLogFileBaseName } from "@/lib/interview-log";
+import { guessLanguage } from "@/lib/meeting-language";
 import { buildContextBlock } from "@/lib/prompt-context";
 import { streamCompletion } from "@/lib/stream-completion";
 import { FLAGS, type TranscriptionSegment } from "@/lib/types";
@@ -86,7 +87,8 @@ function downloadInBrowser(content: string, name: string, type = "text/html", ex
 }
 
 export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
-  const { sessionState, transcriptionSegments, language, stopSession } = useTranscription();
+  const { sessionState, transcriptionSegments, replyLanguage, stopSession } =
+    useTranscription();
   const { pastAnswers, completion, answerKind, answerAt, getAnswerLog } =
     useAssistantSession();
   const { interviewNotes, jobDescription } = useInterviewContext();
@@ -102,8 +104,8 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
   // The job this meeting is for (the resume stays out: it isn't the meeting).
   const jobContextRef = useRef("");
   jobContextRef.current = buildContextBlock({ existingBg: interviewNotes, jobDescription });
-  const languageRef = useRef(language);
-  languageRef.current = language;
+  const languageRef = useRef(replyLanguage);
+  languageRef.current = replyLanguage;
   const runningRef = useRef<AbortController | null>(null);
   const savedFileRef = useRef<string | null>(null);
   /** Summaries run one after another, never two at once. */
@@ -188,7 +190,9 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     runningRef.current = controller;
     setStatus({ state: "writing" });
+    // On Auto the summary is in the meeting's language, as it was spoken.
     const lang = languageRef.current;
+    const docLang = lang ?? guessLanguage(transcript);
     const at = new Date();
     try {
       for (let attempt = 0; ; attempt++) {
@@ -211,10 +215,10 @@ export function MeetingSummaryProvider({ children }: { children: ReactNode }) {
             summary,
             transcript,
             answers: meeting.answers,
-            language: lang,
+            language: docLang,
             startedAt: at,
           });
-          const name = summaryFileBaseName(lang, at);
+          const name = summaryFileBaseName(docLang, at);
           const api = typeof window !== "undefined" ? window.electronAPI : undefined;
           if (api?.saveSummaryPdf) {
             const file = await api.saveSummaryPdf(html, name);

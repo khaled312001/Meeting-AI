@@ -46,10 +46,16 @@ import {
 } from "@/lib/transcription/meeting-archive";
 import { endLiveSession, trackEvent } from "@/lib/session-tracking";
 import {
-  DEFAULT_MEETING_LANGUAGE,
+  type AnswerLanguage,
+  DEFAULT_ANSWER_LANGUAGE,
+  DEFAULT_LISTEN_LANGUAGE,
+  type ListenLanguage,
   type MeetingLanguage,
-  readMeetingLanguage,
-  writeMeetingLanguage,
+  readAnswerLanguage,
+  readListenLanguage,
+  replyLanguage as resolveReplyLanguage,
+  writeAnswerLanguage,
+  writeListenLanguage,
 } from "@/lib/meeting-language";
 import type { TranscriptionSegment } from "@/lib/types";
 
@@ -85,10 +91,16 @@ interface TranscriptionContextValue {
   /** Read-at-submit access to the transcript without subscribing to
    *  per-interim updates (submit callbacks stay referentially stable). */
   getTranscribedText: () => string;
-  /** Language the meeting is held in — transcription and answers use it. */
-  language: MeetingLanguage;
+  /** What transcription listens for: one language, or Auto (Arabic,
+   *  English and German, also mixed). */
+  language: ListenLanguage;
   /** Switch language; a live session restarts in the new language. */
-  setLanguage: (language: MeetingLanguage) => void;
+  setLanguage: (language: ListenLanguage) => void;
+  /** What answers are written in: one language, or Auto (the question's). */
+  answerLanguage: AnswerLanguage;
+  setAnswerLanguage: (language: AnswerLanguage) => void;
+  /** The language to ask answers in; undefined = the question's. */
+  replyLanguage: MeetingLanguage | undefined;
 }
 
 const MIC_STORAGE_KEY = "meeting-ai-include-mic";
@@ -167,14 +179,23 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       /* storage unavailable — applies for this session */
     }
   }, []);
-  const [language, setLanguageState] = useState<MeetingLanguage>(
-    DEFAULT_MEETING_LANGUAGE,
+  const [language, setLanguageState] = useState<ListenLanguage>(
+    DEFAULT_LISTEN_LANGUAGE,
   );
   const languageRef = useRef(language);
   languageRef.current = language;
+  const [answerLanguage, setAnswerLanguageState] = useState<AnswerLanguage>(
+    DEFAULT_ANSWER_LANGUAGE,
+  );
   useEffect(() => {
-    setLanguageState(readMeetingLanguage());
+    setLanguageState(readListenLanguage());
+    setAnswerLanguageState(readAnswerLanguage());
   }, []);
+  const setAnswerLanguage = useCallback((next: AnswerLanguage) => {
+    setAnswerLanguageState(next);
+    writeAnswerLanguage(next);
+  }, []);
+  const replyLanguage = resolveReplyLanguage(answerLanguage, language);
 
   // Mirror of `transcribedText` for read-at-submit consumers — keeps
   // their callbacks stable without subscribing them to token updates.
@@ -304,11 +325,11 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
   const dismissError = useCallback(() => setErrorMessage(null), []);
 
   const setLanguage = useCallback(
-    (next: MeetingLanguage) => {
+    (next: ListenLanguage) => {
       if (next === languageRef.current) return;
       languageRef.current = next;
       setLanguageState(next);
-      writeMeetingLanguage(next);
+      writeListenLanguage(next);
       // A running session keeps its audio and re-listens in the new language.
       sessionHandleRef.current?.switchLanguage(next);
     },
@@ -330,7 +351,7 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       toArchivedMeeting(
         newMeetingId(),
         startedAt,
-        readMeetingLanguage(),
+        readListenLanguage(),
         finals,
         startedAt + lastSecond * 1000,
       ),
@@ -387,6 +408,9 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       getTranscribedText,
       language,
       setLanguage,
+      answerLanguage,
+      setAnswerLanguage,
+      replyLanguage,
     }),
     [
       transcribedText,
@@ -412,6 +436,9 @@ export function TranscriptionProvider({ children }: { children: ReactNode }) {
       getTranscribedText,
       language,
       setLanguage,
+      answerLanguage,
+      setAnswerLanguage,
+      replyLanguage,
     ],
   );
 

@@ -19,7 +19,7 @@ export interface DeepgramLiveConnection {
 export interface DeepgramLiveOptions {
   model?: string;
   /** "multi" = automatic code-switching across Deepgram's multilingual set
-   *  (English, German, French, Spanish, …); Arabic needs its own "ar". */
+   *  (Arabic, English, German, …); or one language ("ar", "en", "de"). */
   language?: string;
 }
 

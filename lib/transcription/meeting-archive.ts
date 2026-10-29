@@ -7,7 +7,7 @@
  * back on demand from the "Past meetings" list.
  */
 
-import type { MeetingLanguage } from "@/lib/meeting-language";
+import type { ListenLanguage } from "@/lib/meeting-language";
 import type { TranscriptionSegment } from "@/lib/types";
 
 const DB_NAME = "meeting-ai";
@@ -28,7 +28,7 @@ export interface ArchivedMeeting {
   id: string;
   startedAt: number;
   updatedAt: number;
-  language: MeetingLanguage;
+  language: ListenLanguage;
   words: number;
   /** First thing the interviewer said, for the list. */
   preview: string;
@@ -83,7 +83,7 @@ export function newMeetingId(): string {
 export function toArchivedMeeting(
   id: string,
   startedAt: number,
-  language: MeetingLanguage,
+  language: ListenLanguage,
   segments: TranscriptionSegment[],
   /** When it ended; defaults to now (the meeting is live). */
   endedAt = Date.now(),

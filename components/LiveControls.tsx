@@ -1,13 +1,13 @@
 "use client";
 
 /** Live session settings shared by the full view and focus mode: the
- *  meeting language, Auto / Manual answers, and whether the user's own
+ *  listening and answer languages, Auto / Manual answers, and whether the user's own
  *  microphone is transcribed. */
 
 import { Hand, Mic, MicOff, Zap } from "lucide-react";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
 import { useTranscription } from "@/components/TranscriptionContext";
-import { MEETING_LANGUAGES } from "@/lib/meeting-language";
+import { type AnswerLanguage, LANGUAGE_CHOICES } from "@/lib/meeting-language";
 import { cn } from "@/lib/utils";
 
 type Variant = "toolbar" | "glass";
@@ -34,18 +34,18 @@ export function LanguageSwitch({ variant = "toolbar" }: { variant?: Variant }) {
   return (
     <div
       role="radiogroup"
-      aria-label="Meeting language"
-      title="Meeting language: listening and answers use only this language"
+      aria-label="Listening language"
+      title="Listening: Auto hears Arabic, English and German, also mixed in one sentence; or pick one language"
       className={groupClass[variant]}
     >
-      {MEETING_LANGUAGES.map((l) => (
+      {LANGUAGE_CHOICES.map((l) => (
         <button
           key={l.id}
           type="button"
           role="radio"
           aria-checked={language === l.id}
           aria-label={l.label}
-          title={l.label}
+          title={l.id === "auto" ? "Automatic: Arabic, English and German, also mixed" : l.label}
           onClick={() => setLanguage(l.id)}
           className={cn(segmentClass(variant, language === l.id), "min-w-[30px] justify-center")}
         >
@@ -53,6 +53,29 @@ export function LanguageSwitch({ variant = "toolbar" }: { variant?: Variant }) {
         </button>
       ))}
     </div>
+  );
+}
+
+/** The language answers are written in: Auto follows the question. */
+export function AnswerLanguageSwitch({ variant = "toolbar" }: { variant?: Variant }) {
+  const { answerLanguage, setAnswerLanguage } = useTranscription();
+  return (
+    <select
+      aria-label="Answer language"
+      title="Answers in: Auto writes in the question's language (or the listening language when one is picked)"
+      value={answerLanguage}
+      onChange={(e) => setAnswerLanguage(e.target.value as AnswerLanguage)}
+      className={cn(
+        groupClass[variant],
+        "cursor-pointer px-2 text-[11px] font-medium text-text-secondary hover:text-text-primary focus-visible:outline-none",
+      )}
+    >
+      {LANGUAGE_CHOICES.map((l) => (
+        <option key={l.id} value={l.id} className="bg-surface-raised text-text-primary">
+          Answers: {l.short}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -127,6 +150,7 @@ export function LiveControls({
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       <LanguageSwitch variant={variant} />
+      <AnswerLanguageSwitch variant={variant} />
       <AnswerModeSwitch variant={variant} />
       <MicSwitch variant={variant} />
     </div>

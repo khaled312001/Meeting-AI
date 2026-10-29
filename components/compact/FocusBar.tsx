@@ -38,6 +38,7 @@ import { useTranscription } from "@/components/TranscriptionContext";
 import { useAssistantSession } from "@/components/AssistantSessionProvider";
 import { useMeetingSummary } from "@/components/MeetingSummaryProvider";
 import {
+  AnswerLanguageSwitch,
   AnswerModeSwitch,
   LanguageSwitch,
   MicSwitch,
@@ -362,6 +363,7 @@ export function FocusBar({
 
           <Divider />
           <LanguageSwitch variant="glass" />
+          <AnswerLanguageSwitch variant="glass" />
           <AnswerModeSwitch variant="glass" />
           <MicSwitch variant="glass" />
           <Divider />

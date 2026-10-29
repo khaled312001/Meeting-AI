@@ -25,6 +25,7 @@ import {
 } from "@/lib/live-answer";
 import { collectSaidFigures } from "@/lib/said-figures";
 import { getInterviewFiles } from "@/lib/interview-files";
+import { guessLanguage } from "@/lib/meeting-language";
 import {
   isVisionScreenshotDataUrl,
   VISION_FALLBACK_PROMPT,
@@ -69,7 +70,7 @@ export function useCompactGenerate({
   const controllerRef = useRef<AbortController | null>(null);
   const { setCitations, startNewAnswer, getRememberedAnswers, getAnswerHistory } =
     useAssistantSession();
-  const { language } = useTranscription();
+  const { replyLanguage } = useTranscription();
 
   const abort = useCallback(() => {
     if (controllerRef.current) {
@@ -164,7 +165,7 @@ export function useCompactGenerate({
         // It shows the question as heard until the model's clean one-line
         // version of it arrives.
         const live = liveQuestion
-          ? createLiveAnswer(liveQuestion, language, n)
+          ? createLiveAnswer(liveQuestion, replyLanguage ?? guessLanguage(liveQuestion), n)
           : null;
         let acc = live ? live.text() : "";
         const flusher = createStreamFlusher(() => setCompletion(acc));
@@ -183,7 +184,7 @@ export function useCompactGenerate({
             bg,
             prompt,
             image: imagePayload,
-            lang: language,
+            lang: replyLanguage,
             question: opts.question,
             previousAnswers,
             myAnswer: opts.myAnswer,
@@ -264,7 +265,7 @@ export function useCompactGenerate({
       getAnswerHistory,
       getRememberedAnswers,
       isLoading,
-      language,
+      replyLanguage,
       setActiveFlag,
       setCitations,
       setCompletion,

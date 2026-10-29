@@ -68,7 +68,7 @@ export function CompactAssistant({
     interviewerSpeaking,
     interviewerInterim,
     isActive: isListening,
-    language,
+    replyLanguage,
     clearTranscription,
     sessionState,
     transcriptionSegments,
@@ -317,11 +317,11 @@ export function CompactAssistant({
           return;
         }
         if (autoSend) {
-          // Answer what is on screen right away, in the meeting language.
+          // Answer what is on screen right away, in the answer language.
           setOutputMode("chat");
           setOutputCollapsed(false);
           posthog.capture("screen_answered", { surface: "focus" });
-          void send({ text: SCREEN_PROMPT[language], images: [dataUrl] });
+          void send({ text: SCREEN_PROMPT[replyLanguage ?? "en"], images: [dataUrl] });
           return;
         }
         appendImage(dataUrl);
@@ -341,7 +341,7 @@ export function CompactAssistant({
     } finally {
       setIsCapturing(false);
     }
-  }, [appendImage, attachedImages.length, language, send, setOutputMode]);
+  }, [appendImage, attachedImages.length, replyLanguage, send, setOutputMode]);
 
   // Abort any in-flight completion stream when the surface unmounts (user
   // toggles compact off / closes the app). Without this, the SSE reader

@@ -138,7 +138,8 @@ export const OutputCard = memo(function OutputCard({
               Ready when you are
             </p>
             <p className="mt-1 text-xs text-text-tertiary">
-              Pick the meeting language and start listening. In Auto mode
+              Start listening — the language is found on its own (Arabic,
+              English, German, also mixed), or pick one. In Auto mode
               each question is answered as soon as the speaker finishes; in
               Manual mode press Answer.
             </p>
