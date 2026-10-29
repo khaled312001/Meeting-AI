@@ -77,7 +77,8 @@ export function replyLanguage(
   return listen !== "auto" ? listen : undefined;
 }
 
-const GERMAN_RE = /[äöüß]|\b(?:und|nicht|ist|das|wir|ich|sie|der|die|mit|für)\b/giu;
+// Words only: umlauts are Swedish and Turkish too.
+const GERMAN_RE = /(?<!\p{L})(?:und|nicht|ist|das|wir|ich|sie|der|die|mit|für|auch|wie|haben)(?!\p{L})/giu;
 
 /** The language most of `text` is in, for labels and file names when the
  *  language is Auto. */
@@ -87,11 +88,6 @@ export function guessLanguage(text: string): MeetingLanguage {
   const arabic = letters.filter((c) => /\p{Script=Arabic}/u.test(c)).length;
   if (arabic / letters.length > 0.3) return "ar";
   const words = text.split(/\s+/).filter(Boolean).length;
-  return (text.match(GERMAN_RE) ?? []).length / words > 0.08 ? "de" : "en";
+  return (text.match(GERMAN_RE) ?? []).length / words > 0.1 ? "de" : "en";
 }
 
-/** Deepgram's language setting. Auto is its multilingual model, which
- *  follows a speaker switching languages mid-sentence. */
-export function deepgramLanguage(language: ListenLanguage): string {
-  return language === "auto" ? "multi" : language;
-}

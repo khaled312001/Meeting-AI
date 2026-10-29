@@ -11,8 +11,9 @@
  *  - "me": the user's microphone, optional. Lines the mic only picked up
  *    from the speakers (the other side, echoed) are dropped.
  *
- *  Both listen for the language the user picked, or, on Auto, for Arabic,
- *  English and German at once, switches mid-sentence included.
+ *  Both listen for the language the user picked. On Auto each source has
+ *  two streams, the Arabic model and the multilingual one, and each line
+ *  comes from whichever heard it (see languagePicker).
  *
  *  On unexpected WebSocket drops while live, re-mints a key and reconnects
  *  with exponential backoff before surfacing a fatal error. */
@@ -27,7 +28,8 @@ import {
   startDeepgramLiveConnection,
   type DeepgramLiveConnection,
 } from "@/lib/transcription/deepgramLiveConnection";
-import { deepgramLanguage, type ListenLanguage } from "@/lib/meeting-language";
+import type { ListenLanguage } from "@/lib/meeting-language";
+import { createLanguagePicker, type Lane } from "@/lib/transcription/languagePicker";
 import posthog from "posthog-js";
 import { ricFetch } from "@/lib/ric-fetch";
 import {
@@ -54,6 +56,7 @@ interface DeepgramWord {
   start?: number;
   end?: number;
   confidence?: number;
+  language?: string;
 }
 
 type SegmentsUpdater = (prev: TranscriptionSegment[]) => TranscriptionSegment[];
@@ -84,11 +87,26 @@ interface Channel {
   source: TranscriptSource;
   media: MediaStream;
   interimId: string;
+  /** Auto: which of the source's two streams this is. */
+  lane: Lane | null;
   connection: DeepgramLiveConnection | null;
   recorder: MediaRecorder | null;
+  /** When its audio started (word times count from here). */
+  startedAt: number;
   /** Last time Deepgram sent anything on this channel's connection. */
   heardAt: number;
 }
+
+/** A finished line, before Auto settles which stream's line is shown. */
+interface FinalLine {
+  source: TranscriptSource;
+  interimId: string;
+  text: string;
+  words: TranscriptionWord[];
+  speaker?: number;
+}
+
+const LATIN_LANGUAGES = new Set(["en", "de"]);
 
 /** A connection that hasn't opened by now is retried. */
 const OPEN_TIMEOUT_MS = 10_000;
@@ -211,6 +229,53 @@ export async function startDeepgramSession(
   let themInterim: string[] = [];
   /** Recent mic lines, rechecked when the meeting's line arrives. */
   const recentMine: Array<{ at: number; id: string; words: string[] }> = [];
+  /** Auto: one picker per source between its two streams. */
+  const pickers = new Map<TranscriptSource, ReturnType<typeof createLanguagePicker<FinalLine>>>();
+  let pickerTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** The channels for one audio source: one stream, or two on Auto. */
+  function sourceChannels(source: TranscriptSource, media: MediaStream): Channel[] {
+    const lanes: Array<Lane | null> = language === "auto" ? ["ar", "multi"] : [null];
+    return lanes.map((lane) => ({
+      source,
+      media,
+      interimId: `${baseId}-interim-${source}`,
+      lane,
+      connection: null,
+      recorder: null,
+      startedAt: 0,
+      heardAt: 0,
+    }));
+  }
+
+  function pickerFor(source: TranscriptSource) {
+    let picker = pickers.get(source);
+    if (!picker) {
+      picker = createLanguagePicker<FinalLine>((line) => emitFinal(line));
+      pickers.set(source, picker);
+    }
+    return picker;
+  }
+
+  /** Lines waiting for the other stream are settled as time passes. */
+  function settleLater() {
+    if (pickerTimer !== null) return;
+    pickerTimer = setTimeout(() => {
+      pickerTimer = null;
+      if (stale) return;
+      let waiting = false;
+      for (const p of pickers.values()) waiting = p.settle() || waiting;
+      if (waiting) settleLater();
+    }, 150);
+  }
+
+  function clearPickers() {
+    for (const p of pickers.values()) p.clear();
+    if (pickerTimer !== null) {
+      clearTimeout(pickerTimer);
+      pickerTimer = null;
+    }
+  }
 
   function setState(s: SessionState) {
     currentState = s;
@@ -241,6 +306,7 @@ export async function startDeepgramSession(
 
   function teardownConnections() {
     connectionGen++;
+    clearPickers();
     for (const ch of channels) {
       stopRecorder(ch);
       // Detach first: closing can fire "close" right away, and that must
@@ -277,6 +343,10 @@ export async function startDeepgramSession(
     clearReconnectTimer();
     teardownConnections();
     clearInterims();
+    // Auto has two streams per source, one language one.
+    const sources = new Map(channels.map((c) => [c.source, c.media]));
+    channels.length = 0;
+    for (const [source, media] of sources) channels.push(...sourceChannels(source, media));
     reconnectAttempt = 0;
     void reconnectLive("language_change");
   }
@@ -342,27 +412,36 @@ export async function startDeepgramSession(
 
       if (data.is_final) {
         if (text === "") return;
-        if (ch.source === "them") {
-          recentThem.push({ at: Date.now(), words: normalizeWords(text) });
-          themInterim = [];
-        } else if (isEcho(text)) {
-          onSegments(dropInterim);
-          return;
-        }
-        const final = toSegment(
-          nextSegmentId(),
+        const line: FinalLine = {
+          source: ch.source,
+          interimId: ch.interimId,
           text,
           words,
-          true,
-          ch.source,
           speaker,
-        );
-        onSegments((prev) => [...dropInterim(prev), final]);
-        if (ch.source === "them") dropLateEcho();
-        else recentMine.push({ at: Date.now(), id: final.id, words: normalizeWords(text) });
+        };
+        if (!ch.lane) {
+          emitFinal(line);
+          return;
+        }
+        const share = (match: (lang: string) => boolean) =>
+          raw.filter((w) => w.language && match(w.language)).length / raw.length;
+        const waiting = pickerFor(ch.source).add({
+          lane: ch.lane,
+          start: ch.startedAt + (raw[0]?.start ?? 0) * 1000,
+          end: ch.startedAt + (raw[raw.length - 1]?.end ?? 0) * 1000,
+          words: raw.length,
+          latin: share((l) => LATIN_LANGUAGES.has(l)),
+          arabic: share((l) => l === "ar"),
+          at: Date.now(),
+          line,
+        });
+        if (waiting) settleLater();
         return;
       }
 
+      // Auto: only the stream whose lines are being shown shows its words
+      // still being heard.
+      if (ch.lane && pickerFor(ch.source).current !== ch.lane) return;
       if (ch.source === "them") themInterim = normalizeWords(text);
 
       // One live "typing" line per channel for the words still being heard.
@@ -382,6 +461,24 @@ export async function startDeepgramSession(
     });
   }
 
+  /** Show a finished line (after Auto chose it): echo of the meeting heard
+   *  by the mic is dropped. */
+  function emitFinal({ source, interimId, text, words, speaker }: FinalLine) {
+    const dropInterim = (prev: TranscriptionSegment[]) =>
+      prev.filter((s) => s.id !== interimId);
+    if (source === "them") {
+      recentThem.push({ at: Date.now(), words: normalizeWords(text) });
+      themInterim = [];
+    } else if (isEcho(text)) {
+      onSegments(dropInterim);
+      return;
+    }
+    const final = toSegment(nextSegmentId(), text, words, true, source, speaker);
+    onSegments((prev) => [...dropInterim(prev), final]);
+    if (source === "them") dropLateEcho();
+    else recentMine.push({ at: Date.now(), id: final.id, words: normalizeWords(text) });
+  }
+
   /** Fresh recorder per connection: a new Deepgram stream must receive the
    *  container header that only the first chunk carries. */
   function startRecorder(ch: Channel) {
@@ -398,13 +495,14 @@ export async function startDeepgramSession(
       }
     };
     recorder.start(250);
+    ch.startedAt = Date.now();
 
     if (!hasStartedOnce && ch.source === "them") {
       hasStartedOnce = true;
       posthog.capture("recording_started", {
         platform: isElectron ? "electron" : "browser",
         capture_mode: isElectron ? "system_audio_loopback" : "screen_share_audio",
-        with_mic: channels.length > 1,
+        with_mic: channels.some((c) => c.source === "me"),
       });
       trackEvent("recording_start", {
         sessionId: liveSessionId,
@@ -440,9 +538,12 @@ export async function startDeepgramSession(
   }
 
   async function openConnection(ch: Channel, apiKey: string, gen: number) {
-    const conn = await connectDeepgramLive(apiKey, {
-      language: deepgramLanguage(language),
-    });
+    const conn = await connectDeepgramLive(
+      apiKey,
+      ch.lane === "multi"
+        ? { language: "multi", languageHints: ["ar", "en", "de"] }
+        : { language: ch.lane ?? (language === "auto" ? "multi" : language) },
+    );
     if (stale || gen !== connectionGen || ch.connection !== null) {
       closeDeepgramLive(conn);
       return;
@@ -570,14 +671,7 @@ export async function startDeepgramSession(
     abandon("stopped");
     return handle;
   }
-  channels.push({
-    source: "them",
-    media: meeting,
-    interimId: `${baseId}-interim-them`,
-    connection: null,
-    recorder: null,
-    heardAt: 0,
-  });
+  channels.push(...sourceChannels("them", meeting));
 
   if (micOpen) {
     try {
@@ -585,14 +679,7 @@ export async function startDeepgramSession(
       if (stale) {
         mic.getTracks().forEach((t) => t.stop());
       } else {
-        channels.push({
-          source: "me",
-          media: mic,
-          interimId: `${baseId}-interim-me`,
-          connection: null,
-          recorder: null,
-          heardAt: 0,
-        });
+        channels.push(...sourceChannels("me", mic));
       }
     } catch (error) {
       console.warn("Microphone unavailable, transcribing the meeting only:", error);

@@ -19,8 +19,11 @@ export interface DeepgramLiveConnection {
 export interface DeepgramLiveOptions {
   model?: string;
   /** "multi" = automatic code-switching across Deepgram's multilingual set
-   *  (Arabic, English, German, …); or one language ("ar", "en", "de"). */
+   *  (English, German, …; Arabic comes out unreliably); or one language
+   *  ("ar", "en", "de"). */
   language?: string;
+  /** Languages "multi" should lean towards. */
+  languageHints?: string[];
 }
 
 export async function connectDeepgramLive(
@@ -36,6 +39,9 @@ export async function connectDeepgramLive(
     smart_format: "true",
     // Finalize quickly after a pause so answers can start sooner.
     endpointing: 300,
+    ...(options.languageHints?.length
+      ? { queryParams: { language_hint: options.languageHints } }
+      : {}),
   });
   return conn as DeepgramLiveConnection;
 }
@@ -72,6 +78,8 @@ export interface DeepgramResultsMessage {
         start?: number;
         end?: number;
         confidence?: number;
+        /** "multi" only: the word's language. */
+        language?: string;
       }>;
     }>;
   };

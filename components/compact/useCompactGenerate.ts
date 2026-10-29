@@ -184,7 +184,11 @@ export function useCompactGenerate({
             bg,
             prompt,
             image: imagePayload,
-            lang: replyLanguage,
+            // A heard question is answered in its own language: Arabic,
+            // English or German, never a language misheard in it.
+            lang: liveQuestion
+              ? (replyLanguage ?? guessLanguage(liveQuestion))
+              : replyLanguage,
             question: opts.question,
             previousAnswers,
             myAnswer: opts.myAnswer,
