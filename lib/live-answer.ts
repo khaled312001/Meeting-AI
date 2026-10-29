@@ -1,5 +1,7 @@
 /** Shared bits of the live answer flow (full and compact surfaces). */
 
+import { guessLanguage } from "@/lib/meeting-language";
+
 export interface LiveAnswerOptions {
   /** The question to answer, word for word (defaults to the transcript). */
   question?: string;
@@ -82,7 +84,11 @@ export function createLiveAnswer(question: string, lang: string, n?: number) {
       if (!line || line.length > QUESTION_LINE_MAX_CHARS) {
         return answerHeading(heard, lang, n) + body;
       }
-      return answerHeading(line, lang, n) + answer;
+      // The label speaks the answer's language once it shows (the file's
+      // rules can set it apart from the question's).
+      const labelLang =
+        answer.trim().length >= 12 ? guessLanguage(answer.slice(0, 300)) : lang;
+      return answerHeading(line, labelLang, n) + answer;
     },
   };
 }

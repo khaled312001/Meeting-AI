@@ -65,7 +65,7 @@ function filesRuleSystem(
     : "Write in the language of the interviewer's question (the language most of it is in when it mixes languages).";
   const shape = questionLine
     ? `Reply in this shape:
-<line 1: the question as you understood it, on one short line, cleaned of speech-to-text errors and filler; the app shows it as the answer's title and it is not said aloud>
+<line 1: the question as you understood it, on one short line, cleaned of speech-to-text errors and filler, written in the same language as your answer (translated if the interviewer spoke another); the app shows it as the answer's title and it is not said aloud>
 <a blank line>
 <the answer>`
     : "Reply with the answer only.";
@@ -99,7 +99,7 @@ function assistantSystem(
       : "Everything after the labels";
   const format = lineFirst
     ? `Reply in exactly this shape, with no labels, markup or headings anywhere:
-<line 1: the question as you understood it, cleaned of speech-to-text errors, repetitions and filler, condensed to one short line of at most about 15 words, in the reply language; never answer in it>
+<line 1: the question as you understood it, cleaned of speech-to-text errors, repetitions and filler, condensed to one short line of at most about 15 words, in the reply language (translated if the interviewer spoke another); never answer in it>
 <a blank line>
 <the words the candidate says>
 The first line lets the candidate check at a glance that the question was understood, so keep its meaning exact even when you shorten it.`
