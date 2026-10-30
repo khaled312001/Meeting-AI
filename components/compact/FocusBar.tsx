@@ -47,6 +47,7 @@ import { Kbd } from "@/components/ui/Kbd";
 import { useWindowDrag } from "@/hooks/useWindowDrag";
 import { useAppUpdate } from "@/hooks/useAppUpdate";
 import { UpdateButton } from "@/components/UpdateButton";
+import { APP_DISPLAY_NAME } from "@/lib/constant";
 import { cn } from "@/lib/utils";
 import { LoadingDots } from "./LoadingDots";
 
@@ -538,8 +539,8 @@ export function FocusBar({
             <button
               type="button"
               onClick={() => void window.electronAPI?.windowClose()}
-              title="Close Meeting AI"
-              aria-label="Close Meeting AI"
+              title={`Close ${APP_DISPLAY_NAME}`}
+              aria-label={`Close ${APP_DISPLAY_NAME}`}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-red-500/80 hover:text-white"
             >
               <X className="h-4 w-4" />

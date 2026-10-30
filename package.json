@@ -1,6 +1,6 @@
 {
   "name": "meeting-ai",
-  "version": "0.21.14",
+  "version": "0.21.15",
   "description": "Real-time AI assistant for interviews (beta desktop app)",
   "author": "Ved Gupta <vedgupta@protonmail.com>",
   "private": true,
@@ -75,7 +75,7 @@
   ],
   "build": {
     "appId": "app.meetingai.desktop",
-    "productName": "Meeting AI",
+    "productName": "Interprova",
     "artifactName": "MeetingAI-${version}-${os}-${arch}.${ext}",
     "publish": [
       {
@@ -99,16 +99,16 @@
     "afterPack": "scripts/mac-adhoc-sign.cjs",
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "public/icons/android-chrome-512x512.png",
+      "icon": "build/icon.png",
       "darkModeSupport": true,
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "minimumSystemVersion": "11.0",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Meeting AI uses the microphone to transcribe your voice for the Ask AI feature.",
-        "NSCameraUsageDescription": "Meeting AI does not record from the camera; this permission is requested only by macOS for media capture APIs and will not be used.",
-        "NSAppleEventsUsageDescription": "Meeting AI does not script other apps; this permission is requested only by macOS for system integration.",
+        "NSMicrophoneUsageDescription": "Interprova uses the microphone to transcribe your voice for the Ask AI feature.",
+        "NSCameraUsageDescription": "Interprova does not record from the camera; this permission is requested only by macOS for media capture APIs and will not be used.",
+        "NSAppleEventsUsageDescription": "Interprova does not script other apps; this permission is requested only by macOS for system integration.",
         "LSUIElement": false,
         "NSHighResolutionCapable": true
       },
@@ -129,15 +129,39 @@
         }
       ]
     },
+    "dmg": {
+      "title": "Interprova ${version}",
+      "background": "build/dmg-background.png",
+      "iconSize": 80,
+      "contents": [
+        {
+          "x": 190,
+          "y": 300
+        },
+        {
+          "x": 470,
+          "y": 300,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "win": {
-      "icon": "public/icons/favicon.ico",
+      "icon": "build/icon.ico",
       "target": [
         "nsis"
       ]
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "include": "build/installer.nsh"
     }
   }
 }

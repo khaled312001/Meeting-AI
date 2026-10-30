@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowLeft, LogOut, Menu, X } from "lucide-react";
 import { Avatar } from "./ui";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/BrandMark";
 import { APP_DISPLAY_NAME } from "@/lib/constant";
 
 export interface NavItem<K extends string = string> {
@@ -91,8 +92,8 @@ export function DashboardShell<K extends string>({
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-[13px] font-bold text-accent-foreground">
-          {APP_DISPLAY_NAME.charAt(0)}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white">
+          <BrandMark className="h-5 w-6" />
         </span>
         <div className="min-w-0 leading-tight">
           <div className="truncate text-[13px] font-semibold text-text-primary">{APP_DISPLAY_NAME}</div>

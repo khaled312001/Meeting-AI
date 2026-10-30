@@ -98,7 +98,7 @@ function loadDisplayName(): string {
       /* try next candidate */
     }
   }
-  return "Meeting AI";
+  return "Interprova";
 }
 
 /** Exclude the overlay from screen sharing and recording. The user still

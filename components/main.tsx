@@ -27,7 +27,8 @@ import { sessionDisplayName } from "@/lib/session-display";
 import { useEffect, useState, useCallback, useLayoutEffect } from "react";
 import { useTab } from "@/components/TabContext";
 import { useInterviewContext } from "@/components/InterviewContextProvider";
-import { Focus, Mic } from "lucide-react";
+import { Focus } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { Button } from "@/components/ui/button";
 
 export default function MainPage() {
@@ -144,10 +145,10 @@ export default function MainPage() {
           >
             <div className="flex min-w-0 shrink-0 items-center gap-2">
               <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white"
                 aria-hidden
               >
-                <Mic className="h-3.5 w-3.5" />
+                <BrandMark className="h-5 w-6" />
               </div>
               <div className="min-w-0 hidden sm:block">
                 <p className="truncate text-sm font-semibold tracking-tight text-text-primary">

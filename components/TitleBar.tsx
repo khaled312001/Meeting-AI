@@ -20,6 +20,7 @@ import { useInterviewContext } from "@/components/InterviewContextProvider";
 import { SignalStrip } from "@/components/shell/SignalStrip";
 import { UserMenu } from "@/components/shell/UserMenu";
 import { WorkspaceTabs } from "@/components/shell/WorkspaceTabs";
+import { BrandMark } from "@/components/BrandMark";
 import { APP_DISPLAY_NAME } from "@/lib/constant";
 import { useWindowDrag } from "@/hooks/useWindowDrag";
 import { useAppUpdate } from "@/hooks/useAppUpdate";
@@ -116,10 +117,7 @@ export default function TitleBar() {
       {!compactMode && <SignalStrip activeTab={activeTab} />}
       <div className="flex min-h-0 flex-1 items-center justify-between px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
-            <span className="absolute inline-flex h-full w-full rounded-full bg-accent/40" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
-          </span>
+          <BrandMark className="h-3.5 w-4 shrink-0" />
           <span className="truncate text-[11px] font-semibold text-text-primary">
             {APP_DISPLAY_NAME}
           </span>

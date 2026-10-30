@@ -4,7 +4,8 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
-import { ArrowLeft, Loader2, Mic, MoveRight } from "lucide-react";
+import { ArrowLeft, Loader2, MoveRight } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { sendGTMEvent } from "@next/third-parties/google";
 import posthog from "posthog-js";
 
@@ -261,15 +262,10 @@ export function AuthWizard({
       >
         <div className="flex items-center gap-2 mb-5">
           <div
-            className="flex h-7 w-7 items-center justify-center"
-            style={{
-              background: "linear-gradient(135deg, #22c55e, #10b981, #059669)",
-              color: "#ffffff",
-              borderRadius: 7,
-              boxShadow: "0 0 12px rgba(34, 197, 94, 0.28)",
-            }}
+            className="flex h-8 w-8 items-center justify-center"
+            style={{ background: "#ffffff", borderRadius: 8 }}
           >
-            <Mic className="h-3.5 w-3.5" />
+            <BrandMark className="h-5 w-6" />
           </div>
           <div>
             <p

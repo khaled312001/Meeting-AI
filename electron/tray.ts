@@ -72,7 +72,7 @@ function buildMenu(): Menu {
   const visible = !!w && !w.isDestroyed() && w.isVisible() && !w.isMinimized();
   return Menu.buildFromTemplate([
     {
-      label: visible ? "Hide Meeting AI" : "Show Meeting AI",
+      label: visible ? `Hide ${app.getName()}` : `Show ${app.getName()}`,
       accelerator: "CommandOrControl+Shift+Space",
       click: () => (visible ? getWindow()?.hide() : showWindow()),
     },
@@ -87,7 +87,7 @@ function buildMenu(): Menu {
       },
     },
     { type: "separator" },
-    { label: "Quit Meeting AI", click: () => app.quit() },
+    { label: `Quit ${app.getName()}`, click: () => app.quit() },
   ]);
 }
 
@@ -101,7 +101,7 @@ export function initTray(windowGetter: () => BrowserWindow | null): void {
     console.error("[tray] unavailable:", err instanceof Error ? err.message : err);
     return;
   }
-  tray.setToolTip("Meeting AI — Ctrl+Shift+Space to show or hide");
+  tray.setToolTip(`${app.getName()} — Ctrl+Shift+Space to show or hide`);
   // Rebuilt on open so Show / Hide matches the window.
   const popUp = () => tray?.popUpContextMenu(buildMenu());
   tray.on("right-click", popUp);
@@ -124,7 +124,7 @@ export function showTrayHintOnce(): void {
   writeStateValue(HINT_KEY, new Date().toISOString());
   try {
     tray.displayBalloon({
-      title: "Meeting AI is running here",
+      title: `${app.getName()} is running here`,
       content:
         "It stays out of the taskbar. Click this icon or press Ctrl+Shift+Space to show or hide it.",
       iconType: "info",

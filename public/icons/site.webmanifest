@@ -1,6 +1,6 @@
 {
-  "name": "meeting-ai",
-  "short_name": "",
+  "name": "Interprova",
+  "short_name": "Interprova",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -13,7 +13,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#2f855a",
+  "theme_color": "#0736A8",
   "background_color": "#ffffff",
   "display": "standalone"
 }

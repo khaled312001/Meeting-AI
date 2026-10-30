@@ -202,7 +202,7 @@ function updateDir(): string {
   return path.join(app.getPath("temp"), "meetingai-update");
 }
 
-/** /Applications/Meeting AI.app from …/Contents/MacOS/Meeting AI. */
+/** /Applications/Interprova.app from …/Contents/MacOS/Interprova. */
 function currentBundlePath(): string {
   return path.resolve(path.dirname(process.execPath), "..", "..");
 }

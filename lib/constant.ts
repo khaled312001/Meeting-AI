@@ -1,5 +1,5 @@
 export { BACKEND_API_URL } from "./backend-url.mjs";
-export const APP_DISPLAY_NAME = "Meeting AI";
+export const APP_DISPLAY_NAME = "Interprova";
 /** Matches worker MAX_IMAGES_PER_REQUEST — keep in sync. */
 export const MAX_IMAGES = 4;
 /** Target of the dashboard's "Download desktop app" button — an installer or a

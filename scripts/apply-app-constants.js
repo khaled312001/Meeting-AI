@@ -14,7 +14,7 @@ const constantPath = path.join(root, "lib/constant.ts");
 const src = fs.readFileSync(constantPath, "utf8");
 const match = src.match(/export const APP_DISPLAY_NAME = "([^"]+)"/);
 const displayName =
-  match?.[1] && match[1].length > 0 ? match[1] : "Meeting AI";
+  match?.[1] && match[1].length > 0 ? match[1] : "Interprova";
 
 const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 if (!pkg.build) pkg.build = {};

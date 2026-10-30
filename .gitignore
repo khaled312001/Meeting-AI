@@ -19,6 +19,13 @@
 !/build/
 !/build/entitlements.mac.plist
 !/build/entitlements.mac.inherit.plist
+!/build/icon.png
+!/build/icon.ico
+!/build/installer.nsh
+!/build/installerSidebar.bmp
+!/build/installerHeader.bmp
+!/build/dmg-background.png
+!/build/dmg-background@2x.png
 
 # misc
 .DS_Store
