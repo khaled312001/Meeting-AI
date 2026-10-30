@@ -270,6 +270,7 @@ export function userEndpoints(deps: AdminDeps) {
               temperature: modelParamsRow[0].temperature,
               topP: modelParamsRow[0].topP,
               thinkingBudget: modelParamsRow[0].thinkingBudget,
+              model: modelParamsRow[0].model,
               updatedAt: modelParamsRow[0].updatedAt,
             }
           : null;

@@ -56,10 +56,10 @@ export function SecuritySection({ me }: { me: { email: string } }) {
           onChange={setTab}
           ariaLabel="Security sections"
           options={[
-            { value: "audit", label: "Audit log" },
-            { value: "security", label: "Threats" },
-            { value: "admins", label: "Admins" },
-            { value: "maintenance", label: "Maintenance" },
+            { value: "audit", label: "Audit log", title: "Show sign-ins, approvals, bans and admin actions" },
+            { value: "security", label: "Threats", title: "Show blocked or suspicious sign-in attempts" },
+            { value: "admins", label: "Admins", title: "Choose who can open this admin panel" },
+            { value: "maintenance", label: "Maintenance", title: "Clean up old data or export platform stats" },
           ]}
         />
       </div>
@@ -215,6 +215,7 @@ function AdminsEditor({ me }: { me: { email: string } }) {
                   type="button"
                   onClick={() => setDraft(draft.filter((x) => x !== e))}
                   aria-label={`Remove ${e}`}
+                  title={`Remove ${e} from the admin list (takes effect when you save)`}
                   className="flex h-6 w-6 items-center justify-center rounded text-text-tertiary hover:bg-destructive-muted hover:text-destructive"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -233,12 +234,16 @@ function AdminsEditor({ me }: { me: { email: string } }) {
               placeholder="new.admin@company.com"
               aria-label="Admin email"
             />
-            <Button variant="secondary" onClick={add}>
+            <Button variant="secondary" onClick={add} title="Put this email on the admin list (takes effect when you save)">
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Add
             </Button>
           </div>
           <div className="flex justify-end">
-            <Button onClick={() => void save()} disabled={!dirty || saving}>
+            <Button
+              onClick={() => void save()}
+              disabled={!dirty || saving}
+              title="Save your changes so these people can, or can no longer, open the admin panel"
+            >
               {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save admin list
             </Button>
           </div>
@@ -291,7 +296,12 @@ function Maintenance() {
           <p className="mb-4 text-[13px] leading-relaxed text-text-secondary">
             Deletes expired sign-in sessions and rate-limit counters to keep the database lean.
           </p>
-          <Button variant="outline" onClick={() => void cleanup()} disabled={busy !== null}>
+          <Button
+            variant="outline"
+            onClick={() => void cleanup()}
+            disabled={busy !== null}
+            title="Delete expired sign-in sessions and old rate-limit records; active users are not affected"
+          >
             {busy === "cleanup" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
             Run cleanup
           </Button>
@@ -300,7 +310,12 @@ function Maintenance() {
           <p className="mb-4 text-[13px] leading-relaxed text-text-secondary">
             Download a CSV snapshot: users, sign-ups, sessions, notes and security blocks.
           </p>
-          <Button variant="outline" onClick={() => void exportStats()} disabled={busy !== null}>
+          <Button
+            variant="outline"
+            onClick={() => void exportStats()}
+            disabled={busy !== null}
+            title="Download a spreadsheet (CSV) of users, sign-ups, sessions, notes and security blocks"
+          >
             {busy === "stats" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
             Download CSV
           </Button>

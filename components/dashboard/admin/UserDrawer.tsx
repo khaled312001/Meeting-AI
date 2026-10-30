@@ -33,6 +33,7 @@ import { formatDate, formatDateTime, formatDuration, formatNumber, formatRelativ
 import { actionLabel, planLabel } from "../labels";
 import { useBanReason, userStatusPill } from "./shared";
 import { PasswordDialog, SubscriptionTab } from "./CustomerAccounts";
+import { ANTHROPIC_MODELS } from "./AiSettingsSection";
 
 type Tab = "overview" | "subscription" | "plan" | "ai" | "activity";
 
@@ -120,6 +121,7 @@ export function UserDrawer({
                   });
                   if (ok) void act("User deleted", () => adminApi.deleteUser(u.id), onClose);
                 }}
+                title="Delete this account with its notes and interview profile permanently"
               >
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
               </Button>
@@ -142,6 +144,7 @@ export function UserDrawer({
                     });
                   });
                 }}
+                title="Make a new password for this user and sign them out of every device"
               >
                 <KeyRound className="mr-1.5 h-3.5 w-3.5" /> Reset password
               </Button>
@@ -149,6 +152,7 @@ export function UserDrawer({
                 variant="outline"
                 disabled={busy}
                 onClick={() => void act("Signed out everywhere", () => adminApi.revokeAllSessions(u.id))}
+                title="End all of this user's sign-ins; their password stays the same"
               >
                 <LogOut className="mr-1.5 h-3.5 w-3.5" /> Sign out everywhere
               </Button>
@@ -157,6 +161,7 @@ export function UserDrawer({
                   variant="outline"
                   disabled={busy}
                   onClick={() => void act("User unbanned", () => adminApi.updateUser({ userId: u.id, isBanned: false }))}
+                  title="Lift the ban so this user can use the app again"
                 >
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Unban
                 </Button>
@@ -171,6 +176,7 @@ export function UserDrawer({
                       adminApi.updateUser({ userId: u.id, isBanned: true, banReason: reason || undefined }),
                     );
                   }}
+                  title="Ban this user; they are signed out and blocked until unbanned"
                 >
                   <Ban className="mr-1.5 h-3.5 w-3.5" /> Ban
                 </Button>
@@ -182,6 +188,7 @@ export function UserDrawer({
                   onClick={() =>
                     void act("Approval revoked", () => adminApi.updateUser({ userId: u.id, isApproved: false }))
                   }
+                  title="Take approval away; this user goes back to pending and can't use the app"
                 >
                   <UserX className="mr-1.5 h-3.5 w-3.5" /> Revoke approval
                 </Button>
@@ -189,6 +196,7 @@ export function UserDrawer({
                 <Button
                   disabled={busy}
                   onClick={() => void act("User approved", () => adminApi.updateUser({ userId: u.id, isApproved: true }))}
+                  title="Approve this user so they can sign in and use the app"
                 >
                   <UserCheck className="mr-1.5 h-3.5 w-3.5" /> Approve
                 </Button>
@@ -213,11 +221,15 @@ export function UserDrawer({
                 onChange={setTab}
                 ariaLabel="User details"
                 options={[
-                  { value: "overview", label: "Overview" },
-                  { value: "subscription", label: "Subscription" },
-                  { value: "plan", label: "Quota" },
-                  { value: "ai", label: "AI settings" },
-                  { value: "activity", label: "Activity" },
+                  { value: "overview", label: "Overview", title: "Show this user's key facts and last 30 days of use" },
+                  {
+                    value: "subscription",
+                    label: "Subscription",
+                    title: "See and change this user's paid plan and question balance",
+                  },
+                  { value: "plan", label: "Quota", title: "See and change this user's monthly allowances" },
+                  { value: "ai", label: "AI settings", title: "Set AI model and answer settings for this user only" },
+                  { value: "activity", label: "Activity", title: "Show this user's account events and sign-in sessions" },
                 ]}
               />
             </div>
@@ -365,12 +377,20 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
           max={q.monthlyAllowanceSeconds}
           detail={`${formatDuration(q.consumedSeconds * 1000)}${q.monthlyAllowanceSeconds != null ? ` / ${formatDuration(q.monthlyAllowanceSeconds * 1000)}` : " · unlimited"}`}
         />
-        <Button variant="outline" size="sm" onClick={() => void reset()}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void reset()}
+          title="Set this cycle's usage back to zero and start a new 30-day cycle"
+        >
           <RotateCcw className="mr-1.5 h-3 w-3" /> Reset cycle
         </Button>
       </div>
 
       <div className="space-y-4">
+        <p className="text-xs text-text-tertiary">
+          Monthly allowances for this user. Nothing changes until you press Save plan.
+        </p>
         <Field label="Plan" htmlFor="plan-tier" hint="Choosing a plan fills in its default allowances.">
           <Select
             id="plan-tier"
@@ -393,10 +413,18 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
             <span className="block text-[13px] text-text-primary">Allow overage</span>
             <span className="block text-xs text-text-tertiary">Keep working past the allowance (when enforcement is on).</span>
           </span>
-          <Switch checked={overage} onCheckedChange={setOverage} />
+          <Switch
+            checked={overage}
+            onCheckedChange={setOverage}
+            title="Let this user keep working after the allowance runs out"
+          />
         </label>
         <div className="flex justify-end">
-          <Button onClick={() => void save()} disabled={saving}>
+          <Button
+            onClick={() => void save()}
+            disabled={saving}
+            title="Save the plan and monthly allowances above for this user"
+          >
             {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save plan
           </Button>
         </div>
@@ -414,6 +442,7 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
   const [temperature, setTemperature] = React.useState(o?.temperature?.toString() ?? "");
   const [topP, setTopP] = React.useState(o?.topP?.toString() ?? "");
   const [budget, setBudget] = React.useState<string>(o?.thinkingBudget ?? INHERIT);
+  const [model, setModel] = React.useState<string>(o?.model ?? INHERIT);
   const [saving, setSaving] = React.useState(false);
 
   const parse = (v: string, int = false): number | null => {
@@ -432,6 +461,7 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
         temperature: parse(temperature),
         topP: parse(topP),
         thinkingBudget: budget === INHERIT ? null : (budget as ThinkingBudget),
+        model: model === INHERIT ? null : model,
       });
       toast.success("AI settings saved for this user");
       onSaved();
@@ -450,6 +480,7 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
       setTemperature("");
       setTopP("");
       setBudget(INHERIT);
+      setModel(INHERIT);
       toast.success("Overrides cleared — global defaults apply");
       onSaved();
     } catch (err) {
@@ -466,6 +497,25 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
         <span className="text-text-primary">AI settings</span>. With Anthropic, “Reasoning effort” sets how hard the model
         thinks; temperature and top-p apply to Gemini / OpenAI-compatible models.
       </p>
+      <Field
+        label="AI model"
+        htmlFor="ump-model"
+        hint="The model this user's answers come from (when Anthropic is the active provider)"
+      >
+        <Select
+          id="ump-model"
+          value={model}
+          onChange={setModel}
+          className="w-full"
+          options={[
+            { value: INHERIT, label: "Same as everyone (AI settings)" },
+            ...ANTHROPIC_MODELS,
+            ...(model !== INHERIT && !ANTHROPIC_MODELS.some((m) => m.value === model)
+              ? [{ value: model, label: model }]
+              : []),
+          ]}
+        />
+      </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Max answer length (tokens)" htmlFor="ump-max" hint="1 – 32,768">
           <Input id="ump-max" inputMode="numeric" value={maxTokens} onChange={(e) => setMaxTokens(e.target.value)} placeholder="Inherit" />

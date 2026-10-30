@@ -37,11 +37,11 @@ import type { ClientSection } from "./ClientDashboard";
 import { actionLabel, isUserFacingAction, planLabel, xFormatter } from "../labels";
 import { DesktopAppCard } from "./DesktopAppCard";
 
-const WINDOWS: ReadonlyArray<{ value: UsageWindow; label: string }> = [
-  { value: "24h", label: "24h" },
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
+const WINDOWS: ReadonlyArray<{ value: UsageWindow; label: string; title: string }> = [
+  { value: "24h", label: "24h", title: "Show your activity from the last 24 hours" },
+  { value: "7d", label: "7 days", title: "Show your activity from the last 7 days" },
+  { value: "30d", label: "30 days", title: "Show your activity from the last 30 days" },
+  { value: "90d", label: "90 days", title: "Show your activity from the last 90 days" },
 ];
 
 export function OverviewSection({
@@ -114,7 +114,7 @@ export function OverviewSection({
           <>
             <Segmented value={range} onChange={setRange} options={WINDOWS} ariaLabel="Time range" />
             <Button asChild>
-              <a href={appHref("home")}>
+              <a href={appHref("home")} title="Open the interview assistant app">
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Open assistant
               </a>
             </Button>
@@ -183,7 +183,12 @@ export function OverviewSection({
             title="Plan & credit"
             description={`Ends ${formatDate(sub.endsAt)}`}
             actions={
-              <Button variant="ghost" size="sm" onClick={() => onNavigate("subscription")}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onNavigate("subscription")}
+                title="Open Subscription & billing to see your full plan"
+              >
                 Details
               </Button>
             }
@@ -297,6 +302,13 @@ export function OverviewSection({
                     if (item.go === "overview") window.location.href = appHref("home");
                     else onNavigate(item.go);
                   }}
+                  title={
+                    item.go === "overview"
+                      ? "Open the assistant to start a live session"
+                      : item.go === "profile"
+                        ? "Open Interview profile to fill this in"
+                        : "Open Knowledge base to add files"
+                  }
                   className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-surface-overlay/60"
                 >
                   <span

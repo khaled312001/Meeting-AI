@@ -63,14 +63,62 @@ export default function ClientDashboard() {
     | undefined;
 
   const nav: NavItem<ClientSection>[] = [
-    { key: "overview", label: "Overview", icon: LayoutDashboard },
-    { key: "knowledge", label: "Knowledge base", icon: BookOpen, group: "Prepare" },
-    { key: "profile", label: "Interview profile", icon: UserRound, group: "Prepare" },
-    { key: "sessions", label: "Session history", icon: History, group: "Review" },
-    { key: "notes", label: "Saved answers", icon: NotebookPen, group: "Review" },
-    { key: "subscription", label: "Subscription & billing", icon: CreditCard, group: "Account" },
-    { key: "support", label: "Support", icon: LifeBuoy, badge: unread || null, group: "Account" },
-    { key: "account", label: "Account", icon: UserCog, group: "Account" },
+    {
+      key: "overview",
+      label: "Overview",
+      icon: LayoutDashboard,
+      hint: "See your activity, plan and setup steps at a glance",
+    },
+    {
+      key: "knowledge",
+      label: "Knowledge base",
+      icon: BookOpen,
+      group: "Prepare",
+      hint: "Upload files the assistant can use when it answers",
+    },
+    {
+      key: "profile",
+      label: "Interview profile",
+      icon: UserRound,
+      group: "Prepare",
+      hint: "Tell the assistant about you and the job so answers fit",
+    },
+    {
+      key: "sessions",
+      label: "Session history",
+      icon: History,
+      group: "Review",
+      hint: "See your past assistant sessions",
+    },
+    {
+      key: "notes",
+      label: "Saved answers",
+      icon: NotebookPen,
+      group: "Review",
+      hint: "Read and manage answers you saved",
+    },
+    {
+      key: "subscription",
+      label: "Subscription & billing",
+      icon: CreditCard,
+      group: "Account",
+      hint: "See your plan and how many questions you have left",
+    },
+    {
+      key: "support",
+      label: "Support",
+      icon: LifeBuoy,
+      badge: unread || null,
+      group: "Account",
+      hint: "Send a message to the support team and read replies",
+    },
+    {
+      key: "account",
+      label: "Account",
+      icon: UserCog,
+      group: "Account",
+      hint: "Change your name, password and signed-in devices",
+    },
   ];
 
   return (
@@ -84,17 +132,18 @@ export default function ClientDashboard() {
         onSignOut={() => void signOutAndTrack()}
         backHref={appHref("home")}
         backLabel="Open assistant"
+        backHint="Open the interview assistant app"
         topRight={
           <>
             {isAdmin && (
               <Button variant="ghost" size="sm" asChild>
-                <a href={appHref("admin")}>
+                <a href={appHref("admin")} title="Open the admin panel to manage users and settings">
                   <Shield className="mr-1.5 h-3.5 w-3.5" /> Admin
                 </a>
               </Button>
             )}
             <Button size="sm" asChild>
-              <a href={appHref("home")}>
+              <a href={appHref("home")} title="Open the interview assistant app">
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Assistant
               </a>
             </Button>

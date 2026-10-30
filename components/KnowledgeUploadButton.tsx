@@ -65,7 +65,7 @@ export function KnowledgeUploadButton({
         className={cn("h-7 gap-1.5 text-[10px]", buttonClassName)}
         disabled={status.state === "busy"}
         onClick={() => inputRef.current?.click()}
-        title="Any file: PDF, Word, PowerPoint, Excel, Markdown, text… (a CV, slides, reports, notes) — answers come from these files first"
+        title="Upload your files: the Instructions file (your rules for every answer) and the Feed file (your prepared answers, figures, CV). PDF, Word, PowerPoint, Excel, Markdown or text."
       >
         {status.state === "busy" ? (
           <Loader2 className="h-3 w-3 animate-spin" />
@@ -74,7 +74,7 @@ export function KnowledgeUploadButton({
         )}
         {status.state === "busy"
           ? `Uploading ${status.done}/${status.total}…`
-          : "Upload knowledge files"}
+          : "Upload files (Instructions, Feed…)"}
       </Button>
       {status.state === "done" ? (
         <span
@@ -84,12 +84,12 @@ export function KnowledgeUploadButton({
           )}
         >
           {status.added > 0 &&
-            `${status.added} file${status.added === 1 ? "" : "s"} added — answers use them first.`}
+            `${status.added} file${status.added === 1 ? "" : "s"} added — now choose them below as Instructions and Feed.`}
           {status.failed.length > 0 && ` Couldn't add: ${status.failed.join(", ")}`}
         </span>
       ) : (
         <span className="text-[10px] text-text-tertiary">
-          PDF, Word, PowerPoint, Excel, Markdown… · several at once
+          Instructions + Feed · PDF, Word, Markdown, text… · several at once
         </span>
       )}
     </div>

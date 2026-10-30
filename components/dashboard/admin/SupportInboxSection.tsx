@@ -149,13 +149,16 @@ export function SupportInboxSection({ onUnreadChange }: { onUnreadChange?: (n: n
           onChange={setStatus}
           ariaLabel="Thread status"
           options={[
-            { value: "open", label: "Open" },
-            { value: "pending", label: "Awaiting user" },
-            { value: "resolved", label: "Resolved" },
-            { value: "all", label: "All" },
+            { value: "open", label: "Open", title: "Show conversations that still need your reply" },
+            { value: "pending", label: "Awaiting user", title: "Show conversations waiting for the user to answer" },
+            { value: "resolved", label: "Resolved", title: "Show conversations that are finished" },
+            { value: "all", label: "All", title: "Show every conversation" },
           ]}
         />
-        <label className="flex items-center gap-2 text-xs text-text-secondary">
+        <label
+          className="flex items-center gap-2 text-xs text-text-secondary"
+          title="Show only conversations with messages you have not read yet"
+        >
           <input
             type="checkbox"
             checked={unreadOnly}
@@ -189,6 +192,7 @@ export function SupportInboxSection({ onUnreadChange }: { onUnreadChange?: (n: n
                     <button
                       type="button"
                       onClick={() => open(r.id)}
+                      title="Open this conversation to read and reply; it is marked as read"
                       className={cn(
                         "flex w-full flex-col gap-1 px-4 py-3 text-left hover:bg-surface-overlay/60",
                         r.id === activeId && "bg-surface-overlay",
@@ -227,13 +231,21 @@ export function SupportInboxSection({ onUnreadChange }: { onUnreadChange?: (n: n
               actions={
                 t ? (
                   <>
-                    <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setActiveId(null)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="lg:hidden"
+                      onClick={() => setActiveId(null)}
+                      aria-label="Back to conversations"
+                      title="Go back to the list of conversations"
+                    >
                       <ArrowLeft className="h-3 w-3" />
                     </Button>
                     <Select
                       value={t.status}
                       onChange={(v) => void changeStatus(v as SupportThread["status"])}
                       ariaLabel="Thread status"
+                      title="Change this conversation's status right away"
                       className="h-8 text-xs"
                       options={[
                         { value: "open", label: "Open" },
@@ -246,6 +258,7 @@ export function SupportInboxSection({ onUnreadChange }: { onUnreadChange?: (n: n
                       size="icon"
                       onClick={() => void remove()}
                       aria-label="Delete conversation"
+                      title="Delete this conversation and all replies for you and the user"
                       className="hover:bg-destructive-muted hover:text-destructive"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -300,7 +313,10 @@ export function SupportInboxSection({ onUnreadChange }: { onUnreadChange?: (n: n
                   aria-label="Reply"
                 />
                 <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 text-xs text-text-secondary">
+                  <label
+                    className="flex items-center gap-2 text-xs text-text-secondary"
+                    title="When ticked, sending your reply also marks the conversation as resolved"
+                  >
                     <input
                       type="checkbox"
                       checked={closeAfter}
@@ -309,7 +325,11 @@ export function SupportInboxSection({ onUnreadChange }: { onUnreadChange?: (n: n
                     />
                     Mark resolved after sending
                   </label>
-                  <Button onClick={() => void send()} disabled={sending || !reply.trim()}>
+                  <Button
+                    onClick={() => void send()}
+                    disabled={sending || !reply.trim()}
+                    title="Send your reply to the user; they see it in their Support page"
+                  >
                     {sending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
                     Send reply
                   </Button>

@@ -10,9 +10,17 @@ import { type KnowledgeDoc, listKnowledge } from "@/lib/knowledge";
 import { type InterviewFiles, useInterviewFiles } from "@/lib/interview-files";
 import { cn } from "@/lib/utils";
 
-const ROLES: { role: keyof InterviewFiles; label: string }[] = [
-  { role: "instructionsDocId", label: "Instructions" },
-  { role: "feedDocId", label: "Feed" },
+const ROLES: { role: keyof InterviewFiles; label: string; help: string }[] = [
+  {
+    role: "instructionsDocId",
+    label: "Instructions",
+    help: "Your rules for every answer: length, parts, style, what to say and not say.",
+  },
+  {
+    role: "feedDocId",
+    label: "Feed",
+    help: "Your material: prepared answers, figures, stories, CV.",
+  },
 ];
 
 function chars(n: number): string {
@@ -58,9 +66,10 @@ function useChosenFiles() {
     }
   }, [docs, files, choose]);
 
-  const picked = ROLES.map(({ role, label }) => ({
+  const picked = ROLES.map(({ role, label, help }) => ({
     role,
     label,
+    help,
     doc: docs?.find((d) => d.id === files[role]),
   }));
   return { files, choose, docs, error, load, picked };
@@ -112,11 +121,18 @@ export function InterviewFilesPicker({ className }: { className?: string }) {
           <RefreshCw className="h-3 w-3" />
         </button>
       </div>
+      <p className="text-[10px] leading-snug text-text-tertiary">
+        Upload both files with the button above, then choose each one here. Only
+        these two are sent with every answer.
+      </p>
       {error && <p className="text-[10px] text-destructive">{error}</p>}
       <div className="grid gap-1.5 sm:grid-cols-2">
-        {picked.map(({ role, label, doc }) => (
-          <label key={role} className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[10px] font-medium text-text-secondary">{label}</span>
+        {picked.map(({ role, label, help, doc }) => (
+          <label key={role} className="flex min-w-0 flex-col gap-0.5" title={help}>
+            <span className="text-[10px] font-medium text-text-secondary">
+              {label}
+              <span className="ml-1 font-normal text-text-tertiary">· {help}</span>
+            </span>
             <select
               value={files[role] ?? ""}
               onChange={(e) => choose(role, e.target.value || undefined)}

@@ -32,6 +32,8 @@ export interface ModelParams {
   temperature: number;
   topP: number;
   thinkingBudget: ThinkingBudget;
+  /** Anthropic model set for this one user by an admin. */
+  model?: string;
 }
 
 const THINKING_VALUES = ["off", "low", "medium", "high"] as const;
@@ -345,6 +347,7 @@ export async function getEffectiveModelParams(
         row.thinkingBudget && (THINKING_VALUES as readonly string[]).includes(row.thinkingBudget)
           ? (row.thinkingBudget as ThinkingBudget)
           : globals.thinkingBudget,
+      model: row.model?.startsWith("claude-") ? row.model : undefined,
     };
   } catch (err) {
     console.warn("[config-cache] user model params lookup failed:", err);

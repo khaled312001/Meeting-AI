@@ -89,10 +89,10 @@ export function LiveSessionsSection() {
           onChange={setStatus}
           ariaLabel="Session status"
           options={[
-            { value: "active", label: "Live" },
-            { value: "stale", label: "Idle" },
-            { value: "ended", label: "Ended" },
-            { value: "all", label: "All" },
+            { value: "active", label: "Live", title: "Show sessions that are running right now" },
+            { value: "stale", label: "Idle", title: "Show sessions that are open but have gone quiet" },
+            { value: "ended", label: "Ended", title: "Show sessions that have finished" },
+            { value: "all", label: "All", title: "Show every session" },
           ]}
         />
         <SearchInput value={search} onChange={setSearch} placeholder="Search email or IP…" className="sm:ml-auto sm:w-72" />
@@ -166,6 +166,7 @@ export function LiveSessionsSection() {
                         size="sm"
                         className="hover:bg-destructive-muted hover:text-destructive"
                         onClick={() => void terminate(r)}
+                        title="Stop this session now and cut off its live transcription"
                       >
                         <Square className="mr-1.5 h-3 w-3" /> End
                       </Button>

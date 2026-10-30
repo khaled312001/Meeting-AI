@@ -145,14 +145,23 @@ export function KnowledgeSection() {
       {dialog}
       <PageHeader
         title="Knowledge base"
-        description="Files the assistant reads before answering. Turn a file off to keep it without using it. With Anthropic, answers cite the exact passage they came from."
+        description="Upload your Instructions file (your rules for every answer: length, parts, style) and your Feed file (prepared answers, figures, CV). Then, in the app, open Notes & files and choose them as Instructions and Feed for the interview. Turn a file off to keep it without using it."
         actions={
           <>
-            <Button variant="outline" onClick={() => setPasteOpen(true)} disabled={atDocLimit}>
+            <Button
+              variant="outline"
+              onClick={() => setPasteOpen(true)}
+              disabled={atDocLimit}
+              title="Paste text and save it as a file, e.g. your Instructions or Feed"
+            >
               <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" /> Paste text
             </Button>
-            <Button onClick={() => inputRef.current?.click()} disabled={atDocLimit}>
-              <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload files
+            <Button
+              onClick={() => inputRef.current?.click()}
+              disabled={atDocLimit}
+              title="Upload your Instructions file and your Feed file (PDF, Word, Markdown, text…)"
+            >
+              <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Instructions / Feed
             </Button>
           </>
         }
@@ -203,7 +212,9 @@ export function KnowledgeSection() {
               <Upload className="h-5 w-5" />
             </span>
             <span className="text-[13px] font-medium text-text-primary">
-              {atDocLimit ? "File limit reached — delete a file to add more" : "Drop files here or click to browse"}
+              {atDocLimit
+                ? "File limit reached — delete a file to add more"
+                : "Drop your Instructions and Feed files here, or click to browse"}
             </span>
             <span className="mt-1 text-xs text-text-tertiary">
               {DOCUMENT_FORMATS_LABEL} or any text file · up to{" "}
@@ -243,6 +254,7 @@ export function KnowledgeSection() {
                       type="button"
                       className="text-xs text-text-tertiary hover:text-text-primary"
                       onClick={() => setUploads((prev) => prev.filter((x) => x.id !== u.id))}
+                      title="Hide this error message"
                     >
                       Dismiss
                     </button>
@@ -304,6 +316,11 @@ export function KnowledgeSection() {
                       disabled={busyId === doc.id}
                       onCheckedChange={(v) => void toggle(doc, v)}
                       aria-label={`Use ${doc.fileName} in answers`}
+                      title={
+                        doc.enabled
+                          ? "Turn off: keep this file but stop using it in answers"
+                          : "Turn on: use this file in answers again"
+                      }
                     />
                     <Button
                       variant="ghost"
@@ -311,6 +328,7 @@ export function KnowledgeSection() {
                       disabled={busyId === doc.id}
                       onClick={() => void remove(doc)}
                       aria-label={`Delete ${doc.fileName}`}
+                      title="Delete this file permanently; the assistant stops using it"
                       className="hover:bg-destructive-muted hover:text-destructive"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -442,10 +460,14 @@ function PasteDialog({
       className="max-w-lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} title="Close without adding anything">
             Cancel
           </Button>
-          <Button onClick={() => void submit()} disabled={saving}>
+          <Button
+            onClick={() => void submit()}
+            disabled={saving}
+            title="Add this text to your knowledge base as a new file"
+          >
             {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save
           </Button>
         </>

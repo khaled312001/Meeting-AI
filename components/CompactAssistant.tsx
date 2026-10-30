@@ -29,6 +29,7 @@ import {
 import { askRows, CompactAskComposer } from "./compact/CompactAskComposer";
 import { CompactContextDrawer } from "./compact/CompactContextDrawer";
 import { FocusBar } from "./compact/FocusBar";
+import { FocusHelp } from "./compact/FocusHelp";
 import { OutputPanel } from "./compact/OutputPanel";
 import { SCREEN_PROMPT } from "@/lib/live-answer";
 import { useCompactGenerate } from "./compact/useCompactGenerate";
@@ -97,6 +98,8 @@ export function CompactAssistant({
   const [error, setError] = useState<string | null>(null);
   const [showContext, setShowContext] = useState<boolean>(false);
   const [outputCollapsed, setOutputCollapsed] = useState<boolean>(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [barExtra, setBarExtra] = useState(0);
   const [outputExpanded, setOutputExpanded] = useState<boolean>(false);
   const { size: panelSize, setSize: setPanelSize, saveSize: savePanelSize } =
     useAnswerPanelSize();
@@ -568,6 +571,7 @@ export function CompactAssistant({
 
   const compactLayout: CompactLayoutState = {
     showContext,
+    showHelp,
     askMode,
     hasVisibleOutput,
     hasStatusRow: isListening || transcribedText.trim().length > 0,
@@ -576,6 +580,7 @@ export function CompactAssistant({
     outputHeight: panelSize.height,
     askRows: askRows(askInput),
     menuOpen,
+    barExtra,
   };
   const compactHeight = resolveCompactHeight(compactLayout);
   // The panel is centered with 8px on each side.
@@ -598,6 +603,9 @@ export function CompactAssistant({
         isCapturing={isCapturing}
         askMode={askMode}
         showContext={showContext}
+        showHelp={showHelp}
+        onToggleHelp={() => setShowHelp((s) => !s)}
+        onBarExtra={setBarExtra}
         menuOpen={menuOpen}
         hasContextAttached={contextAttached}
         hasOutput={hasOutput}
@@ -616,6 +624,8 @@ export function CompactAssistant({
         onClearAll={clearAll}
         onExitFocus={onExitCompact}
       />
+
+      {showHelp && <FocusHelp onClose={() => setShowHelp(false)} />}
 
       {showContext && (
         <CompactContextDrawer

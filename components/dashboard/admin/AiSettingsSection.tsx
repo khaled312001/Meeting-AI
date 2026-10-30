@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { PROVIDER_LABEL } from "./AdminOverview";
 
-const ANTHROPIC_MODELS = [
+export const ANTHROPIC_MODELS = [
   { value: "claude-opus-5-5", label: "Opus 5.5 — most capable (recommended)" },
   { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — faster, lower cost" },
   { value: "claude-fable-5-1", label: "Fable 5.1" },
@@ -108,7 +108,12 @@ function SecretField({
           <Pill tone={source === "none" ? "warning" : "success"}>{sourceLabel(source)}</Pill>
           {source === "dashboard" && masked && <code className="text-[11px] text-text-tertiary">{masked}</code>}
           {source === "dashboard" && (
-            <button type="button" onClick={() => void remove()} className="text-[11px] text-text-tertiary underline hover:text-destructive">
+            <button
+              type="button"
+              onClick={() => void remove()}
+              title={`Delete the ${label} saved here; the worker environment key is used instead, if there is one`}
+              className="text-[11px] text-text-tertiary underline hover:text-destructive"
+            >
               remove
             </button>
           )}
@@ -125,7 +130,12 @@ function SecretField({
           onChange={(e) => setValue(e.target.value)}
           placeholder={source === "none" ? placeholder : "Enter a new key to replace it"}
         />
-        <Button variant="secondary" onClick={() => void save()} disabled={saving || !value.trim()}>
+        <Button
+          variant="secondary"
+          onClick={() => void save()}
+          disabled={saving || !value.trim()}
+          title={`Store this ${label} on the server, replacing the current one; it is never shown again`}
+        >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
         </Button>
       </div>
@@ -179,7 +189,14 @@ function ProviderOption({
       <div className="mt-3 flex items-center gap-2">
         {!ready && <Pill tone="warning">Needs setup</Pill>}
         {!active && (
-          <Button size="sm" variant="outline" className="ml-auto" disabled={busy || !ready} onClick={onSelect}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto"
+            disabled={busy || !ready}
+            onClick={onSelect}
+            title={`Make ${PROVIDER_LABEL[provider]} answer every request from now on`}
+          >
             Use this
           </Button>
         )}
@@ -376,7 +393,13 @@ function AnthropicCard({
       title="Anthropic"
       description="Grounded answers with citations from your users' knowledge files, prompt caching and automatic fallback."
       actions={
-        <Button variant="outline" size="sm" onClick={() => void test()} disabled={testing || source === "none"}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void test()}
+          disabled={testing || source === "none"}
+          title="Send a short test message to Anthropic with the saved key and the chosen model"
+        >
           {testing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <KeyRound className="mr-1.5 h-3 w-3" />}
           Test connection
         </Button>
@@ -405,7 +428,12 @@ function AnthropicCard({
               className="min-w-0 flex-1"
               options={[...ANTHROPIC_MODELS, { value: CUSTOM, label: "Custom model id…" }]}
             />
-            <Button variant="secondary" onClick={() => void saveModel()} disabled={saving || !changed}>
+            <Button
+              variant="secondary"
+              onClick={() => void saveModel()}
+              disabled={saving || !changed}
+              title="Use the chosen Anthropic model for answers"
+            >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
             </Button>
           </div>
@@ -478,7 +506,12 @@ function GeminiCard({
               className="min-w-0 flex-1"
               options={options.map((m) => ({ value: m.id, label: m.label }))}
             />
-            <Button variant="secondary" onClick={() => void save()} disabled={choice === model}>
+            <Button
+              variant="secondary"
+              onClick={() => void save()}
+              disabled={choice === model}
+              title="Use the chosen Gemini model for answers"
+            >
               Save
             </Button>
           </div>
@@ -563,7 +596,13 @@ function OpenAiCard({
       description="OpenAI, OpenRouter, Groq, a local server — anything that speaks /chat/completions."
       actions={
         data?.enabled ? (
-          <Button variant="ghost" size="sm" onClick={() => void clear()} disabled={busy}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void clear()}
+            disabled={busy}
+            title="Remove the saved URL, model and key for this endpoint"
+          >
             Clear
           </Button>
         ) : undefined
@@ -596,10 +635,19 @@ function OpenAiCard({
             </Field>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => void test()} disabled={busy}>
+            <Button
+              variant="outline"
+              onClick={() => void test()}
+              disabled={busy}
+              title="Send a short test message to this endpoint with the settings above, without saving"
+            >
               Test
             </Button>
-            <Button onClick={() => void save()} disabled={busy}>
+            <Button
+              onClick={() => void save()}
+              disabled={busy}
+              title="Save the base URL, model and key for this endpoint"
+            >
               {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save
             </Button>
           </div>
@@ -702,7 +750,11 @@ function ModelParamsCard({
             </Field>
           </div>
           <div className="flex justify-end">
-            <Button onClick={() => void save()} disabled={saving}>
+            <Button
+              onClick={() => void save()}
+              disabled={saving}
+              title="Save these answer settings for every user who has no override of their own"
+            >
               {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save defaults
             </Button>
           </div>

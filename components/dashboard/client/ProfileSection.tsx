@@ -136,7 +136,13 @@ export function ProfileSection() {
             actions={
               draft.resumeText ? (
                 <>
-                  <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={parsing}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={parsing}
+                    title="Choose a different résumé file to use instead of this one"
+                  >
                     <RefreshCw className="mr-1.5 h-3 w-3" /> Replace
                   </Button>
                   <Button
@@ -144,6 +150,7 @@ export function ProfileSection() {
                     size="sm"
                     onClick={() => setDraft({ ...draft, resumeText: null, resumeFileName: null })}
                     className="hover:bg-destructive-muted hover:text-destructive"
+                    title="Take the résumé out of your profile (takes effect when you save)"
                   >
                     <Trash2 className="mr-1.5 h-3 w-3" /> Remove
                   </Button>
@@ -167,6 +174,7 @@ export function ProfileSection() {
                 <button
                   type="button"
                   onClick={() => setShowResume((v) => !v)}
+                  title={showResume ? "Hide the résumé text" : "Show and edit the text read from your résumé"}
                   className="flex w-full items-center gap-3 rounded-lg border border-border-subtle bg-surface-inset px-3 py-2.5 text-left"
                 >
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-muted text-accent-text">
@@ -200,6 +208,7 @@ export function ProfileSection() {
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={parsing}
+                title="Choose your résumé file; the assistant reads its text to answer as you"
                 className="flex w-full flex-col items-center rounded-xl border border-dashed border-border-strong px-6 py-8 text-center hover:border-accent/60 hover:bg-surface-overlay/40"
               >
                 {parsing ? (
@@ -250,10 +259,21 @@ export function ProfileSection() {
           <span className="min-w-0 flex-1 text-[13px] text-text-primary">
             {tooLong ? "Some fields are over the limit." : "You have unsaved changes."}
           </span>
-          <Button variant="ghost" size="sm" onClick={() => setDraft(server)} disabled={saving}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDraft(server)}
+            disabled={saving}
+            title="Throw away your unsaved edits and go back to the saved profile"
+          >
             Discard
           </Button>
-          <Button size="sm" onClick={() => void save()} disabled={saving || tooLong}>
+          <Button
+            size="sm"
+            onClick={() => void save()}
+            disabled={saving || tooLong}
+            title="Save your profile; the assistant uses it from your next answer"
+          >
             {saving && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />} Save changes
           </Button>
         </div>

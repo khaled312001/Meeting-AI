@@ -95,7 +95,11 @@ export function AdminOverview({ onNavigate }: { onNavigate: (s: AdminSection) =>
             <strong className="font-semibold">{formatNumber(st.pendingApproval)}</strong>{" "}
             {st.pendingApproval === 1 ? "person is" : "people are"} waiting for approval.
           </span>
-          <Button size="sm" onClick={() => onNavigate("users")}>
+          <Button
+            size="sm"
+            onClick={() => onNavigate("users")}
+            title="Open Users to approve or decline the people who are waiting"
+          >
             Review sign-ups
           </Button>
         </div>
@@ -145,6 +149,7 @@ export function AdminOverview({ onNavigate }: { onNavigate: (s: AdminSection) =>
 
         <Card
           title="System health"
+          description="Whether the database, transcription and AI keys are working."
           actions={
             health.data ? (
               <Pill tone={health.data.status === "healthy" ? "success" : "warning"} dot>
@@ -163,7 +168,13 @@ export function AdminOverview({ onNavigate }: { onNavigate: (s: AdminSection) =>
                   <div className="text-[13px] font-medium text-text-primary">{PROVIDER_LABEL[rt.provider]}</div>
                   <div className="truncate text-xs text-text-tertiary">{activeModel || "default model"}</div>
                 </div>
-                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onNavigate("ai")}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => onNavigate("ai")}
+                  title="Open AI & integrations to change the AI provider, model and keys"
+                >
                   Configure
                 </Button>
               </div>
@@ -203,7 +214,12 @@ export function AdminOverview({ onNavigate }: { onNavigate: (s: AdminSection) =>
           title="Recent activity"
           description="Sign-ups, approvals, bans and other account events."
           actions={
-            <Button variant="ghost" size="sm" onClick={() => onNavigate("security")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onNavigate("security")}
+              title="Open Security & access to see the full activity log"
+            >
               View all
             </Button>
           }

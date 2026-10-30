@@ -44,10 +44,14 @@ export function useBanReason() {
       description="They'll be signed out immediately and can't use the app until unbanned."
       footer={
         <>
-          <Button variant="ghost" onClick={() => close(null)}>
+          <Button variant="ghost" onClick={() => close(null)} title="Close without banning anyone">
             Cancel
           </Button>
-          <Button variant="destructive" onClick={() => close(reason.trim())}>
+          <Button
+            variant="destructive"
+            onClick={() => close(reason.trim())}
+            title="Ban now; they are signed out at once and blocked until unbanned"
+          >
             Ban
           </Button>
         </>

@@ -127,7 +127,10 @@ export function AnnouncementsSection() {
         title="Announcements"
         description="Banners, pop-ups and toasts shown inside the app — maintenance notices, new features, plan changes."
         actions={
-          <Button onClick={() => setEditing("new")}>
+          <Button
+            onClick={() => setEditing("new")}
+            title="Write a new banner, pop-up or toast to show inside the app"
+          >
             <Plus className="mr-1.5 h-3.5 w-3.5" /> New announcement
           </Button>
         }
@@ -138,10 +141,10 @@ export function AnnouncementsSection() {
           onChange={setStatus}
           ariaLabel="Status"
           options={[
-            { value: "all", label: "All" },
-            { value: "active", label: "Live" },
-            { value: "paused", label: "Paused" },
-            { value: "archived", label: "Archived" },
+            { value: "all", label: "All", title: "Show every announcement" },
+            { value: "active", label: "Live", title: "Show announcements users can see right now" },
+            { value: "paused", label: "Paused", title: "Show announcements that are switched off for now" },
+            { value: "archived", label: "Archived", title: "Show old announcements that are put away" },
           ]}
         />
       </div>
@@ -160,7 +163,14 @@ export function AnnouncementsSection() {
             icon={Megaphone}
             title="No announcements"
             description="Create one to reach every user the next time they open the app."
-            action={<Button onClick={() => setEditing("new")}>New announcement</Button>}
+            action={
+              <Button
+                onClick={() => setEditing("new")}
+                title="Write a new banner, pop-up or toast to show inside the app"
+              >
+                New announcement
+              </Button>
+            }
           />
         </Card>
       ) : (
@@ -187,15 +197,31 @@ export function AnnouncementsSection() {
               )}
               <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border-subtle pt-3">
                 <DismissCount id={a.id} />
-                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setEditing(a)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setEditing(a)}
+                  title="Change this announcement's text, style, audience or dates"
+                >
                   <Pencil className="mr-1.5 h-3 w-3" /> Edit
                 </Button>
                 {a.status === "active" ? (
-                  <Button variant="ghost" size="sm" onClick={() => void setRowStatus(a, "paused")}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void setRowStatus(a, "paused")}
+                    title="Hide this announcement from users until you put it live again"
+                  >
                     <Pause className="mr-1.5 h-3 w-3" /> Pause
                   </Button>
                 ) : (
-                  <Button variant="ghost" size="sm" onClick={() => void setRowStatus(a, "active")}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void setRowStatus(a, "active")}
+                    title="Start showing this announcement to users"
+                  >
                     <Play className="mr-1.5 h-3 w-3" /> Go live
                   </Button>
                 )}
@@ -204,6 +230,7 @@ export function AnnouncementsSection() {
                   size="sm"
                   className="hover:bg-destructive-muted hover:text-destructive"
                   onClick={() => void remove(a)}
+                  title="Delete this announcement for everyone permanently"
                 >
                   <Trash2 className="mr-1.5 h-3 w-3" /> Delete
                 </Button>
@@ -316,10 +343,18 @@ function AnnouncementEditor({
       title={target === "new" ? "New announcement" : "Edit announcement"}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} title="Close without saving">
             Cancel
           </Button>
-          <Button onClick={() => void save()} disabled={saving}>
+          <Button
+            onClick={() => void save()}
+            disabled={saving}
+            title={
+              target === "new"
+                ? "Create this announcement; it shows to users if its status is Live"
+                : "Save your changes to this announcement"
+            }
+          >
             {target === "new" ? "Publish" : "Save changes"}
           </Button>
         </>
@@ -421,7 +456,11 @@ function AnnouncementEditor({
             <span className="block text-[13px] text-text-primary">Users can dismiss it</span>
             <span className="block text-xs text-text-tertiary">Turn off for must-read notices.</span>
           </span>
-          <Switch checked={form.dismissable} onCheckedChange={(v) => set("dismissable", v)} />
+          <Switch
+            checked={form.dismissable}
+            onCheckedChange={(v) => set("dismissable", v)}
+            title="Let users close this announcement"
+          />
         </label>
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>

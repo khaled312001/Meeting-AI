@@ -137,6 +137,7 @@ export function AccountSection({
                   variant="secondary"
                   onClick={() => void saveName()}
                   disabled={savingName || !name.trim() || name.trim() === (user.name ?? "")}
+                  title="Save your new display name"
                 >
                   {savingName && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save
                 </Button>
@@ -184,7 +185,11 @@ export function AccountSection({
             </div>
             {pwError && <p className="text-xs text-destructive">{pwError}</p>}
             <div className="flex justify-end">
-              <Button type="submit" disabled={savingPw || !currentPw || !newPw}>
+              <Button
+                type="submit"
+                disabled={savingPw || !currentPw || !newPw}
+                title="Set your new password and sign out your other devices"
+              >
                 {savingPw && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Change password
               </Button>
             </div>
@@ -194,9 +199,15 @@ export function AccountSection({
         <Card
           className="lg:col-span-2"
           title="Signed-in devices"
+          description="Browsers and desktop apps signed in to your account. Sign out any you don't recognise."
           actions={
             others.length > 0 ? (
-              <Button variant="outline" size="sm" onClick={() => void revokeOthers()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void revokeOthers()}
+                title="Sign out every device except this one; they will need to sign in again"
+              >
                 Sign out other devices
               </Button>
             ) : undefined
@@ -236,6 +247,7 @@ export function AccountSection({
                         disabled={revoking === d.id}
                         onClick={() => void revoke(d)}
                         className="hover:bg-destructive-muted hover:text-destructive"
+                        title="Sign out this device; it will need to sign in again"
                       >
                         Sign out
                       </Button>
@@ -256,7 +268,11 @@ export function AccountSection({
                 <div className="text-xs text-text-tertiary">You can sign back in any time.</div>
               </div>
             </div>
-            <Button variant="outline" onClick={() => void signOutAndTrack()}>
+            <Button
+              variant="outline"
+              onClick={() => void signOutAndTrack()}
+              title="Sign out of your account on this device"
+            >
               <LogOut className="mr-1.5 h-3.5 w-3.5" /> Sign out
             </Button>
           </div>

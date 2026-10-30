@@ -88,10 +88,20 @@ export function NotesSection() {
         description="Answers and notes you saved from the assistant. Export them to review after the call."
         actions={
           <>
-            <Button variant="outline" disabled={isExporting || total === 0} onClick={() => void exportNotes("markdown")}>
+            <Button
+              variant="outline"
+              disabled={isExporting || total === 0}
+              onClick={() => void exportNotes("markdown")}
+              title="Download all your saved answers as a Markdown text file"
+            >
               <FileDown className="mr-1.5 h-3.5 w-3.5" /> Markdown
             </Button>
-            <Button variant="outline" disabled={isExporting || total === 0} onClick={() => void exportNotes("pdf")}>
+            <Button
+              variant="outline"
+              disabled={isExporting || total === 0}
+              onClick={() => void exportNotes("pdf")}
+              title="Download all your saved answers as a PDF file"
+            >
               <Download className="mr-1.5 h-3.5 w-3.5" /> PDF
             </Button>
           </>
@@ -135,6 +145,7 @@ export function NotesSection() {
                     className="ml-auto hover:bg-destructive-muted hover:text-destructive"
                     onClick={() => void remove(n.id)}
                     aria-label="Delete note"
+                    title="Delete this saved answer permanently"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -154,6 +165,7 @@ export function NotesSection() {
                   <button
                     type="button"
                     onClick={() => setExpanded(open ? null : n.id)}
+                    title={open ? "Fold this answer back to a short preview" : "Show the whole answer"}
                     className="w-full border-t border-border-subtle px-4 py-2 text-left text-xs font-medium text-text-secondary hover:text-text-primary"
                   >
                     {open ? "Show less" : "Show more"}

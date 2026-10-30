@@ -35,9 +35,10 @@ export function LanguageSwitch({ variant = "toolbar" }: { variant?: Variant }) {
     <div
       role="radiogroup"
       aria-label="Listening language"
-      title="Listening: Auto hears Arabic, English and German, also mixed in one sentence; or pick one language"
+      title="Listening language: Auto hears Arabic, English and German, also mixed in one sentence; or pick one language"
       className={groupClass[variant]}
     >
+      <span className="pl-1.5 pr-0.5 text-[10px] font-medium text-text-tertiary">Hear</span>
       {LANGUAGE_CHOICES.map((l) => (
         <button
           key={l.id}

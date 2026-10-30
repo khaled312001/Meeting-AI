@@ -99,6 +99,12 @@ export const userModelParamsBodySchema = z.object({
   temperature: z.number().min(0).max(2).nullable().optional(),
   topP: z.number().min(0).max(1).nullable().optional(),
   thinkingBudget: z.enum(THINKING_BUDGETS).nullable().optional(),
+  /** An Anthropic model id, e.g. "claude-opus-5-5". */
+  model: z
+    .string()
+    .regex(/^claude-[a-z0-9][a-z0-9.-]{1,60}$/)
+    .nullable()
+    .optional(),
 });
 
 export const userModelParamsDeleteSchema = z.object({ userId: safeIdSchema });

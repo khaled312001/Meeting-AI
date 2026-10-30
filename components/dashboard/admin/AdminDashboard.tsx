@@ -49,20 +49,63 @@ function AdminApp({ me }: { me: AdminMe }) {
   const [unreadOverride, setUnreadOverride] = React.useState<number | null>(null);
 
   const nav: NavItem<AdminSection>[] = [
-    { key: "overview", label: "Overview", icon: LayoutDashboard },
-    { key: "users", label: "Users", icon: Users, badge: counts.data?.pending || null, group: "People" },
-    { key: "live", label: "Live sessions", icon: Activity, group: "People" },
+    {
+      key: "overview",
+      label: "Overview",
+      icon: LayoutDashboard,
+      hint: "See users, sign-ups and system health at a glance",
+    },
+    {
+      key: "users",
+      label: "Users",
+      icon: Users,
+      badge: counts.data?.pending || null,
+      group: "People",
+      hint: "Add customers, approve or ban people and change their plans",
+    },
+    {
+      key: "live",
+      label: "Live sessions",
+      icon: Activity,
+      group: "People",
+      hint: "See who is using the assistant right now and end a session",
+    },
     {
       key: "support",
       label: "Support inbox",
       icon: Inbox,
       badge: (unreadOverride ?? counts.data?.unread) || null,
       group: "People",
+      hint: "Read and reply to messages from users",
     },
-    { key: "usage", label: "Usage & analytics", icon: BarChart3, group: "Insights" },
-    { key: "ai", label: "AI & integrations", icon: Bot, group: "Configure" },
-    { key: "announcements", label: "Announcements", icon: Megaphone, group: "Configure" },
-    { key: "security", label: "Security & access", icon: ShieldCheck, group: "Configure" },
+    {
+      key: "usage",
+      label: "Usage & analytics",
+      icon: BarChart3,
+      group: "Insights",
+      hint: "See how much the assistant is used, by whom, and what fails",
+    },
+    {
+      key: "ai",
+      label: "AI & integrations",
+      icon: Bot,
+      group: "Configure",
+      hint: "Choose the AI provider and model and manage API keys",
+    },
+    {
+      key: "announcements",
+      label: "Announcements",
+      icon: Megaphone,
+      group: "Configure",
+      hint: "Show banners, pop-ups and toasts to users inside the app",
+    },
+    {
+      key: "security",
+      label: "Security & access",
+      icon: ShieldCheck,
+      group: "Configure",
+      hint: "See the audit log and threats, choose admins and clean up data",
+    },
   ];
 
   return (
@@ -75,9 +118,12 @@ function AdminApp({ me }: { me: AdminMe }) {
       onSignOut={() => void signOutAndTrack()}
       backHref={appHref("dashboard")}
       backLabel="My dashboard"
+      backHint="Go to your own customer dashboard"
       topRight={
         <Button variant="ghost" size="sm" asChild>
-          <a href={appHref("home")}>Open assistant</a>
+          <a href={appHref("home")} title="Open the interview assistant app">
+            Open assistant
+          </a>
         </Button>
       }
     >

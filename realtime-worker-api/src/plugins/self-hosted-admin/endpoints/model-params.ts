@@ -138,6 +138,7 @@ export function modelParamsEndpoints(deps: AdminDeps) {
                 temperature: row.temperature,
                 topP: row.topP,
                 thinkingBudget: row.thinkingBudget,
+                model: row.model,
                 updatedAt: row.updatedAt,
               }
             : null,
@@ -175,12 +176,14 @@ export function modelParamsEndpoints(deps: AdminDeps) {
           temperature: existing?.temperature ?? null,
           topP: existing?.topP ?? null,
           thinkingBudget: existing?.thinkingBudget ?? null,
+          model: existing?.model ?? null,
           updatedAt: now,
         };
         if (fields.maxOutputTokens !== undefined) next.maxOutputTokens = fields.maxOutputTokens;
         if (fields.temperature !== undefined) next.temperature = fields.temperature;
         if (fields.topP !== undefined) next.topP = fields.topP;
         if (fields.thinkingBudget !== undefined) next.thinkingBudget = fields.thinkingBudget;
+        if (fields.model !== undefined) next.model = fields.model;
 
         if (existing) {
           await db
@@ -190,6 +193,7 @@ export function modelParamsEndpoints(deps: AdminDeps) {
               temperature: next.temperature,
               topP: next.topP,
               thinkingBudget: next.thinkingBudget,
+              model: next.model,
               updatedAt: now,
             })
             .where(eq(userModelParams.userId, userId));

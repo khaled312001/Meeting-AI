@@ -305,8 +305,14 @@ export async function handleCompletion(
   // user actually sees.
   let responseChars = 0;
   let streamError: string | null = null;
+  const modelParams = await getEffectiveModelParams(
+    env,
+    trackedUser?.id ?? null,
+  );
+  // An admin can set the Anthropic model for one user (Anthropic only).
+  const anthropicModel = modelParams.model ?? cfg.anthropicModel;
   const activeModel = useAnthropic
-    ? cfg.anthropicModel
+    ? anthropicModel
     : cfg.useCustom
       ? cfg.customModelName
       : cfg.geminiModel;
@@ -360,10 +366,6 @@ export async function handleCompletion(
     },
   } as WritableStreamDefaultWriter<Uint8Array>;
 
-  const modelParams = await getEffectiveModelParams(
-    env,
-    trackedUser?.id ?? null,
-  );
 
   // Live interview features need the first token FAST — a thinking phase
   // makes the interviewer wait with no visible output. Force no-thinking
@@ -395,7 +397,7 @@ export async function handleCompletion(
             ? buildSummaryContext(payload.bg)
             : buildAnthropicBackground(payload.bg),
         docs: material,
-        model: cfg.anthropicModel,
+        model: anthropicModel,
         apiKey: cfg.anthropicKey,
         writer: trackingWriter,
         params: effectiveParams,

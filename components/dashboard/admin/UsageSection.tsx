@@ -24,11 +24,11 @@ import { adminApi, downloadCsv, type AdminUsageWindow, type UsageEvent } from "@
 import { formatCompact, formatDateTime, formatDuration, formatNumber, formatRelative, humanizeKey } from "@/lib/format";
 import { actionLabel, xFormatter } from "../labels";
 
-const WINDOWS: ReadonlyArray<{ value: AdminUsageWindow; label: string }> = [
-  { value: "24h", label: "24h" },
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
+const WINDOWS: ReadonlyArray<{ value: AdminUsageWindow; label: string; title: string }> = [
+  { value: "24h", label: "24h", title: "Show usage from the last 24 hours" },
+  { value: "7d", label: "7 days", title: "Show usage from the last 7 days" },
+  { value: "30d", label: "30 days", title: "Show usage from the last 30 days" },
+  { value: "90d", label: "90 days", title: "Show usage from the last 90 days" },
 ];
 
 const EVENTS_PAGE = 25;
@@ -89,8 +89,12 @@ export function UsageSection({ onOpenUser }: { onOpenUser: (userId: string) => v
         actions={
           <>
             <Segmented value={range} onChange={setRange} options={WINDOWS} ariaLabel="Time range" />
-            <Button variant="outline" onClick={() => void exportCsv()}>
-              <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+            <Button
+              variant="outline"
+              onClick={() => void exportCsv()}
+              title="Download every usage event in the chosen time range as a spreadsheet (CSV) file"
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
             </Button>
           </>
         }
@@ -261,6 +265,7 @@ export function UsageSection({ onOpenUser }: { onOpenUser: (userId: string) => v
                           type="button"
                           className="max-w-[220px] truncate text-left hover:text-accent-text hover:underline"
                           onClick={() => onOpenUser(r.userId!)}
+                          title="Open this user's details"
                         >
                           {r.userEmail ?? r.userId}
                         </button>

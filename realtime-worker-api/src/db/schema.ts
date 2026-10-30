@@ -265,6 +265,8 @@ export const userModelParams = sqliteTable("user_model_params", {
   temperature: real("temperature"),
   topP: real("topP"),
   thinkingBudget: text("thinkingBudget"),
+  /** Anthropic model for this user's answers (NULL = the global model). */
+  model: text("model"),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });
 

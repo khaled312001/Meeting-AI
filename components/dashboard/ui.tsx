@@ -280,6 +280,7 @@ export function ErrorBanner({
         <button
           type="button"
           onClick={onRetry}
+          title="Try loading this again"
           className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary"
         >
           <RefreshCw className="h-3 w-3" /> Retry
@@ -322,7 +323,7 @@ export function RefreshButton({
   spinning?: boolean;
 }) {
   return (
-    <Button variant="ghost" size="icon" onClick={onClick} aria-label="Refresh" title="Refresh">
+    <Button variant="ghost" size="icon" onClick={onClick} aria-label="Refresh" title="Reload the latest data for this section">
       <RefreshCw className={cn("h-3.5 w-3.5", spinning && "animate-spin")} />
     </Button>
   );
@@ -365,6 +366,7 @@ export function Select({
   className,
   ariaLabel,
   id,
+  title,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -372,11 +374,13 @@ export function Select({
   className?: string;
   ariaLabel?: string;
   id?: string;
+  title?: string;
 }) {
   return (
     <select
       id={id}
       aria-label={ariaLabel}
+      title={title}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={cn(
@@ -428,7 +432,7 @@ export function Segmented<T extends string>({
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: ReadonlyArray<{ value: T; label: string; count?: number }>;
+  options: ReadonlyArray<{ value: T; label: string; count?: number; title?: string }>;
   ariaLabel?: string;
 }) {
   return (
@@ -445,6 +449,7 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={active}
+            title={o.title ?? `Show ${o.label.toLowerCase()}`}
             onClick={() => onChange(o.value)}
             className={cn(
               "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors",
@@ -536,6 +541,7 @@ export function DataTable<T>({
                 <input
                   type="checkbox"
                   aria-label="Select all"
+                  title="Select or clear every row on this page"
                   checked={Boolean(allSelected)}
                   onChange={toggleAll}
                   className="h-3.5 w-3.5 accent-[var(--accent)]"
@@ -576,6 +582,7 @@ export function DataTable<T>({
                     <input
                       type="checkbox"
                       aria-label="Select row"
+                      title="Select this row for a bulk action"
                       checked={Boolean(selected?.has(id))}
                       onChange={() => toggleOne(id)}
                       className="h-3.5 w-3.5 accent-[var(--accent)]"
@@ -631,6 +638,7 @@ export function Pagination({
           disabled={offset === 0}
           onClick={() => onChange(Math.max(0, offset - limit))}
           aria-label="Previous page"
+          title="Show the previous page of results"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
@@ -640,6 +648,7 @@ export function Pagination({
           disabled={to >= total}
           onClick={() => onChange(offset + limit)}
           aria-label="Next page"
+          title="Show the next page of results"
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </Button>
@@ -701,7 +710,7 @@ export function Drawer({
             <h2 className="truncate text-[15px] font-semibold text-text-primary">{title}</h2>
             {subtitle && <div className="mt-0.5 text-xs text-text-tertiary">{subtitle}</div>}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" title="Close this panel">
             <X className="h-4 w-4" />
           </Button>
         </header>
@@ -803,12 +812,13 @@ export function useConfirm() {
       description={state?.description}
       footer={
         <>
-          <Button variant="ghost" onClick={() => close(false)}>
+          <Button variant="ghost" onClick={() => close(false)} title="Close without making any change">
             Cancel
           </Button>
           <Button
             variant={state?.destructive ? "destructive" : "primary"}
             onClick={() => close(true)}
+            title="Go ahead with this action"
             autoFocus
           >
             {state?.confirmLabel ?? "Confirm"}
@@ -861,12 +871,21 @@ export function Avatar({ name, email, size = 32 }: { name?: string | null; email
   );
 }
 
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+export function CopyButton({
+  text,
+  label = "Copy",
+  title = "Copy this to your clipboard",
+}: {
+  text: string;
+  label?: string;
+  title?: string;
+}) {
   const [copied, setCopied] = React.useState(false);
   return (
     <Button
       variant="outline"
       size="sm"
+      title={title}
       onClick={() => {
         void copyText(text).then((ok) => {
           if (!ok) return;

@@ -117,9 +117,15 @@ export function AdminGuard({ children }: { children: (me: AdminMe) => React.Reac
           </p>
           <div className="mt-5 flex justify-center gap-2">
             <Button variant="outline" asChild>
-              <a href={appHref("dashboard")}>My dashboard</a>
+              <a href={appHref("dashboard")} title="Go to your own customer dashboard instead">
+                My dashboard
+              </a>
             </Button>
-            <Button variant="ghost" onClick={() => void signOutAndTrack()}>
+            <Button
+              variant="ghost"
+              onClick={() => void signOutAndTrack()}
+              title="Sign out so you can sign in with an admin account"
+            >
               <LogOut className="mr-1.5 h-3.5 w-3.5" /> Switch account
             </Button>
           </div>

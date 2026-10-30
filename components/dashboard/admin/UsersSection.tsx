@@ -98,10 +98,17 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
         actions={
           <>
             <RefreshButton onClick={() => void users.reload()} spinning={users.refreshing} />
-            <Button variant="outline" onClick={() => void exportCsv()}>
+            <Button
+              variant="outline"
+              onClick={() => void exportCsv()}
+              title="Download every user as a spreadsheet (CSV) file"
+            >
               <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
             </Button>
-            <Button onClick={() => setAdding(true)}>
+            <Button
+              onClick={() => setAdding(true)}
+              title="Create an account for a new customer and get a password to send them"
+            >
               <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Add customer
             </Button>
           </>
@@ -114,10 +121,15 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
           onChange={setFilter}
           ariaLabel="Filter users"
           options={[
-            { value: "all", label: "All", count: stats?.totalUsers },
-            { value: "pending", label: "Pending", count: stats?.pendingApproval },
-            { value: "approved", label: "Approved" },
-            { value: "banned", label: "Banned", count: stats?.bannedUsers },
+            { value: "all", label: "All", count: stats?.totalUsers, title: "Show every user" },
+            {
+              value: "pending",
+              label: "Pending",
+              count: stats?.pendingApproval,
+              title: "Show only people waiting for approval",
+            },
+            { value: "approved", label: "Approved", title: "Show only users who are approved" },
+            { value: "banned", label: "Banned", count: stats?.bannedUsers, title: "Show only banned users" },
           ]}
         />
         <SearchInput value={search} onChange={setSearch} placeholder="Search name or email…" className="sm:ml-auto sm:w-72" />
@@ -126,7 +138,12 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
       {selected.size > 0 && (
         <div className="dash-toast-in mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent-muted px-4 py-2.5">
           <span className="mr-auto text-[13px] font-medium text-text-primary">{selected.size} selected</span>
-          <Button size="sm" disabled={busy} onClick={() => void runBulk("Approved", () => adminApi.bulkApprove(ids, true))}>
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => void runBulk("Approved", () => adminApi.bulkApprove(ids, true))}
+            title="Approve the selected users so they can sign in and use the app"
+          >
             <UserCheck className="mr-1.5 h-3 w-3" /> Approve
           </Button>
           <Button
@@ -134,6 +151,7 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
             variant="secondary"
             disabled={busy}
             onClick={() => void runBulk("Approval revoked", () => adminApi.bulkApprove(ids, false))}
+            title="Take approval away from the selected users; they go back to pending"
           >
             Revoke approval
           </Button>
@@ -146,6 +164,7 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
               if (reason === null) return;
               void runBulk("Banned", () => adminApi.bulkBan(ids, true, reason || undefined));
             }}
+            title="Ban the selected users; they are signed out and blocked until unbanned"
           >
             <Ban className="mr-1.5 h-3 w-3" /> Ban
           </Button>
@@ -154,6 +173,7 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
             variant="secondary"
             disabled={busy}
             onClick={() => void runBulk("Unbanned", () => adminApi.bulkBan(ids, false))}
+            title="Lift the ban on the selected users so they can use the app again"
           >
             <CheckCircle2 className="mr-1.5 h-3 w-3" /> Unban
           </Button>
@@ -170,10 +190,17 @@ export function UsersSection({ initialUserId }: { initialUserId?: string | null 
               });
               if (ok) void runBulk("Deleted", () => adminApi.bulkDelete(ids));
             }}
+            title="Delete the selected accounts with their notes and profiles permanently"
           >
             <Trash2 className="mr-1.5 h-3 w-3" /> Delete
           </Button>
-          <Button size="icon" variant="ghost" onClick={() => setSelected(new Set())} aria-label="Clear selection">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setSelected(new Set())}
+            aria-label="Clear selection"
+            title="Unselect all rows"
+          >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>

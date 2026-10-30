@@ -35,19 +35,23 @@ export function PasswordDialog({
         shown?.note ??
         "This password is shown only once. Copy it now and send it to the customer privately."
       }
-      footer={<Button onClick={onClose}>Done</Button>}
+      footer={
+        <Button onClick={onClose} title="Close; the password will not be shown again">
+          Done
+        </Button>
+      }
     >
       {shown && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 rounded-lg bg-surface-inset px-3 py-2">
             <span className="truncate text-[13px] text-text-primary">{shown.email}</span>
-            <CopyButton text={shown.email} label="Copy" />
+            <CopyButton text={shown.email} label="Copy" title="Copy the customer's sign-in email" />
           </div>
           <div className="flex items-center justify-between gap-2 rounded-lg bg-surface-inset px-3 py-2">
             <code className="truncate text-[14px] font-semibold tracking-wide text-text-primary">
               {shown.password}
             </code>
-            <CopyButton text={shown.password} label="Copy" />
+            <CopyButton text={shown.password} label="Copy" title="Copy the password so you can send it to the customer" />
           </div>
         </div>
       )}
@@ -105,10 +109,14 @@ export function AddCustomerDialog({
         description="Creates an approved account with a generated password. Sign-up is closed, so customers get their account from you after they pay."
         footer={
           <>
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" onClick={onClose} title="Close without creating an account">
               Cancel
             </Button>
-            <Button onClick={() => void submit()} disabled={saving}>
+            <Button
+              onClick={() => void submit()}
+              disabled={saving}
+              title="Create the approved account and show its password once"
+            >
               {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Create account
             </Button>
           </>
@@ -263,7 +271,14 @@ export function SubscriptionTab({ userId }: { userId: string }) {
             <div className="text-xs font-medium text-text-secondary">Add questions</div>
             <div className="flex flex-wrap gap-2">
               {[50, 100, 250, 500, 1000].map((q) => (
-                <Button key={q} variant="outline" size="sm" disabled={saving} onClick={() => adjust("add", q)}>
+                <Button
+                  key={q}
+                  variant="outline"
+                  size="sm"
+                  disabled={saving}
+                  onClick={() => adjust("add", q)}
+                  title={`Give this customer ${q} more questions; their balance goes up by ${q}`}
+                >
                   +{q}
                 </Button>
               ))}
@@ -277,7 +292,12 @@ export function SubscriptionTab({ userId }: { userId: string }) {
                 className="h-8 w-28"
                 aria-label="Number of questions"
               />
-              <Button size="sm" disabled={saving} onClick={() => adjust("add", questions(amount))}>
+              <Button
+                size="sm"
+                disabled={saving}
+                onClick={() => adjust("add", questions(amount))}
+                title="Give this customer more questions; their balance goes up by the amount you enter"
+              >
                 Add
               </Button>
               <Button
@@ -285,6 +305,7 @@ export function SubscriptionTab({ userId }: { userId: string }) {
                 variant="outline"
                 disabled={saving}
                 onClick={() => adjust("set-left", questions(amount))}
+                title="Make the balance exactly the amount you enter, raising the total if needed"
               >
                 Set questions left
               </Button>
@@ -295,6 +316,7 @@ export function SubscriptionTab({ userId }: { userId: string }) {
                 onClick={() =>
                   void run("Full balance restored", () => adminApi.adjustQuestions({ userId, action: "restore" }))
                 }
+                title="Reset questions used to zero so the customer has the whole plan again"
               >
                 <RotateCcw className="mr-1.5 h-3 w-3" /> Restore full balance
               </Button>
@@ -313,6 +335,9 @@ export function SubscriptionTab({ userId }: { userId: string }) {
       )}
 
       <div className="space-y-4">
+        <p className="text-xs text-text-tertiary">
+          Edit the plan itself: its credit, questions and dates. Nothing changes until you save.
+        </p>
         <Field label="Plan" htmlFor="sub-plan" hint="Picking a plan fills in its credit and questions; you can change both.">
           <Select
             id="sub-plan"
@@ -365,13 +390,14 @@ export function SubscriptionTab({ userId }: { userId: string }) {
               variant="ghost"
               className="hover:bg-destructive-muted hover:text-destructive"
               onClick={() => void remove()}
+              title="Take the plan away; the account stays but has no questions"
             >
               <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Remove plan
             </Button>
           ) : (
             <span />
           )}
-          <Button onClick={save} disabled={saving}>
+          <Button onClick={save} disabled={saving} title="Save the plan, credit, questions and dates above">
             {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save subscription
           </Button>
         </div>

@@ -21,12 +21,16 @@ const COMPACT_HEIGHT_COMPOSER_IMAGES = 116;
 const COMPACT_ASK_ROW = 16;
 const COMPACT_HEIGHT_OUTPUT = 340;
 export const COMPACT_HEIGHT_OUTPUT_EXPANDED = 560;
-const COMPACT_HEIGHT_CONTEXT = 212;
+// Notes, the upload button and the Instructions / Feed choice.
+const COMPACT_HEIGHT_CONTEXT = 320;
+/** The guide to the buttons. */
+const COMPACT_HEIGHT_HELP = 290;
 /** Room for the ⋮ menu to drop down without being cut off. */
 const COMPACT_HEIGHT_MENU_MIN = 330;
 
 export type CompactLayoutState = {
   showContext: boolean;
+  showHelp?: boolean;
   askMode: boolean;
   hasVisibleOutput: boolean;
   hasStatusRow: boolean;
@@ -37,13 +41,16 @@ export type CompactLayoutState = {
   /** The answer panel's height as the user sized it. */
   outputHeight?: number;
   menuOpen: boolean;
+  /** Extra height of the top bar when its buttons wrap onto more lines. */
+  barExtra?: number;
 };
 
 /** Derive pixel height from which focus-mode panels are open. */
 export function resolveCompactHeight(state: CompactLayoutState): number {
-  let height = COMPACT_HEIGHT_IDLE;
+  let height = COMPACT_HEIGHT_IDLE + (state.barExtra ?? 0);
   if (state.hasStatusRow) height += COMPACT_HEIGHT_STATUS_ROW;
   if (state.showContext) height += COMPACT_HEIGHT_CONTEXT;
+  if (state.showHelp) height += COMPACT_HEIGHT_HELP;
   if (state.askMode) {
     height += state.hasAttachedImages
       ? COMPACT_HEIGHT_COMPOSER_IMAGES

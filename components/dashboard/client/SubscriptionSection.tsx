@@ -163,11 +163,19 @@ function PlanView({
 function PayActions({ onNavigate }: { onNavigate: (s: ClientSection) => void }) {
   return (
     <div className="mt-1 flex flex-wrap gap-2">
-      <Button onClick={() => onNavigate("support")}>
+      <Button
+        onClick={() => onNavigate("support")}
+        title="Open Support to message the team about paying, renewing or adding credit"
+      >
         <LifeBuoy className="mr-1.5 h-3.5 w-3.5" /> Contact support to renew or top up
       </Button>
       <Button variant="outline" asChild>
-        <a href={PRICING_URL} target="_blank" rel="noopener noreferrer">
+        <a
+          href={PRICING_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open the plans and prices page in a new tab"
+        >
           <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Plans & prices
           <ExternalLink className="ml-1.5 h-3 w-3" />
         </a>

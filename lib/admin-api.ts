@@ -174,6 +174,8 @@ export interface ModelParamsOverride {
   temperature: number | null;
   topP: number | null;
   thinkingBudget: ThinkingBudget | null;
+  /** Anthropic model for this user (null = the global one). */
+  model: string | null;
   updatedAt: string;
 }
 
@@ -472,6 +474,7 @@ export const adminApi = {
     temperature?: number | null;
     topP?: number | null;
     thinkingBudget?: ThinkingBudget | null;
+    model?: string | null;
   }) => adminPost("/user-model-params", body),
   deleteUserModelParams: (userId: string) => adminPost("/user-model-params-delete", { userId }),
 

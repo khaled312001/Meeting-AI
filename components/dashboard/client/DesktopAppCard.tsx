@@ -47,13 +47,22 @@ export function DesktopAppCard({ className }: { className?: string }) {
           <div className="flex shrink-0 flex-wrap gap-2">
             {DESKTOP_DOWNLOAD_URL && (
               <Button asChild>
-                <a href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={DESKTOP_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open the download page for the desktop installer in a new tab"
+                >
                   <Download className="mr-1.5 h-3.5 w-3.5" /> Download for Windows / macOS
                 </a>
               </Button>
             )}
             {canInstall && !DESKTOP_DOWNLOAD_URL && (
-              <Button variant={DESKTOP_DOWNLOAD_URL ? "outline" : "default"} onClick={onInstall}>
+              <Button
+                variant={DESKTOP_DOWNLOAD_URL ? "outline" : "default"}
+                onClick={onInstall}
+                title="Add the assistant to your computer as an app from this browser"
+              >
                 <MonitorDown className="mr-1.5 h-3.5 w-3.5" /> Install from browser
               </Button>
             )}

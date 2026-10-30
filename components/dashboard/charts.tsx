@@ -426,7 +426,7 @@ export function ChartCard({
             onClick={() => setView((v) => (v === "chart" ? "table" : "chart"))}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-tertiary hover:bg-surface-overlay hover:text-text-primary"
             aria-label={view === "chart" ? "Show as table" : "Show as chart"}
-            title={view === "chart" ? "Show as table" : "Show as chart"}
+            title={view === "chart" ? "Show these numbers as a table" : "Show these numbers as a chart"}
           >
             {view === "chart" ? <Table2 className="h-3.5 w-3.5" /> : <BarChart3 className="h-3.5 w-3.5" />}
           </button>

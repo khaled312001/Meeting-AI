@@ -102,6 +102,7 @@ export function SupportSection() {
               setComposing(true);
               setActiveId(null);
             }}
+            title="Write a new message to the support team"
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" /> New request
           </Button>
@@ -133,6 +134,7 @@ export function SupportSection() {
                   <button
                     type="button"
                     onClick={() => void openThread(t.id)}
+                    title="Open this conversation to read replies and answer"
                     className={cn(
                       "flex w-full flex-col gap-1 px-4 py-3 text-left hover:bg-surface-overlay/60",
                       t.id === activeId && "bg-surface-overlay",
@@ -158,8 +160,15 @@ export function SupportSection() {
           {composing ? (
             <Card
               title="New request"
+              description="Your message goes to the support team; their reply appears here."
               actions={
-                <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setComposing(false)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="lg:hidden"
+                  onClick={() => setComposing(false)}
+                  title="Go back to your conversations without sending"
+                >
                   <ArrowLeft className="mr-1 h-3 w-3" /> Back
                 </Button>
               }
@@ -185,7 +194,11 @@ export function SupportSection() {
                   />
                 </Field>
                 <div className="flex justify-end">
-                  <Button onClick={() => void createThread()} disabled={sending || !body.trim()}>
+                  <Button
+                    onClick={() => void createThread()}
+                    disabled={sending || !body.trim()}
+                    title="Send this message to the support team"
+                  >
                     {sending ? (
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                     ) : (
@@ -203,7 +216,13 @@ export function SupportSection() {
               actions={
                 <>
                   {statusPill(active.status)}
-                  <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setActiveId(null)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="lg:hidden"
+                    onClick={() => setActiveId(null)}
+                    title="Go back to your conversations"
+                  >
                     <ArrowLeft className="mr-1 h-3 w-3" /> Back
                   </Button>
                 </>
@@ -250,7 +269,12 @@ export function SupportSection() {
                   maxLength={8000}
                   aria-label="Reply"
                 />
-                <Button onClick={() => void sendReply()} disabled={sending || !reply.trim()} aria-label="Send reply">
+                <Button
+                  onClick={() => void sendReply()}
+                  disabled={sending || !reply.trim()}
+                  aria-label="Send reply"
+                  title="Send your reply to the support team"
+                >
                   {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                 </Button>
               </div>

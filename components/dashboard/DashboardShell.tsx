@@ -13,6 +13,8 @@ export interface NavItem<K extends string = string> {
   /** Small count shown at the right of the nav item (e.g. unread). */
   badge?: number | null;
   group?: string;
+  /** Tooltip: one sentence on what the section is for. */
+  hint?: string;
 }
 
 /**
@@ -56,6 +58,7 @@ export function DashboardShell<K extends string>({
   onSignOut,
   backHref,
   backLabel = "Back to app",
+  backHint,
   topRight,
   children,
 }: {
@@ -67,6 +70,8 @@ export function DashboardShell<K extends string>({
   onSignOut: () => void;
   backHref?: string;
   backLabel?: string;
+  /** Tooltip for the back link; falls back to the label. */
+  backHint?: string;
   topRight?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -117,6 +122,7 @@ export function DashboardShell<K extends string>({
                         setMobileOpen(false);
                       }}
                       aria-current={isActive ? "page" : undefined}
+                      title={item.hint ?? `Open ${item.label}`}
                       className={cn(
                         "group flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] transition-colors",
                         isActive
@@ -149,6 +155,7 @@ export function DashboardShell<K extends string>({
         {backHref && (
           <a
             href={backHref}
+            title={backHint ?? backLabel}
             className="mb-1 flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-text-secondary hover:bg-surface-overlay/60 hover:text-text-primary"
           >
             <ArrowLeft className="h-4 w-4 text-text-tertiary" />
@@ -165,7 +172,7 @@ export function DashboardShell<K extends string>({
             type="button"
             onClick={onSignOut}
             aria-label="Sign out"
-            title="Sign out"
+            title="Sign out of your account on this device"
             className="flex h-7 w-7 items-center justify-center rounded-md text-text-tertiary hover:bg-destructive-muted hover:text-destructive"
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -197,6 +204,7 @@ export function DashboardShell<K extends string>({
             <button
               type="button"
               aria-label="Close menu"
+              title="Close the menu"
               onClick={() => setMobileOpen(false)}
               className="absolute right-2 top-3.5 flex h-7 w-7 items-center justify-center rounded-md text-text-tertiary hover:bg-surface-overlay"
             >
@@ -214,6 +222,7 @@ export function DashboardShell<K extends string>({
             className="flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-overlay lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
+            title="Open the list of sections"
           >
             <Menu className="h-4 w-4" />
           </button>

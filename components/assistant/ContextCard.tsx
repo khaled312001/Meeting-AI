@@ -197,7 +197,7 @@ export const ContextCard = memo(function ContextCard({
         {detailsOpen && (
           <div className="space-y-2 border-b border-border-subtle/40 px-3 py-2">
             <div>
-              <Label className="mb-1 block">Knowledge files</Label>
+              <Label className="mb-1 block">Your files (Instructions &amp; Feed)</Label>
               <KnowledgeUploadButton />
             </div>
             <InterviewFilesPicker />

@@ -165,6 +165,9 @@ interface FocusBarProps {
   isCapturing: boolean;
   askMode: boolean;
   showContext: boolean;
+  /** The guide to the buttons is open. */
+  showHelp?: boolean;
+  onToggleHelp?: () => void;
   menuOpen: boolean;
   hasContextAttached: boolean;
   hasOutput: boolean;
@@ -182,7 +185,12 @@ interface FocusBarProps {
   onClearTranscription: () => void;
   onClearAll: () => void;
   onExitFocus?: () => void;
+  /** The top bar's height beyond one line (its buttons wrapped). */
+  onBarExtra?: (px: number) => void;
 }
+
+/** The top bar's height on one line. */
+const BAR_ONE_LINE_PX = 36;
 
 export function FocusBar({
   isElectron,
@@ -192,6 +200,8 @@ export function FocusBar({
   isCapturing,
   askMode,
   showContext,
+  showHelp = false,
+  onToggleHelp,
   menuOpen,
   hasContextAttached,
   hasOutput,
@@ -209,6 +219,7 @@ export function FocusBar({
   onClearTranscription,
   onClearAll,
   onExitFocus,
+  onBarExtra,
 }: FocusBarProps) {
   const {
     sessionState,
@@ -240,6 +251,17 @@ export function FocusBar({
 
   const update = useAppUpdate();
   const menuRef = useRef<HTMLDivElement>(null);
+  // The window grows when the buttons wrap onto a second line.
+  const barRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar || !onBarExtra) return;
+    const report = () => onBarExtra(Math.max(0, bar.offsetHeight - BAR_ONE_LINE_PX));
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [onBarExtra]);
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: PointerEvent) => {
@@ -279,6 +301,7 @@ export function FocusBar({
     <div className="flex flex-col items-center gap-1.5 px-2 pt-2">
       {/* ── Top pill ─────────────────────────────────────────────── */}
       <div
+        ref={barRef}
         data-clickable
         data-window-chrome
         onPointerDown={isElectron ? startDrag : undefined}
@@ -301,7 +324,7 @@ export function FocusBar({
 
         <div className="flex min-w-0 flex-wrap items-center justify-center gap-0.5">
           {isLoading ? (
-            <PillButton onClick={onStop} title="Stop this answer" active>
+            <PillButton onClick={onStop} title="Stop the answer being written" active>
               <LoadingDots color="bg-sky-300" />
               Stop
             </PillButton>
@@ -310,8 +333,8 @@ export function FocusBar({
               onClick={onAnswer}
               title={
                 answerMode === "auto"
-                  ? "Answer now — questions are also answered on their own (Ctrl+Alt+Enter from any app)"
-                  : "Answer now, with what was heard so far (Ctrl+Alt+Enter from any app)"
+                  ? "Answer now, with everything heard since the last answer — in Auto, questions are also answered on their own (Ctrl+Alt+Enter from any app)"
+                  : "Answer now, with everything heard since the last answer (Ctrl+Alt+Enter from any app)"
               }
               className="bg-accent/15 text-accent-text hover:bg-accent/25"
             >
@@ -328,7 +351,7 @@ export function FocusBar({
           {canUpdate && onUpdate && (
             <PillButton
               onClick={onUpdate}
-              title="Update: answer the whole question again, with what was said since — replaces the current answer"
+              title="The question went on: answer all of it again, with what was said since, in place of the current answer"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Update
@@ -339,14 +362,14 @@ export function FocusBar({
             <PillButton
               onClick={onScreenshot}
               disabled={isCapturing}
-              title="Answer what is on screen"
+              title="Take a screenshot and answer what is on your screen, e.g. a coding task (Ctrl+Shift+Enter)"
             >
               {isCapturing ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Camera className="h-3.5 w-3.5" />
               )}
-              <span className="hidden md:inline">Screenshot</span>
+              Screenshot
               <Kbd
                 keys={["Mod", "Shift", "Enter"]}
                 size="xs"
@@ -355,9 +378,13 @@ export function FocusBar({
             </PillButton>
           )}
 
-          <PillButton onClick={onToggleChat} title="Ask AI chat" active={askMode}>
+          <PillButton
+            onClick={onToggleChat}
+            title="Type your own question to the AI (Alt+A)"
+            active={askMode}
+          >
             <MessageSquare className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Chat</span>
+            Chat
             <Kbd keys={["Alt", "A"]} size="xs" className="hidden opacity-70 lg:inline-flex" />
           </PillButton>
 
@@ -373,21 +400,22 @@ export function FocusBar({
           {onExitFocus && (
             <PillButton
               onClick={onExitFocus}
-              title="Back to the full view"
-              className="w-7 justify-center px-0"
+              title="Open the large window: transcript, files and settings"
             >
               <Maximize2 className="h-3.5 w-3.5" />
+              Full view
             </PillButton>
           )}
 
           <div ref={menuRef} className="relative">
             <PillButton
               onClick={() => onToggleMenu(!menuOpen)}
-              title="More"
+              title="More: notes & files for this interview, summary, save the answer, clear everything"
               active={menuOpen || showContext}
-              className="relative w-7 justify-center px-0"
+              className="relative"
             >
               <MoreVertical className="h-3.5 w-3.5" />
+              More
               {hasContextAttached && (
                 <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-info" />
               )}
@@ -405,7 +433,7 @@ export function FocusBar({
               >
                 {menuItem(
                   <Settings2 className="h-3.5 w-3.5" />,
-                  showContext ? "Hide notes & context" : "Notes & context",
+                  showContext ? "Hide notes & files" : "Notes & files (Instructions, Feed)",
                   onToggleContext,
                 )}
                 {menuItem(
@@ -467,6 +495,17 @@ export function FocusBar({
             )}
           </div>
 
+          {onToggleHelp && (
+            <PillButton
+              onClick={onToggleHelp}
+              title="What each button does"
+              active={showHelp}
+              className="w-7 justify-center px-0 font-semibold"
+            >
+              ?
+            </PillButton>
+          )}
+
           <button
             type="button"
             onClick={isActive ? stopSession : () => void startSession()}
@@ -476,8 +515,8 @@ export function FocusBar({
               (isReconnecting
                 ? "Reconnecting… click to end"
                 : isActive
-                  ? "Stop listening"
-                  : "Start listening")
+                  ? "End: stop listening to the call"
+                  : "Start: listen to the call and transcribe it")
             }
             className={cn(
               "ml-0.5 inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition-colors",
@@ -555,7 +594,7 @@ export function FocusBar({
           <PillButton
             onClick={onClearTranscription}
             disabled={!transcribedText.trim()}
-            title="Clear the transcript"
+            title="Clear the transcript (the answers stay)"
             className="border border-white/15 bg-white/[0.06] text-text-primary hover:border-white/25 hover:bg-white/15"
           >
             <Eraser className="h-3.5 w-3.5" />
@@ -569,7 +608,7 @@ export function FocusBar({
           {hasOutput && (
             <PillButton
               onClick={onToggleOutputCollapsed}
-              title={outputCollapsed ? "Show the answer" : "Hide the answer"}
+              title={outputCollapsed ? "Show the answer panel" : "Fold the answer panel away"}
               className="w-7 justify-center px-0 text-text-secondary"
             >
               {outputCollapsed ? (
