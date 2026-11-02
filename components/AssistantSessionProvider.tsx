@@ -107,6 +107,8 @@ interface NewAnswerOptions {
   question?: string;
   /** Update: the answer replaces the current one for the whole question. */
   updated?: boolean;
+  /** Explain more: a further answer to the latest question, same number. */
+  sameNumber?: boolean;
 }
 
 interface NewAnswer {
@@ -246,10 +248,8 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
       let past = pastAnswersRef.current;
       let n: number | undefined;
       if (opts?.numbered) {
-        n =
-          opts.replace && current.n
-            ? current.n
-            : Math.max(0, current.n ?? 0, ...past.map((a) => a.n ?? 0)) + 1;
+        const latest = Math.max(0, current.n ?? 0, ...past.map((a) => a.n ?? 0));
+        n = opts.replace && current.n ? current.n : opts.sameNumber && latest ? latest : latest + 1;
       }
       if (text.trim() && !opts?.replace) {
         const entry: PastAnswer = {

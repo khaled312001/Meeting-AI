@@ -6,6 +6,7 @@ import {
   Camera,
   ChevronUp,
   Eraser,
+  ListPlus,
   Maximize2,
   MessageSquare,
   Mic,
@@ -36,6 +37,11 @@ const ITEMS: Array<{ icon: ReactNode; name: string; does: string }> = [
     icon: <RefreshCw className="h-3.5 w-3.5" />,
     name: "Update",
     does: "The question went on: answer all of it again, in place of the current answer.",
+  },
+  {
+    icon: <ListPlus className="h-3.5 w-3.5" />,
+    name: "Explain more",
+    does: "The interviewer wants more on this point: adds a further answer below, without repeating.",
   },
   {
     icon: <Square className="h-3 w-3 fill-current" />,

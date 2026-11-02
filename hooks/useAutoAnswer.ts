@@ -20,6 +20,8 @@ export interface AutoAnswerTrigger {
   replace: boolean;
   /** Asked for with Update. */
   updated?: boolean;
+  /** Asked for with Explain more: more on the last answer. */
+  more?: boolean;
 }
 
 interface UseAutoAnswerArgs {
@@ -73,6 +75,25 @@ function isOwnReply(mine: string, theirs: string): boolean {
 }
 
 const endsWithQuestion = (text: string) => /[?؟]\s*["'»”)]*\s*$/.test(text);
+
+/** A follow-up too short to pass MIN_WORDS, said as a sentence of its own
+ *  ("explain more", "اشرح أكتر"). Speech-to-text often gives it no question
+ *  mark. The model tells what it refers to. */
+const SHORT_FOLLOW_UP = new RegExp(
+  "^(?:" +
+    [
+      "(?:please )?(?:explain|elaborate|continue|go on|go ahead)(?: more| that| please)?",
+      "more (?:details?|please|on that)",
+      "(?:say|tell) more",
+      "such as|like what|for example|for instance|meaning|how so|why so|and then|what else",
+      "اشرح(?: لي| لنا)?(?: اكتر| أكتر| اكثر| أكثر)?",
+      "وضح(?: لي| لنا)?(?: اكتر| أكتر| اكثر| أكثر)?",
+      "(?:كمل|اكمل|أكمل)|(?:زي|مثل) (?:ايه|إيه|ماذا)|يعني (?:ايه|إيه|ماذا)|تفاصيل(?: اكتر| أكتر| اكثر| أكثر)?|مثال|مثلا|مثلاً",
+      "mehr dazu|erklären sie|zum beispiel|inwiefern|wie denn|und dann",
+    ].join("|") +
+    ")[\\s.,!?؟،…]*$",
+  "iu",
+);
 
 export function useAutoAnswer({
   enabled,
@@ -209,7 +230,8 @@ export function useAutoAnswer({
     if (isBusy || hasInterim) return;
     const enough =
       wordCount(fresh) >= MIN_WORDS ||
-      (wordCount(fresh) >= 1 && endsWithQuestion(fresh));
+      (wordCount(fresh) >= 1 && endsWithQuestion(fresh)) ||
+      (triggeredAt.current > 0 && SHORT_FOLLOW_UP.test(fresh));
     if (!enough) return;
 
     // The user started replying: the interviewer is done, answer now.
@@ -273,6 +295,25 @@ export function useAutoAnswer({
     onTriggerRef.current({ ...withHeard(take(transcriptRef.current)), updated: true });
   }, [updateRequested, isBusy, take, withHeard]);
 
+  /** Explain more: a further answer on the same point, below the current
+   *  one, with anything said since. With nothing new, the last question
+   *  goes again and the server asks for what was not said yet. */
+  const moreOnAnswer = useCallback(() => {
+    if (running.current === "answer") return;
+    continuing.current = false;
+    const text = transcriptRef.current;
+    if (!text.slice(answeredUpTo.current).trim() && !interimRef.current.trim()) {
+      const question = lastQuestion.current || text.slice(questionStart.current).trim();
+      if (!question) return;
+      running.current = "answer";
+      triggeredAt.current = Date.now();
+      speechStartedAt.current = 0;
+      onTriggerRef.current({ question, replace: false, more: true });
+      return;
+    }
+    onTriggerRef.current({ ...withHeard(take(text)), more: true });
+  }, [take, withHeard]);
+
   /** Answer one earlier stretch of speech that was never sent (a gap). */
   const answerRange = useCallback((from: number, to: number) => {
     const question = transcriptRef.current.slice(from, to).trim();
@@ -291,5 +332,6 @@ export function useAutoAnswer({
     answeredTo,
     answerRange,
     updateAnswer,
+    moreOnAnswer,
   };
 }

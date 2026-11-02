@@ -215,6 +215,7 @@ export function CompactAssistant({
     answeredTo,
     answerRange,
     updateAnswer,
+    moreOnAnswer,
   } = useAutoAnswer({
     enabled: auto,
     isLive: sessionState === "live",
@@ -223,12 +224,13 @@ export function CompactAssistant({
     hasInterim: interviewerSpeaking,
     interimText: interviewerInterim,
     myTranscript: myText,
-    onTrigger: ({ question, replace, updated }) => {
+    onTrigger: ({ question, replace, updated, more }) => {
       setAskMode(false);
       void generate(FLAGS.ASSISTANT, undefined, {
         question: question || undefined,
         replace,
         updated,
+        more,
       });
     },
     onInterrupt: () => abortGeneration(),
@@ -600,6 +602,7 @@ export function CompactAssistant({
         isLoading={isLoading}
         canUpdate={sessionState === "live" && answerNumber !== null}
         onUpdate={updateAnswer}
+        onMore={moreOnAnswer}
         isCapturing={isCapturing}
         askMode={askMode}
         showContext={showContext}

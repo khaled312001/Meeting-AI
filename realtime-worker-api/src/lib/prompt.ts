@@ -65,7 +65,7 @@ function filesRuleSystem(
     : "Write in the language of the interviewer's question (the language most of it is in when it mixes languages).";
   const shape = questionLine
     ? `Reply in this shape:
-<line 1: the question as you understood it, on one short line, cleaned of speech-to-text errors and filler, written in the same language as your answer (translated if the interviewer spoke another); the app shows it as the answer's title and it is not said aloud>
+<line 1: the question as you understood it, on one short line, cleaned of speech-to-text errors and filler, written in the same language as your answer (translated if the interviewer spoke another); when they ask for more on an earlier question, the line names that subject; the app shows it as the answer's title and it is not said aloud>
 <a blank line>
 <the answer>`
     : "Reply with the answer only.";
@@ -77,6 +77,8 @@ The input:
 - <transcript>: live speech-to-text of the call. "Interviewer:" lines are the call audio, the other side; "Me:" lines are the candidate's microphone.
 - <interview_so_far>: every question asked and answer given so far in this meeting, in order (Q1 and A1, Q2 and A2, …).
 - <question>: everything the interviewer said since the last answer, as heard.
+
+The meeting is one continuous conversation, usually about one job. Read <question> against <interview_so_far> and <transcript>: when the interviewer asks for more on something already discussed ("tell me more", "explain that", "for example?", "why?", or the same question put another way, directly or indirectly), it belongs to that earlier question, even when it was not the last one. Continue on that same point, with the same project and figures, and add what was not said yet, instead of starting over. A question on a new subject is answered as a new question.
 
 The app shows two marks as they are written: a part line "[n/N label]" on its own line above each part of an answer, and **bold** text. Use them as the instructions say.
 
@@ -115,7 +117,7 @@ ${INPUT}
 
 Answer exactly the question asked:
 - Answer that question: not a similar more common question, and not only its first part. When it has several parts, touch every part, in order, briefly.
-- Follow-ups: when the question builds on an earlier answer or on what was just said ("that project", "why?", "how did you do that?", "and then?"), continue from that answer directly: pick up the same project, example, numbers and wording and go one step deeper, instead of starting over or switching to a different example. Stay consistent with what the candidate already said and with earlier answers; never contradict them.
+- Follow-ups: the meeting is one continuous conversation, usually about one job. When the question builds on an earlier answer or on what was just said ("that project", "tell me more", "explain that", "why?", "how did you do that?", "and then?", or the same question put another way, directly or indirectly), even an answer from earlier than the last one, continue from that answer directly: pick up the same project, example, numbers and wording and go one step deeper, instead of starting over or switching to a different example. Stay consistent with what the candidate already said and with earlier answers; never contradict them.
 - Don't repeat: a point, story or example already given in an earlier answer is not told again unless the question asks for it; say what is new, or refer back to it briefly ("like the payments project I mentioned").
 - Keep it short, because the candidate reads it aloud while the other side waits (the length limit is at the end).
 - If the question is only an acknowledgement or small talk, reply with one short natural sentence${answerOnly ? "" : " under the answer label"}.
@@ -219,6 +221,8 @@ export interface LiveTurn {
   saidFigures?: string[];
   /** The candidate's files set the answer's rules (see filesRuleSystem). */
   rulesFromFiles?: boolean;
+  /** Explain more was pressed: more on the last answer, not a new question. */
+  followUp?: boolean;
 }
 
 export function buildPrompt(
@@ -344,6 +348,10 @@ export function buildAnthropicBackground(bg: string | undefined): string | null 
 const SHORT_REMINDER =
   "Use the length the files set, or a prepared answer whole; otherwise keep it short: at most three sentences, or six for a broad, multi-part question.";
 
+/** Explain more: the candidate asks for it, whatever was said since. */
+const MORE_ON_LAST =
+  "The interviewer wants more on the last question in <interview_so_far>. Continue on that same point: go one step deeper with what has not been said yet, with the same project and figures, instead of repeating it or starting over. Anything new they just said in <question> guides what to add.";
+
 /** An answer as the app shows it: "**Question 3:** …\n\n**Answer:** …". */
 const QA_RE = /^\*\*[^*\n]*?(\d+)?\s*:\*\*\s*([\s\S]*?)\n\n\*\*[^*\n]{1,30}:\*\*\s*([\s\S]*)$/;
 
@@ -381,6 +389,8 @@ export function buildLiveTurn(turn: LiveTurn, kind: "answer" | "review"): string
   if (kind === "review") {
     parts.push(`<my_answer>\n${turn.myAnswer?.trim() ?? ""}\n</my_answer>`);
     parts.push("Review my answer.");
+  } else if (turn.followUp) {
+    parts.push(MORE_ON_LAST);
   } else {
     parts.push(
       turn.rulesFromFiles

@@ -123,6 +123,7 @@ export function useAssistantSubmit({
             numbered,
             question: opts.question?.trim(),
             updated: opts.updated,
+            sameNumber: opts.more,
           });
       let shown = !isReview;
       setIsLoading(true);
@@ -154,6 +155,7 @@ export function useAssistantSubmit({
             flag: runFlag,
             answerOnly: !!liveQuestion,
             questionLine: !!liveQuestion,
+            followUp: opts.more,
             ...getInterviewFiles(),
             // Live answers and reviews keep to the figures already said.
             saidFigures:

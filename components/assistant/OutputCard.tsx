@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef } from "react";
-import { ALargeSmall, BookmarkPlus, RefreshCw } from "lucide-react";
+import { ALargeSmall, BookmarkPlus, ListPlus, RefreshCw } from "lucide-react";
 import {
   compactTextSurface,
   overlayPanel,
@@ -41,6 +41,7 @@ interface OutputCardProps {
   onClear?: () => void;
   /** Update: answer the whole question again in place of this answer. */
   onUpdate?: () => void;
+  onMore?: () => void;
 }
 
 export const OutputCard = memo(function OutputCard({
@@ -54,6 +55,7 @@ export const OutputCard = memo(function OutputCard({
   onSave,
   onClear,
   onUpdate,
+  onMore,
 }: OutputCardProps) {
   // The newest answer is on top: back to the top when one starts.
   const ref = useRef<HTMLDivElement | null>(null);
@@ -97,6 +99,20 @@ export const OutputCard = memo(function OutputCard({
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Update
+          </Button>
+        )}
+        {onMore && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isGenerating}
+            className="h-8 gap-1.5 text-[11px] text-text-secondary"
+            onClick={onMore}
+            title="The interviewer wants more on this point: add a further answer below, without repeating this one"
+          >
+            <ListPlus className="h-3.5 w-3.5" />
+            Explain more
           </Button>
         )}
         {onClear && (

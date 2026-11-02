@@ -19,6 +19,7 @@ import {
   Eraser,
   FileText,
   GripVertical,
+  ListPlus,
   Loader2,
   Maximize2,
   MessageSquare,
@@ -163,6 +164,7 @@ interface FocusBarProps {
   /** Update is offered: there is an answer to a heard question. */
   canUpdate?: boolean;
   onUpdate?: () => void;
+  onMore?: () => void;
   isCapturing: boolean;
   askMode: boolean;
   showContext: boolean;
@@ -198,6 +200,7 @@ export function FocusBar({
   isLoading,
   canUpdate = false,
   onUpdate,
+  onMore,
   isCapturing,
   askMode,
   showContext,
@@ -356,6 +359,17 @@ export function FocusBar({
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Update
+            </PillButton>
+          )}
+
+          {canUpdate && onMore && (
+            <PillButton
+              onClick={onMore}
+              disabled={isLoading}
+              title="The interviewer wants more on this point: add a further answer below, without repeating this one"
+            >
+              <ListPlus className="h-3.5 w-3.5" />
+              Explain more
             </PillButton>
           )}
 

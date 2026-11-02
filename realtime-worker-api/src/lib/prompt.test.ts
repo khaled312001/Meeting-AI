@@ -55,6 +55,25 @@ test("questionLine asks for the question on one clean line first", () => {
   assert.doesNotMatch(p, /no restated question/);
 });
 
+test("with an instructions file, follow-ups still belong to the earlier question", () => {
+  const p = buildAnthropicSystemPrompt("assistant", "en", true, true, true);
+  assert.match(p, /one continuous conversation/);
+  assert.match(p, /it belongs to that earlier question/);
+});
+
+test("Explain more asks for more on the last answer, not a new answer", () => {
+  const more = buildLiveTurn(
+    { transcript: "t", question: "q?", rulesFromFiles: true, followUp: true },
+    "answer",
+  );
+  assert.match(more, /wants more on the last question/);
+  assert.doesNotMatch(more, /Answer the question above/);
+  assert.doesNotMatch(
+    buildLiveTurn({ transcript: "t", question: "q?", rulesFromFiles: true }, "answer"),
+    /wants more on the last question/,
+  );
+});
+
 test("buildLiveTurn sends the figures said so far", () => {
   const turn = buildLiveTurn(
     { transcript: "t", question: "q?", saidFigures: ["Me: five years", " "] },

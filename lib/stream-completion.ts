@@ -44,6 +44,8 @@ export interface StreamCompletionParams {
   /** With `answerOnly`: the reply starts with the question restated on
    *  one clean line (see createLiveAnswer). */
   questionLine?: boolean;
+  /** Explain more: more on the last answer, not a new question. */
+  followUp?: boolean;
   /** Sentences with figures said so far (see collectSaidFigures). */
   saidFigures?: string[];
   /** The files chosen for this interview (see interview-files). */
@@ -71,6 +73,7 @@ export async function streamCompletion({
   myAnswer,
   answerOnly,
   questionLine,
+  followUp,
   saidFigures,
   instructionsDocId,
   feedDocId,
@@ -92,6 +95,7 @@ export async function streamCompletion({
       ...(myAnswer ? { myAnswer } : {}),
       ...(answerOnly ? { answerOnly } : {}),
       ...(questionLine ? { questionLine } : {}),
+      ...(followUp ? { followUp } : {}),
       ...(saidFigures?.length ? { saidFigures } : {}),
       ...(instructionsDocId ? { instructionsDocId } : {}),
       ...(feedDocId ? { feedDocId } : {}),

@@ -149,7 +149,7 @@ export async function handleCompletion(
       return jsonResponse({ error: `${field} must be a file id` }, 400);
     }
   }
-  for (const field of ["answerOnly", "questionLine"] as const) {
+  for (const field of ["answerOnly", "questionLine", "followUp"] as const) {
     if (payload[field] !== undefined && typeof payload[field] !== "boolean") {
       return jsonResponse({ error: `${field} must be a boolean` }, 400);
     }
@@ -564,6 +564,7 @@ function liveTurn(
     previousAnswers: payload.previousAnswers,
     myAnswer: payload.myAnswer,
     saidFigures: payload.saidFigures,
+    followUp: payload.followUp === true,
   };
 }
 
