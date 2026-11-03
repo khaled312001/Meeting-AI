@@ -42,6 +42,8 @@ interface OutputCardProps {
   /** Update: answer the whole question again in place of this answer. */
   onUpdate?: () => void;
   onMore?: () => void;
+  /** There is an answer for More on same question to add to. */
+  canMore?: boolean;
 }
 
 export const OutputCard = memo(function OutputCard({
@@ -56,6 +58,7 @@ export const OutputCard = memo(function OutputCard({
   onClear,
   onUpdate,
   onMore,
+  canMore = false,
 }: OutputCardProps) {
   // The newest answer is on top: back to the top when one starts.
   const ref = useRef<HTMLDivElement | null>(null);
@@ -106,13 +109,13 @@ export const OutputCard = memo(function OutputCard({
             type="button"
             variant="ghost"
             size="sm"
-            disabled={isGenerating}
+            disabled={isGenerating || !canMore}
             className="h-8 gap-1.5 text-[11px] text-text-secondary"
             onClick={onMore}
-            title="The interviewer wants more on this point: add a further answer below, without repeating this one"
+            title={canMore ? "Same question: the interviewer wants more on it. Adds a further answer below, without repeating this one" : "More on same question works once there is an answer: press Start, and after the first answer press it to add more on the same point"}
           >
             <ListPlus className="h-3.5 w-3.5" />
-            Explain more
+            More on same question
           </Button>
         )}
         {onClear && (

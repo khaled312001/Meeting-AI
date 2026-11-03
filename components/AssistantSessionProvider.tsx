@@ -107,7 +107,7 @@ interface NewAnswerOptions {
   question?: string;
   /** Update: the answer replaces the current one for the whole question. */
   updated?: boolean;
-  /** Explain more: a further answer to the latest question, same number. */
+  /** More on same question: a further answer to the latest question, same number. */
   sameNumber?: boolean;
 }
 

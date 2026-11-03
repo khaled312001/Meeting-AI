@@ -9,7 +9,7 @@ export interface LiveAnswerOptions {
   replace?: boolean;
   /** Update: the whole question asked again, replacing its answer. */
   updated?: boolean;
-  /** Explain more: more on the last answer, under the same number. */
+  /** More on same question: more on the last answer, under the same number. */
   more?: boolean;
   /** For a review: what the user said aloud. */
   myAnswer?: string;

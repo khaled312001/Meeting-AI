@@ -20,7 +20,7 @@ export interface AutoAnswerTrigger {
   replace: boolean;
   /** Asked for with Update. */
   updated?: boolean;
-  /** Asked for with Explain more: more on the last answer. */
+  /** Asked for with More on same question: more on the last answer. */
   more?: boolean;
 }
 
@@ -295,23 +295,25 @@ export function useAutoAnswer({
     onTriggerRef.current({ ...withHeard(take(transcriptRef.current)), updated: true });
   }, [updateRequested, isBusy, take, withHeard]);
 
-  /** Explain more: a further answer on the same point, below the current
+  /** More on same question: a further answer on the same point, below the current
    *  one, with anything said since. With nothing new, the last question
-   *  goes again and the server asks for what was not said yet. */
-  const moreOnAnswer = useCallback(() => {
-    if (running.current === "answer") return;
+   *  goes again and the server asks for what was not said yet. False when
+   *  there is nothing to add to yet. */
+  const moreOnAnswer = useCallback((): boolean => {
+    if (running.current === "answer") return true;
     continuing.current = false;
     const text = transcriptRef.current;
     if (!text.slice(answeredUpTo.current).trim() && !interimRef.current.trim()) {
       const question = lastQuestion.current || text.slice(questionStart.current).trim();
-      if (!question) return;
+      if (!question) return false;
       running.current = "answer";
       triggeredAt.current = Date.now();
       speechStartedAt.current = 0;
       onTriggerRef.current({ question, replace: false, more: true });
-      return;
+      return true;
     }
     onTriggerRef.current({ ...withHeard(take(text)), more: true });
+    return true;
   }, [take, withHeard]);
 
   /** Answer one earlier stretch of speech that was never sent (a gap). */

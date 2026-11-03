@@ -280,6 +280,19 @@ export function CompactAssistant({
     transcribedText,
   ]);
 
+  /** More on same question: stays on the bar, so it can be found before the first
+   *  answer too, and says so when there is nothing to add to yet. */
+  const hasAnswer = answerNumber !== null || pastAnswers.some((a) => a.n);
+  const explainMore = useCallback(() => {
+    if (isLoading) return;
+    setAskMode(false);
+    if (!moreOnAnswer()) {
+      setError(
+        "More on same question adds to an answer. Press Start, and after the first answer press it again.",
+      );
+    }
+  }, [isLoading, moreOnAnswer]);
+
   /** Clears what the answer panel shows: the answers, and the Chat
    *  thread when the panel is showing Chat. */
   const clearAnswer = () => {
@@ -602,7 +615,8 @@ export function CompactAssistant({
         isLoading={isLoading}
         canUpdate={sessionState === "live" && answerNumber !== null}
         onUpdate={updateAnswer}
-        onMore={moreOnAnswer}
+        onMore={explainMore}
+        canMore={hasAnswer}
         isCapturing={isCapturing}
         askMode={askMode}
         showContext={showContext}

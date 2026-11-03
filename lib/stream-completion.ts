@@ -44,7 +44,7 @@ export interface StreamCompletionParams {
   /** With `answerOnly`: the reply starts with the question restated on
    *  one clean line (see createLiveAnswer). */
   questionLine?: boolean;
-  /** Explain more: more on the last answer, not a new question. */
+  /** More on same question: more on the last answer, not a new question. */
   followUp?: boolean;
   /** Sentences with figures said so far (see collectSaidFigures). */
   saidFigures?: string[];

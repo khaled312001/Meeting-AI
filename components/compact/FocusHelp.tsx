@@ -40,8 +40,8 @@ const ITEMS: Array<{ icon: ReactNode; name: string; does: string }> = [
   },
   {
     icon: <ListPlus className="h-3.5 w-3.5" />,
-    name: "Explain more",
-    does: "The interviewer wants more on this point: adds a further answer below, without repeating.",
+    name: "More on same question",
+    does: "The interviewer wants more on this point: adds a further answer below, without repeating. Lights up after the first answer.",
   },
   {
     icon: <Square className="h-3 w-3 fill-current" />,
@@ -85,7 +85,7 @@ const ITEMS: Array<{ icon: ReactNode; name: string; does: string }> = [
   },
   {
     icon: <MoreVertical className="h-3.5 w-3.5" />,
-    name: "More",
+    name: "Menu",
     does: "Notes & files for this interview, summary, save the answer, clear everything.",
   },
   {

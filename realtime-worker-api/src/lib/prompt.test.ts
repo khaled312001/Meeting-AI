@@ -61,7 +61,7 @@ test("with an instructions file, follow-ups still belong to the earlier question
   assert.match(p, /it belongs to that earlier question/);
 });
 
-test("Explain more asks for more on the last answer, not a new answer", () => {
+test("More on same question asks for more on the last answer, not a new answer", () => {
   const more = buildLiveTurn(
     { transcript: "t", question: "q?", rulesFromFiles: true, followUp: true },
     "answer",

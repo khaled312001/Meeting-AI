@@ -165,6 +165,8 @@ interface FocusBarProps {
   canUpdate?: boolean;
   onUpdate?: () => void;
   onMore?: () => void;
+  /** There is an answer for More on same question to add to. */
+  canMore?: boolean;
   isCapturing: boolean;
   askMode: boolean;
   showContext: boolean;
@@ -201,6 +203,7 @@ export function FocusBar({
   canUpdate = false,
   onUpdate,
   onMore,
+  canMore = false,
   isCapturing,
   askMode,
   showContext,
@@ -352,6 +355,18 @@ export function FocusBar({
             </PillButton>
           )}
 
+          {onMore && (
+            <PillButton
+              onClick={onMore}
+              disabled={isLoading}
+              title={canMore ? "Same question: the interviewer wants more on it. Adds a further answer below, without repeating this one" : "More on same question works once there is an answer: press Start, and after the first answer press it to add more on the same point"}
+              className={canMore ? "bg-accent/15 text-accent-text hover:bg-accent/25" : "text-text-secondary"}
+            >
+              <ListPlus className="h-3.5 w-3.5" />
+              More on same question
+            </PillButton>
+          )}
+
           {canUpdate && onUpdate && (
             <PillButton
               onClick={onUpdate}
@@ -359,17 +374,6 @@ export function FocusBar({
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Update
-            </PillButton>
-          )}
-
-          {canUpdate && onMore && (
-            <PillButton
-              onClick={onMore}
-              disabled={isLoading}
-              title="The interviewer wants more on this point: add a further answer below, without repeating this one"
-            >
-              <ListPlus className="h-3.5 w-3.5" />
-              Explain more
             </PillButton>
           )}
 
@@ -425,12 +429,12 @@ export function FocusBar({
           <div ref={menuRef} className="relative">
             <PillButton
               onClick={() => onToggleMenu(!menuOpen)}
-              title="More: notes & files for this interview, summary, save the answer, clear everything"
+              title="Menu: notes & files for this interview, summary, save the answer, clear everything"
               active={menuOpen || showContext}
               className="relative"
             >
               <MoreVertical className="h-3.5 w-3.5" />
-              More
+              Menu
               {hasContextAttached && (
                 <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-info" />
               )}

@@ -88,7 +88,7 @@ export interface CompletionRequestBody {
   /** With `answerOnly`: the reply starts with the question restated on one
    *  clean line, then a blank line, then the answer. */
   questionLine?: boolean;
-  /** Explain more: more on the last answer, not a new question. */
+  /** More on same question: more on the last answer, not a new question. */
   followUp?: boolean;
   /** Sentences with figures already said in this meeting (Assistant /
    *  Review), so later answers keep to them. */

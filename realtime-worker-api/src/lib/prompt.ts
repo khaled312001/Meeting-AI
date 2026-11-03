@@ -221,7 +221,7 @@ export interface LiveTurn {
   saidFigures?: string[];
   /** The candidate's files set the answer's rules (see filesRuleSystem). */
   rulesFromFiles?: boolean;
-  /** Explain more was pressed: more on the last answer, not a new question. */
+  /** More on same question was pressed: more on the last answer, not a new question. */
   followUp?: boolean;
 }
 
@@ -348,7 +348,7 @@ export function buildAnthropicBackground(bg: string | undefined): string | null 
 const SHORT_REMINDER =
   "Use the length the files set, or a prepared answer whole; otherwise keep it short: at most three sentences, or six for a broad, multi-part question.";
 
-/** Explain more: the candidate asks for it, whatever was said since. */
+/** More on same question: the candidate asks for it, whatever was said since. */
 const MORE_ON_LAST =
   "The interviewer wants more on the last question in <interview_so_far>. Continue on that same point: go one step deeper with what has not been said yet, with the same project and figures, instead of repeating it or starting over. Anything new they just said in <question> guides what to add.";
 

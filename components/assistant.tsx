@@ -302,11 +302,8 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
                 ? updateAnswer
                 : undefined
             }
-            onMore={
-              sessionState === "live" && answerNumber !== null
-                ? moreOnAnswer
-                : undefined
-            }
+            onMore={moreOnAnswer}
+            canMore={answerNumber !== null || pastAnswers.some((a) => a.n)}
             onSave={handleSave}
             onClear={() => {
               stop();
