@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("window:focus", handler);
     return () => ipcRenderer.removeListener("window:focus", handler);
   },
+  setAnswerKey: (on: boolean) => ipcRenderer.send("shortcut:answer-key", on),
   onShortcut: (callback: (action: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, action: string) =>
       callback(action);
@@ -163,6 +164,7 @@ export interface ElectronAPI {
   ) => void;
   onWindowFocus?: (callback: () => void) => () => void;
   onShortcut?: (callback: (action: string) => void) => () => void;
+  setAnswerKey?: (on: boolean) => void;
   appQuit: () => Promise<void>;
   saveSummaryPdf: (html: string, baseName: string) => Promise<string>;
   openSavedFile: (file: string) => Promise<boolean>;

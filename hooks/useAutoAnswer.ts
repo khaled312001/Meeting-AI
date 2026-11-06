@@ -316,6 +316,23 @@ export function useAutoAnswer({
     return true;
   }, [take, withHeard]);
 
+  /** New question: what was heard since the last answer is set aside
+   *  unanswered (a long lead-in, or talk the candidate already answered
+   *  aloud), so the next question starts clean. It stays in the transcript
+   *  the model reads, and shows as a skipped part that can still be
+   *  answered. False when nothing was heard to set aside. */
+  const skipHeard = useCallback((): boolean => {
+    const text = transcriptRef.current;
+    if (!text.slice(answeredUpTo.current).trim()) return false;
+    answeredUpTo.current = text.length;
+    questionStart.current = text.length;
+    setAnsweredTo(text.length);
+    continuing.current = false;
+    speechStartedAt.current = 0;
+    sentEarly.current = null;
+    return true;
+  }, []);
+
   /** Answer one earlier stretch of speech that was never sent (a gap). */
   const answerRange = useCallback((from: number, to: number) => {
     const question = transcriptRef.current.slice(from, to).trim();
@@ -335,5 +352,6 @@ export function useAutoAnswer({
     answerRange,
     updateAnswer,
     moreOnAnswer,
+    skipHeard,
   };
 }

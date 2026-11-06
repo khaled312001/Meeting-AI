@@ -3,6 +3,7 @@ import {
   app,
   BrowserWindow,
   globalShortcut,
+  ipcMain,
   screen,
   session,
   shell,
@@ -17,7 +18,11 @@ import { registerCalendarIpc } from "./ipc/calendar";
 import { registerSummaryIpc } from "./ipc/summary";
 import { registerQuitGuard } from "./quitGuard";
 import { registerCaptureAndAskShortcut, registerScreenIpc } from "./ipc/screen";
-import { attachWindowFocusNotifier, registerWindowIpc } from "./ipc/window";
+import {
+  attachWindowFocusNotifier,
+  moveWindow,
+  registerWindowIpc,
+} from "./ipc/window";
 import {
   installCsp,
   installOriginHeaderInjection,
@@ -157,10 +162,39 @@ function registerMeetingShortcuts() {
       const w = mainWindow;
       if (!w || w.isDestroyed()) return;
       const [x, y] = w.getPosition();
-      w.setPosition(x + dx, y + dy);
+      moveWindow(w, x + dx, y + dy);
     });
   }
 }
+
+/** X alone answers, from any app, while the app is listening in focus
+ *  mode. It takes the X key from every app meanwhile, so it is on only
+ *  then, and off while this window has focus (there the page handles X,
+ *  so it can still be typed in the Ask box). */
+const ANSWER_KEY = "X";
+let answerKeyWanted = false;
+
+function syncAnswerKey() {
+  const w = mainWindow;
+  const on =
+    answerKeyWanted && !!w && !w.isDestroyed() && !w.isFocused();
+  const registered = globalShortcut.isRegistered(ANSWER_KEY);
+  if (on && !registered) {
+    globalShortcut.register(ANSWER_KEY, () => {
+      const win = mainWindow;
+      if (!win || win.isDestroyed()) return;
+      if (!win.isVisible()) win.showInactive();
+      win.webContents.send("shortcut:action", "answer");
+    });
+  } else if (!on && registered) {
+    globalShortcut.unregister(ANSWER_KEY);
+  }
+}
+
+ipcMain.on("shortcut:answer-key", (_, on: unknown) => {
+  answerKeyWanted = on === true;
+  if (app.isReady()) syncAnswerKey();
+});
 
 async function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -174,11 +208,15 @@ async function createWindow() {
   const defaultWidth = 1000;
   const defaultHeight = 600;
 
+  // Every launch opens at the top centre of the main screen, wherever the
+  // window was left last time; the user moves it from there.
+  const startWidth = Math.min(restored?.width ?? defaultWidth, width);
+  const workArea = screen.getPrimaryDisplay().workArea;
   mainWindow = new BrowserWindow({
-    width: restored?.width ?? defaultWidth,
+    width: startWidth,
     height: restored?.height ?? defaultHeight,
-    x: restored?.x ?? Math.floor((width - defaultWidth) / 2),
-    y: restored?.y ?? 0,
+    x: workArea.x + Math.floor((workArea.width - startWidth) / 2),
+    y: workArea.y,
     frame: false,
     resizable: true,
     transparent: true,
@@ -203,6 +241,8 @@ async function createWindow() {
 
   trackWindowState(mainWindow);
   attachWindowFocusNotifier(mainWindow);
+  mainWindow.on("focus", syncAnswerKey);
+  mainWindow.on("blur", syncAnswerKey);
 
   const isPackaged = app.isPackaged && !process.env.DEV_PORT;
   installCsp(mainWindow.webContents.session, pickCsp(isPackaged));

@@ -29,6 +29,7 @@ import {
   RefreshCw,
   RotateCcw,
   Settings2,
+  SkipForward,
   Sparkles,
   Square,
   Trash2,
@@ -188,6 +189,10 @@ interface FocusBarProps {
   onSummarize: () => void;
   onSave: () => void;
   onClearTranscription: () => void;
+  /** New question: set aside what was heard since the last answer. */
+  onNewQuestion?: () => void;
+  /** Something was heard since the last answer. */
+  canNewQuestion?: boolean;
   onClearAll: () => void;
   onExitFocus?: () => void;
   /** The top bar's height beyond one line (its buttons wrapped). */
@@ -224,6 +229,8 @@ export function FocusBar({
   onSummarize,
   onSave,
   onClearTranscription,
+  onNewQuestion,
+  canNewQuestion = false,
   onClearAll,
   onExitFocus,
   onBarExtra,
@@ -340,15 +347,15 @@ export function FocusBar({
               onClick={onAnswer}
               title={
                 answerMode === "auto"
-                  ? "Answer now, with everything heard since the last answer — in Auto, questions are also answered on their own (Ctrl+Alt+Enter from any app)"
-                  : "Answer now, with everything heard since the last answer (Ctrl+Alt+Enter from any app)"
+                  ? "Answer now, with everything heard since the last answer — in Auto, questions are also answered on their own (X from any app while listening; Ctrl+Alt+Enter too)"
+                  : "Answer now, with everything heard since the last answer (X from any app while listening; Ctrl+Alt+Enter too)"
               }
               className="bg-accent/15 text-accent-text hover:bg-accent/25"
             >
               <Sparkles className="h-3.5 w-3.5 text-accent-text" />
               Answer
               <Kbd
-                keys={["Mod", "Enter"]}
+                keys={["X"]}
                 size="xs"
                 className="hidden opacity-70 sm:inline-flex"
               />
@@ -610,6 +617,17 @@ export function FocusBar({
             {latest?.text ?? "Waiting for the first words…"}
           </span>
           <SummaryChip />
+          {onNewQuestion && (
+            <PillButton
+              onClick={onNewQuestion}
+              disabled={!canNewQuestion}
+              title="New question: set aside what was heard since the last answer, so the next answer covers only what comes next (it stays in the transcript, and can still be answered from the list)"
+              className="border border-white/15 bg-white/[0.06] text-text-primary hover:border-white/25 hover:bg-white/15"
+            >
+              <SkipForward className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">New question</span>
+            </PillButton>
+          )}
           <PillButton
             onClick={onClearTranscription}
             disabled={!transcribedText.trim()}

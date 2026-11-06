@@ -13,6 +13,7 @@ import {
   MoreVertical,
   Play,
   RefreshCw,
+  SkipForward,
   Sparkles,
   Square,
   X,
@@ -30,8 +31,8 @@ const ITEMS: Array<{ icon: ReactNode; name: string; does: string }> = [
   },
   {
     icon: <Sparkles className="h-3.5 w-3.5" />,
-    name: "Answer  (Ctrl+Enter)",
-    does: "Answer now, with everything heard since the last answer.",
+    name: "Answer  (X)",
+    does: "Answer now, with everything heard since the last answer. While listening, X answers from any app (so X can't be typed elsewhere until End); Ctrl+Alt+Enter works too.",
   },
   {
     icon: <RefreshCw className="h-3.5 w-3.5" />,
@@ -87,6 +88,11 @@ const ITEMS: Array<{ icon: ReactNode; name: string; does: string }> = [
     icon: <MoreVertical className="h-3.5 w-3.5" />,
     name: "Menu",
     does: "Notes & files for this interview, summary, save the answer, clear everything.",
+  },
+  {
+    icon: <SkipForward className="h-3.5 w-3.5" />,
+    name: "New question",
+    does: "Set aside what was heard since the last answer (a long lead-in you already replied to), so the next answer covers only the question that comes next.",
   },
   {
     icon: <Eraser className="h-3.5 w-3.5" />,

@@ -1,6 +1,6 @@
 {
   "name": "meeting-ai",
-  "version": "0.21.17",
+  "version": "0.21.18",
   "description": "Real-time AI assistant for interviews (beta desktop app)",
   "author": "Ved Gupta <vedgupta@protonmail.com>",
   "private": true,

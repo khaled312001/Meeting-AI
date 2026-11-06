@@ -2,8 +2,8 @@
 
 /** System-wide desktop shortcuts (registered in the Electron main process)
  *  so the overlay can be driven while the meeting app has focus:
- *  Ctrl/⌘+Alt+Enter answer · Ctrl/⌘+Alt+Backspace clear the answer ·
- *  Ctrl/⌘+Alt+M switch Auto / Manual. */
+ *  X (while listening) or Ctrl/⌘+Alt+Enter answer · Ctrl/⌘+Alt+Backspace
+ *  clear the answer · Ctrl/⌘+Alt+M switch Auto / Manual. */
 
 import { useEffect, useRef } from "react";
 

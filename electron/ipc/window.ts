@@ -76,6 +76,54 @@ function createHitTester(getWindow: WindowAccessor) {
   };
 }
 
+/** The size the window keeps while it is dragged. On Windows with display
+ *  scaling above 100%, moving a window by position alone rounds its size
+ *  on every step, so a drag made the bar grow and shrink. */
+let heldSize: { width: number; height: number } | null = null;
+/** The size focus mode asked for last (the window is locked to it). */
+let askedSize: { width: number; height: number } | null = null;
+let lastMoveAt = 0;
+/** A pause this long between moves starts a new drag. */
+const NEW_DRAG_MS = 300;
+/** At least this much of the bar stays on screen at the bottom. */
+const MIN_VISIBLE_HEIGHT = 60;
+
+/** Move the window without changing its size, kept on the screen it is
+ *  moved to so the bar can't be dragged out of reach. */
+export function moveWindow(w: BrowserWindow, x: number, y: number): void {
+  const now = Date.now();
+  if (!heldSize || now - lastMoveAt > NEW_DRAG_MS) {
+    const [width, height] = w.getSize();
+    heldSize = !w.isResizable() && askedSize ? askedSize : { width, height };
+  }
+  lastMoveAt = now;
+  const { width, height } = heldSize;
+  const wa = screen.getDisplayNearestPoint({
+    x: Math.round(x + width / 2),
+    y: Math.round(y),
+  }).workArea;
+  const nextX =
+    width <= wa.width
+      ? Math.min(Math.max(x, wa.x), wa.x + wa.width - width)
+      : wa.x;
+  const nextY = Math.min(
+    Math.max(y, wa.y),
+    wa.y + wa.height - MIN_VISIBLE_HEIGHT,
+  );
+  w.setBounds(
+    { x: Math.round(nextX), y: Math.round(nextY), width, height },
+    false,
+  );
+  // A locked (focus mode) window can refuse the size: put it back.
+  const [nowW, nowH] = w.getSize();
+  if (nowW !== width || nowH !== height) {
+    const resizable = w.isResizable();
+    if (!resizable) w.setResizable(true);
+    w.setSize(width, height, false);
+    if (!resizable) w.setResizable(false);
+  }
+}
+
 /** Window control IPC. Channel names and payload shapes are intentionally
  *  preserved verbatim — they are consumed by the preload script and any
  *  rename would silently break the renderer. */
@@ -141,12 +189,24 @@ export function registerWindowIpc(getWindow: WindowAccessor): void {
       Number.isFinite(height) && height > 0
         ? clamp(height, 100, maxH)
         : currentHeight;
+    askedSize = { width: nextW, height: nextH };
+    // A drag in progress keeps the new size from here on.
+    if (heldSize) heldSize = askedSize;
     if (nextW !== currentWidth || nextH !== currentHeight) {
-      // Windows ignores setSize on a non-resizable window (focus mode
+      // A change of width keeps the bar centred where it was, still on
+      // the screen.
+      const [x, y] = w.getPosition();
+      const wa = display.workArea;
+      const centred = x + Math.round((currentWidth - nextW) / 2);
+      const nextX =
+        nextW <= wa.width
+          ? Math.min(Math.max(centred, wa.x), wa.x + wa.width - nextW)
+          : wa.x;
+      // Windows ignores a new size on a non-resizable window (focus mode
       // locks resizing), so unlock it for the call.
       const resizable = w.isResizable();
       if (!resizable) w.setResizable(true);
-      w.setSize(nextW, nextH, false);
+      w.setBounds({ x: nextX, y, width: nextW, height: nextH }, false);
       if (!resizable) w.setResizable(false);
     }
   });
@@ -157,7 +217,7 @@ export function registerWindowIpc(getWindow: WindowAccessor): void {
     const w = getWindow();
     if (!w || w.isDestroyed()) return;
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-    w.setPosition(Math.round(x), Math.round(y));
+    moveWindow(w, x, y);
   });
 
   ipcMain.handle("window-set-resizable", (_, resizable: boolean) => {

@@ -216,6 +216,7 @@ export function CompactAssistant({
     answerRange,
     updateAnswer,
     moreOnAnswer,
+    skipHeard,
   } = useAutoAnswer({
     enabled: auto,
     isLive: sessionState === "live",
@@ -496,6 +497,21 @@ export function CompactAssistant({
       const isTypingInInput =
         tag === "INPUT" || tag === "TEXTAREA" || !!target?.isContentEditable;
 
+      // X alone answers while listening; from other apps the main process
+      // catches it (see setAnswerKey below).
+      if (
+        sessionState === "live" &&
+        !isTypingInInput &&
+        !modKey &&
+        !e.altKey &&
+        !e.repeat &&
+        e.code === "KeyX"
+      ) {
+        e.preventDefault();
+        answerNow();
+        return;
+      }
+
       if (modKey && (e.key === "Enter" || e.key === "Return")) {
         // Let the Ask drawer handle Enter / Mod+Enter for chat submit.
         if (isTypingInInput) return;
@@ -537,8 +553,26 @@ export function CompactAssistant({
     handleCaptureScreen,
     isElectron,
     isLoading,
+    sessionState,
     toggleAskComposer,
   ]);
+
+  // X from any app answers, only while listening in focus mode: it takes
+  // the X key from every other app meanwhile.
+  const answerKeyOn = compactMode && sessionState === "live";
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.setAnswerKey) return;
+    api.setAnswerKey(answerKeyOn);
+    return () => api.setAnswerKey?.(false);
+  }, [answerKeyOn]);
+
+  /** New question: set aside what was heard since the last answer. */
+  const newQuestion = useCallback(() => {
+    if (!skipHeard()) {
+      setError("Nothing heard since the last answer to set aside.");
+    }
+  }, [skipHeard]);
 
   const handleSave = useCallback(() => {
     if (!completion.trim()) return;
@@ -638,6 +672,8 @@ export function CompactAssistant({
         onSummarize={() => handleGenerate(FLAGS.SUMMARIZER)}
         onSave={handleSave}
         onClearTranscription={clearTranscription}
+        onNewQuestion={newQuestion}
+        canNewQuestion={pending.length > 0}
         onClearAll={clearAll}
         onExitFocus={onExitCompact}
       />

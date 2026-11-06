@@ -138,6 +138,8 @@ export interface ElectronAPI {
   onWindowFocus?: (callback: () => void) => () => void;
   /** System-wide shortcuts: "answer" | "clear-answer" | "toggle-mode". */
   onShortcut?: (callback: (action: string) => void) => () => void;
+  /** X alone answers from any app (on only while listening in focus mode). */
+  setAnswerKey?: (on: boolean) => void;
   appQuit: () => Promise<void>;
   /** Render a meeting summary (HTML) to a PDF in Downloads; returns its path. */
   saveSummaryPdf?: (html: string, baseName: string) => Promise<string>;
