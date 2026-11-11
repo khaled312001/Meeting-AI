@@ -32,6 +32,15 @@ export function parseLiveAnswer(text: string): ParsedLiveAnswer | null {
   };
 }
 
+/** Nothing of the answer shows yet: the text is empty, or only the
+ *  question heading is there (a live answer that is still being written,
+ *  or held back while it is reshaped for speaking). */
+export function answerPending(text: string): boolean {
+  if (!text.trim()) return true;
+  const parsed = parseLiveAnswer(text);
+  return parsed !== null && !parsed.body.trim();
+}
+
 interface AnswerPart {
   label: string | null;
   text: string;

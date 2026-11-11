@@ -105,6 +105,9 @@ export const userModelParamsBodySchema = z.object({
     .regex(/^claude-[a-z0-9][a-z0-9.-]{1,60}$/)
     .nullable()
     .optional(),
+  /** Speaking pass on this user's live answers: the candidate's name as
+   *  the pass's prompt names them. null = off. */
+  speakingPass: z.string().trim().min(1).max(80).nullable().optional(),
 });
 
 export const userModelParamsDeleteSchema = z.object({ userId: safeIdSchema });

@@ -63,6 +63,7 @@ import {
 import { streamGeminiCompletion } from "./completion-gemini";
 import { streamOpenAICompatibleCompletion } from "./completion-openai";
 import { streamAnthropicCompletion } from "./completion-anthropic";
+import { createSpeakingHold } from "./speaking-hold";
 import {
   loadEnabledKnowledgeDocs,
   type KnowledgeDocForPrompt,
@@ -386,6 +387,27 @@ export async function handleCompletion(
     rulesFromFiles,
   );
 
+  // Speaking pass (set per user by an admin): a live answer to a heard
+  // question is held back and reshaped for reading aloud before it shows.
+  // Screenshot answers (code) and typed chats are left as they are.
+  const speakingHold =
+    useAnthropic &&
+    !!modelParams.speakingPass &&
+    payload.flag === FLAGS.ASSISTANT &&
+    payload.answerOnly === true &&
+    !hasChatHistory &&
+    totalImages === 0
+      ? createSpeakingHold({
+          out: trackingWriter,
+          apiKey: cfg.anthropicKey,
+          name: modelParams.speakingPass!,
+          questionLine: payload.questionLine === true,
+          question: (payload.question ?? basePrompt).trim(),
+          shown: payload.previousAnswers ?? [],
+          signal: request.signal,
+        })
+      : null;
+
   const completionFn = useAnthropic
     ? streamAnthropicCompletion({
         messages: wireMessages,
@@ -399,10 +421,18 @@ export async function handleCompletion(
         docs: material,
         model: anthropicModel,
         apiKey: cfg.anthropicKey,
-        writer: trackingWriter,
+        writer: speakingHold?.writer ?? trackingWriter,
         params: effectiveParams,
         trackedUser,
         signal: request.signal,
+      }).then(async () => {
+        const result = await speakingHold?.finish();
+        if (result) {
+          console.log(
+            "[speaking-pass]",
+            JSON.stringify({ source: result.source, reason: result.reason, ms: result.ms }),
+          );
+        }
       })
     : cfg.useCustom
     ? streamOpenAICompatibleCompletion(

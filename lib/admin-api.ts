@@ -176,6 +176,9 @@ export interface ModelParamsOverride {
   thinkingBudget: ThinkingBudget | null;
   /** Anthropic model for this user (null = the global one). */
   model: string | null;
+  /** Speaking pass on this user's live answers: the candidate's name as
+   *  the pass names them (null = off). */
+  speakingPass?: string | null;
   updatedAt: string;
 }
 
@@ -475,6 +478,7 @@ export const adminApi = {
     topP?: number | null;
     thinkingBudget?: ThinkingBudget | null;
     model?: string | null;
+    speakingPass?: string | null;
   }) => adminPost("/user-model-params", body),
   deleteUserModelParams: (userId: string) => adminPost("/user-model-params-delete", { userId }),
 

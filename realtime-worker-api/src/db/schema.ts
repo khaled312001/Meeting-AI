@@ -267,6 +267,9 @@ export const userModelParams = sqliteTable("user_model_params", {
   thinkingBudget: text("thinkingBudget"),
   /** Anthropic model for this user's answers (NULL = the global model). */
   model: text("model"),
+  /** Speaking pass on this user's live answers (routes/speaking-pass.ts):
+   *  the candidate's name as the pass's prompt names them. NULL = off. */
+  speakingPass: text("speakingPass"),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });
 

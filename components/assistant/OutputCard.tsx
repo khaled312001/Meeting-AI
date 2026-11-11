@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AnswerSources } from "@/components/AnswerSources";
 import { AnswerHistory } from "@/components/AnswerHistory";
-import { AnswerBody } from "@/components/AnswerBody";
+import { AnswerBody, answerPending } from "@/components/AnswerBody";
 import { InterviewFilesSummary } from "@/components/InterviewFilesPicker";
 import type {
   AnswerKind,
@@ -187,7 +187,7 @@ export const OutputCard = memo(function OutputCard({
                 <AnswerSources citations={citations} className="not-prose mt-4" />
               </div>
             ) : null}
-            {isGenerating && !completion && (
+            {isGenerating && answerPending(completion) && (
               <p className="inline-flex items-center gap-2 text-sm text-text-secondary">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
                 Writing the answer…

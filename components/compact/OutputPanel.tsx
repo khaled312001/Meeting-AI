@@ -25,7 +25,7 @@ import { overlayErrorBlock } from "@/components/compact/compactTextStyles";
 import { FLAGS, type AnswerCitation } from "@/lib/types";
 import { AnswerSources } from "@/components/AnswerSources";
 import { AnswerHistory } from "@/components/AnswerHistory";
-import { AnswerBody } from "@/components/AnswerBody";
+import { AnswerBody, answerPending } from "@/components/AnswerBody";
 import { CopyButton, formatClock } from "@/components/AnswerHeader";
 import type {
   AnswerKind,
@@ -364,7 +364,7 @@ export function OutputPanel({
                   <AnswerSources citations={citations} compact className="mt-2" />
                 </div>
               ) : null}
-              {!error && isGenerating && !completion && (
+              {!error && isGenerating && answerPending(completion) && (
                 <p className="inline-flex items-center gap-2 text-[13px] text-text-secondary">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
                   {activeFlag === FLAGS.SUMMARIZER

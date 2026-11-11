@@ -11,14 +11,23 @@ import { useCallback, useEffect, useState } from "react";
 const SENTENCE_END_RE =
   /(?<!\b(?:e\.g|i\.e|etc|vs|approx|Mr|Mrs|Ms|Dr|Prof|St|Inc|Ltd|bzw|ca|z\.B|d\.h))([.!?؟…])["'”’»)]*[ \t]+(?=\S)/g;
 
+/** A line all in bold (the closing line) right after a bullet: Markdown
+ *  would fold it into that bullet. */
+const BOLD_LINE_AFTER_BULLET_RE = /^([ \t]*[-*•][ \t].*)\n([ \t]*\*\*[^*\n]+\*\*[ \t]*)$/gm;
+
 /** The answer text with each sentence on its own line (a Markdown line
- *  break). Code blocks stay as they are. */
+ *  break), and a bold closing line kept apart from the last bullet. Code
+ *  blocks stay as they are. */
 export function sentenceLines(reply: string): string {
   // Odd parts are fenced code blocks.
   return reply
     .split(/(```[\s\S]*?(?:```|$))/)
     .map((part, i) =>
-      i % 2 === 1 ? part : part.replace(SENTENCE_END_RE, (m) => `${m.trimEnd()}  \n`),
+      i % 2 === 1
+        ? part
+        : part
+            .replace(BOLD_LINE_AFTER_BULLET_RE, "$1\n\n$2")
+            .replace(SENTENCE_END_RE, (m) => `${m.trimEnd()}  \n`),
     )
     .join("");
 }

@@ -139,6 +139,7 @@ export function modelParamsEndpoints(deps: AdminDeps) {
                 topP: row.topP,
                 thinkingBudget: row.thinkingBudget,
                 model: row.model,
+                speakingPass: row.speakingPass,
                 updatedAt: row.updatedAt,
               }
             : null,
@@ -177,6 +178,7 @@ export function modelParamsEndpoints(deps: AdminDeps) {
           topP: existing?.topP ?? null,
           thinkingBudget: existing?.thinkingBudget ?? null,
           model: existing?.model ?? null,
+          speakingPass: existing?.speakingPass ?? null,
           updatedAt: now,
         };
         if (fields.maxOutputTokens !== undefined) next.maxOutputTokens = fields.maxOutputTokens;
@@ -184,6 +186,7 @@ export function modelParamsEndpoints(deps: AdminDeps) {
         if (fields.topP !== undefined) next.topP = fields.topP;
         if (fields.thinkingBudget !== undefined) next.thinkingBudget = fields.thinkingBudget;
         if (fields.model !== undefined) next.model = fields.model;
+        if (fields.speakingPass !== undefined) next.speakingPass = fields.speakingPass;
 
         if (existing) {
           await db
@@ -194,6 +197,7 @@ export function modelParamsEndpoints(deps: AdminDeps) {
               topP: next.topP,
               thinkingBudget: next.thinkingBudget,
               model: next.model,
+              speakingPass: next.speakingPass,
               updatedAt: now,
             })
             .where(eq(userModelParams.userId, userId));

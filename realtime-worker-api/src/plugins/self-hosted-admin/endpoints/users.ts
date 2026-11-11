@@ -271,6 +271,7 @@ export function userEndpoints(deps: AdminDeps) {
               topP: modelParamsRow[0].topP,
               thinkingBudget: modelParamsRow[0].thinkingBudget,
               model: modelParamsRow[0].model,
+              speakingPass: modelParamsRow[0].speakingPass,
               updatedAt: modelParamsRow[0].updatedAt,
             }
           : null;

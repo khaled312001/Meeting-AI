@@ -34,6 +34,9 @@ export interface ModelParams {
   thinkingBudget: ThinkingBudget;
   /** Anthropic model set for this one user by an admin. */
   model?: string;
+  /** Reshape this user's live answers for speaking before they are shown;
+   *  the candidate's name for the pass's prompt. Unset = off. */
+  speakingPass?: string;
 }
 
 const THINKING_VALUES = ["off", "low", "medium", "high"] as const;
@@ -348,6 +351,7 @@ export async function getEffectiveModelParams(
           ? (row.thinkingBudget as ThinkingBudget)
           : globals.thinkingBudget,
       model: row.model?.startsWith("claude-") ? row.model : undefined,
+      speakingPass: row.speakingPass?.trim() || undefined,
     };
   } catch (err) {
     console.warn("[config-cache] user model params lookup failed:", err);
