@@ -1,10 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Cpu, KeyRound, Loader2, Mic, Sparkles, XCircle, Zap } from "lucide-react";
+import {
+  CheckCircle2,
+  Cpu,
+  KeyRound,
+  Loader2,
+  Mic,
+  Sparkles,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, ErrorBanner, Field, LoadingBlock, PageHeader, Pill, Select } from "../ui";
+import {
+  Card,
+  ErrorBanner,
+  Field,
+  LoadingBlock,
+  PageHeader,
+  Pill,
+  Select,
+} from "../ui";
 import { useToast } from "../toast";
 import { useApi } from "@/lib/use-api";
 import {
@@ -19,14 +36,26 @@ import { cn } from "@/lib/utils";
 import { PROVIDER_LABEL } from "./AdminOverview";
 
 export const ANTHROPIC_MODELS = [
-  { value: "claude-opus-5-5", label: "Opus 5.5 — most capable (recommended)" },
+  {
+    value: "claude-fable-5-2",
+    label: "Fable 5.2 — newest and smartest, highest cost",
+  },
+  { value: "claude-fable-5-1", label: "Fable 5.1 — previous Fable" },
+  { value: "claude-fable-5", label: "Fable 5 — older Fable" },
+  { value: "claude-opus-5-5", label: "Opus 5.5 — very capable (recommended)" },
+  { value: "claude-opus-5", label: "Opus 5 — previous Opus" },
   { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — faster, lower cost" },
-  { value: "claude-fable-5-1", label: "Fable 5.1" },
+  { value: "claude-sonnet-5", label: "Sonnet 5 — previous Sonnet" },
+  { value: "claude-haiku-5-5", label: "Haiku 5.5 — fastest, lowest cost" },
 ];
 const CUSTOM = "__custom";
 
 function sourceLabel(src: KeySource): string {
-  return src === "dashboard" ? "Saved here" : src === "env" ? "From worker environment" : "Not set";
+  return src === "dashboard"
+    ? "Saved here"
+    : src === "env"
+      ? "From worker environment"
+      : "Not set";
 }
 
 function TestResultLine({ result }: { result: TestResult | null }) {
@@ -35,7 +64,8 @@ function TestResultLine({ result }: { result: TestResult | null }) {
     <p className="flex items-start gap-2 rounded-lg bg-[color-mix(in_oklch,var(--success)_10%,transparent)] px-3 py-2 text-xs text-text-primary">
       <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
       <span>
-        Connected{result.model ? ` to ${result.model}` : ""}. Reply: “{result.reply}”
+        Connected{result.model ? ` to ${result.model}` : ""}. Reply: “
+        {result.reply}”
       </span>
     </p>
   ) : (
@@ -93,7 +123,9 @@ function SecretField({
       toast.success(`${label} removed from the dashboard`);
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't remove the key");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't remove the key",
+      );
     } finally {
       setSaving(false);
     }
@@ -105,8 +137,12 @@ function SecretField({
       htmlFor={id}
       hint={
         <span className="flex flex-wrap items-center gap-1.5">
-          <Pill tone={source === "none" ? "warning" : "success"}>{sourceLabel(source)}</Pill>
-          {source === "dashboard" && masked && <code className="text-[11px] text-text-tertiary">{masked}</code>}
+          <Pill tone={source === "none" ? "warning" : "success"}>
+            {sourceLabel(source)}
+          </Pill>
+          {source === "dashboard" && masked && (
+            <code className="text-[11px] text-text-tertiary">{masked}</code>
+          )}
           {source === "dashboard" && (
             <button
               type="button"
@@ -128,7 +164,9 @@ function SecretField({
           spellCheck={false}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={source === "none" ? placeholder : "Enter a new key to replace it"}
+          placeholder={
+            source === "none" ? placeholder : "Enter a new key to replace it"
+          }
         />
         <Button
           variant="secondary"
@@ -164,26 +202,35 @@ function ProviderOption({
     <div
       className={cn(
         "flex flex-col rounded-xl border p-4 transition-colors",
-        active ? "border-accent bg-accent-muted" : "border-border-subtle bg-surface-raised",
+        active
+          ? "border-accent bg-accent-muted"
+          : "border-border-subtle bg-surface-raised",
       )}
     >
       <div className="flex items-center gap-2.5">
         <span
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-lg",
-            active ? "bg-accent text-accent-foreground" : "bg-surface-overlay text-text-tertiary",
+            active
+              ? "bg-accent text-accent-foreground"
+              : "bg-surface-overlay text-text-tertiary",
           )}
         >
           <Icon className="h-4 w-4" />
         </span>
-        <span className="min-w-0 flex-1 text-[13px] font-semibold text-text-primary">{PROVIDER_LABEL[provider]}</span>
+        <span className="min-w-0 flex-1 text-[13px] font-semibold text-text-primary">
+          {PROVIDER_LABEL[provider]}
+        </span>
         {active && (
           <Pill tone="success" dot>
             Active
           </Pill>
         )}
       </div>
-      <p className="mt-2 min-h-[2.5em] truncate text-xs text-text-tertiary" title={detail}>
+      <p
+        className="mt-2 min-h-[2.5em] truncate text-xs text-text-tertiary"
+        title={detail}
+      >
         {detail}
       </p>
       <div className="mt-3 flex items-center gap-2">
@@ -231,7 +278,9 @@ export function AiSettingsSection() {
       toast.success(`${PROVIDER_LABEL[p]} now answers all requests`);
       reloadAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't switch provider");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't switch provider",
+      );
     } finally {
       setSwitching(false);
     }
@@ -281,7 +330,11 @@ export function AiSettingsSection() {
               icon={Cpu}
               active={rt.provider === "openai"}
               ready={Boolean(openai.data?.enabled)}
-              detail={openai.data?.enabled ? `${openai.data.model} · ${openai.data.baseUrl}` : "Any OpenAI-compatible API"}
+              detail={
+                openai.data?.enabled
+                  ? `${openai.data.model} · ${openai.data.baseUrl}`
+                  : "Any OpenAI-compatible API"
+              }
               busy={switching}
               onSelect={() => void switchProvider("openai")}
             />
@@ -303,9 +356,13 @@ export function AiSettingsSection() {
               models={appConfig.data?.geminiModels ?? []}
               onSaved={reloadAll}
             />
-            <Card title="Transcription (Deepgram)" description="Turns meeting audio into text in real time.">
+            <Card
+              title="Transcription (Deepgram)"
+              description="Turns meeting audio into text in real time."
+            >
               <div className="mb-4 flex items-center gap-2 text-xs text-text-secondary">
-                <Mic className="h-3.5 w-3.5 text-text-tertiary" /> Required for live listening.
+                <Mic className="h-3.5 w-3.5 text-text-tertiary" /> Required for
+                live listening.
               </div>
               <SecretField
                 id="dg-key"
@@ -370,7 +427,9 @@ function AnthropicCard({
       toast.success("Anthropic model saved");
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save the model");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't save the model",
+      );
     } finally {
       setSaving(false);
     }
@@ -382,7 +441,10 @@ function AnthropicCard({
     try {
       setResult(await adminApi.testAnthropic({ model: model || undefined }));
     } catch (err) {
-      setResult({ ok: false, error: err instanceof Error ? err.message : String(err) });
+      setResult({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setTesting(false);
     }
@@ -400,7 +462,11 @@ function AnthropicCard({
           disabled={testing || source === "none"}
           title="Send a short test message to Anthropic with the saved key and the chosen model"
         >
-          {testing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <KeyRound className="mr-1.5 h-3 w-3" />}
+          {testing ? (
+            <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+          ) : (
+            <KeyRound className="mr-1.5 h-3 w-3" />
+          )}
           Test connection
         </Button>
       }
@@ -418,7 +484,11 @@ function AnthropicCard({
         <Field
           label="Model"
           htmlFor="anthropic-model"
-          hint={savedModel ? "Saved in the dashboard." : "Using the worker default (ANTHROPIC_MODEL)."}
+          hint={
+            savedModel
+              ? "Saved in the dashboard."
+              : "Using the worker default (ANTHROPIC_MODEL)."
+          }
         >
           <div className="flex gap-2">
             <Select
@@ -426,7 +496,10 @@ function AnthropicCard({
               value={choice}
               onChange={setChoice}
               className="min-w-0 flex-1"
-              options={[...ANTHROPIC_MODELS, { value: CUSTOM, label: "Custom model id…" }]}
+              options={[
+                ...ANTHROPIC_MODELS,
+                { value: CUSTOM, label: "Custom model id…" },
+              ]}
             />
             <Button
               variant="secondary"
@@ -434,7 +507,11 @@ function AnthropicCard({
               disabled={saving || !changed}
               title="Use the chosen Anthropic model for answers"
             >
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                "Save"
+              )}
             </Button>
           </div>
           {choice === CUSTOM && (
@@ -473,7 +550,9 @@ function GeminiCard({
   const toast = useToast();
   const [choice, setChoice] = React.useState(model);
   React.useEffect(() => setChoice(model), [model]);
-  const options = models.some((m) => m.id === model) ? models : [{ id: model, label: model }, ...models];
+  const options = models.some((m) => m.id === model)
+    ? models
+    : [{ id: model, label: model }, ...models];
 
   const save = async () => {
     try {
@@ -481,7 +560,9 @@ function GeminiCard({
       toast.success("Gemini model saved");
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save the model");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't save the model",
+      );
     }
   };
 
@@ -525,7 +606,14 @@ function OpenAiCard({
   data,
   onSaved,
 }: {
-  data: { model: string; baseUrl: string; apiKey: string; hasApiKey: boolean; enabled: boolean; defaults: { baseUrl: string; model: string } } | null;
+  data: {
+    model: string;
+    baseUrl: string;
+    apiKey: string;
+    hasApiKey: boolean;
+    enabled: boolean;
+    defaults: { baseUrl: string; model: string };
+  } | null;
   onSaved: () => void;
 }) {
   const toast = useToast();
@@ -571,7 +659,10 @@ function OpenAiCard({
         }),
       );
     } catch (err) {
-      setResult({ ok: false, error: err instanceof Error ? err.message : String(err) });
+      setResult({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setBusy(false);
     }
@@ -614,15 +705,31 @@ function OpenAiCard({
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Base URL" htmlFor="oa-url">
-              <Input id="oa-url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={data.defaults.baseUrl} />
+              <Input
+                id="oa-url"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder={data.defaults.baseUrl}
+              />
             </Field>
             <Field label="Model" htmlFor="oa-model">
-              <Input id="oa-model" value={model} onChange={(e) => setModel(e.target.value)} placeholder={data.defaults.model} />
+              <Input
+                id="oa-model"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={data.defaults.model}
+              />
             </Field>
             <Field
               label="API key"
               htmlFor="oa-key"
-              hint={data.hasApiKey ? <code className="text-[11px]">{data.apiKey}</code> : "Required on first save"}
+              hint={
+                data.hasApiKey ? (
+                  <code className="text-[11px]">{data.apiKey}</code>
+                ) : (
+                  "Required on first save"
+                )
+              }
             >
               <Input
                 id="oa-key"
@@ -648,7 +755,8 @@ function OpenAiCard({
               disabled={busy}
               title="Save the base URL, model and key for this endpoint"
             >
-              {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save
+              {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{" "}
+              Save
             </Button>
           </div>
           <TestResultLine result={result} />
@@ -658,12 +766,13 @@ function OpenAiCard({
   );
 }
 
-const EFFORT_OPTIONS: ReadonlyArray<{ value: ThinkingBudget; label: string }> = [
-  { value: "off", label: "Fastest — answers start immediately" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium — more careful answers" },
-  { value: "high", label: "High — deepest reasoning, slower" },
-];
+const EFFORT_OPTIONS: ReadonlyArray<{ value: ThinkingBudget; label: string }> =
+  [
+    { value: "off", label: "Fastest — answers start immediately" },
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium — more careful answers" },
+    { value: "high", label: "High — deepest reasoning, slower" },
+  ];
 
 function ModelParamsCard({
   data,
@@ -675,7 +784,12 @@ function ModelParamsCard({
   onSaved: () => void;
 }) {
   const toast = useToast();
-  const [draft, setDraft] = React.useState<{ maxOutputTokens: string; temperature: string; topP: string; thinkingBudget: ThinkingBudget } | null>(null);
+  const [draft, setDraft] = React.useState<{
+    maxOutputTokens: string;
+    temperature: string;
+    topP: string;
+    thinkingBudget: ThinkingBudget;
+  } | null>(null);
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
@@ -693,14 +807,26 @@ function ModelParamsCard({
     const maxOutputTokens = Math.round(Number(draft.maxOutputTokens));
     const temperature = Number(draft.temperature);
     const topP = Number(draft.topP);
-    if (!Number.isFinite(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 32768)
-      return toast.error("Max answer length must be between 1 and 32,768 tokens");
+    if (
+      !Number.isFinite(maxOutputTokens) ||
+      maxOutputTokens < 1 ||
+      maxOutputTokens > 32768
+    )
+      return toast.error(
+        "Max answer length must be between 1 and 32,768 tokens",
+      );
     if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2)
       return toast.error("Temperature must be between 0 and 2");
-    if (!Number.isFinite(topP) || topP < 0 || topP > 1) return toast.error("Top-p must be between 0 and 1");
+    if (!Number.isFinite(topP) || topP < 0 || topP > 1)
+      return toast.error("Top-p must be between 0 and 1");
     setSaving(true);
     try {
-      await adminApi.saveModelParams({ maxOutputTokens, temperature, topP, thinkingBudget: draft.thinkingBudget });
+      await adminApi.saveModelParams({
+        maxOutputTokens,
+        temperature,
+        topP,
+        thinkingBudget: draft.thinkingBudget,
+      });
       toast.success("Answer settings saved");
       onSaved();
     } catch (err) {
@@ -720,19 +846,27 @@ function ModelParamsCard({
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Max answer length (tokens)" htmlFor="mp-max" hint={baked ? `Default ${baked.maxOutputTokens}` : undefined}>
+            <Field
+              label="Max answer length (tokens)"
+              htmlFor="mp-max"
+              hint={baked ? `Default ${baked.maxOutputTokens}` : undefined}
+            >
               <Input
                 id="mp-max"
                 inputMode="numeric"
                 value={draft.maxOutputTokens}
-                onChange={(e) => setDraft({ ...draft, maxOutputTokens: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, maxOutputTokens: e.target.value })
+                }
               />
             </Field>
             <Field label="Reasoning effort" htmlFor="mp-effort">
               <Select
                 id="mp-effort"
                 value={draft.thinkingBudget}
-                onChange={(v) => setDraft({ ...draft, thinkingBudget: v as ThinkingBudget })}
+                onChange={(v) =>
+                  setDraft({ ...draft, thinkingBudget: v as ThinkingBudget })
+                }
                 options={EFFORT_OPTIONS}
                 className="w-full"
               />
@@ -742,11 +876,18 @@ function ModelParamsCard({
                 id="mp-temp"
                 inputMode="decimal"
                 value={draft.temperature}
-                onChange={(e) => setDraft({ ...draft, temperature: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, temperature: e.target.value })
+                }
               />
             </Field>
             <Field label="Top-p" htmlFor="mp-topp" hint="0 – 1">
-              <Input id="mp-topp" inputMode="decimal" value={draft.topP} onChange={(e) => setDraft({ ...draft, topP: e.target.value })} />
+              <Input
+                id="mp-topp"
+                inputMode="decimal"
+                value={draft.topP}
+                onChange={(e) => setDraft({ ...draft, topP: e.target.value })}
+              />
             </Field>
           </div>
           <div className="flex justify-end">
@@ -755,7 +896,10 @@ function ModelParamsCard({
               disabled={saving}
               title="Save these answer settings for every user who has no override of their own"
             >
-              {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save defaults
+              {saving && (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              )}{" "}
+              Save defaults
             </Button>
           </div>
         </div>

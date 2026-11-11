@@ -36,8 +36,9 @@ const EFFORT_BY_BUDGET: Record<ThinkingBudget, "low" | "medium" | "high"> = {
   high: "high",
 };
 
-/** Models that accept server-side refusal fallbacks in the "default" form. */
-const FALLBACK_MODELS = /^claude-(fable-5-1|opus-5-5|opus-5|sonnet-5-5)$/;
+/** Models that accept server-side refusal fallbacks in the "default" form
+ *  (Fable 5.2 checked against the API on 2026-11-12). */
+const FALLBACK_MODELS = /^claude-(fable-5-2|fable-5-1|opus-5-5|opus-5|sonnet-5-5)$/;
 
 /** "Thinking off" for live answers. Thinking text is never streamed, so
  *  any thinking delays the first word the candidate sees. Each model

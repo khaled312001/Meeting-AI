@@ -1,7 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Ban, CheckCircle2, KeyRound, Loader2, LogOut, RotateCcw, Trash2, UserCheck, UserX } from "lucide-react";
+import {
+  Ban,
+  CheckCircle2,
+  KeyRound,
+  Loader2,
+  LogOut,
+  RotateCcw,
+  Trash2,
+  UserCheck,
+  UserX,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -29,7 +39,14 @@ import {
   type ThinkingBudget,
   type UserDetail,
 } from "@/lib/admin-api";
-import { formatDate, formatDateTime, formatDuration, formatNumber, formatRelative, humanizeKey } from "@/lib/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatDuration,
+  formatNumber,
+  formatRelative,
+  humanizeKey,
+} from "@/lib/format";
 import { actionLabel, planLabel } from "../labels";
 import { useBanReason, userStatusPill } from "./shared";
 import { PasswordDialog, SubscriptionTab } from "./CustomerAccounts";
@@ -51,8 +68,14 @@ export function UserDrawer({
   const { ask: askBanReason, dialog: banDialog } = useBanReason();
   const [tab, setTab] = React.useState<Tab>("overview");
   const [busy, setBusy] = React.useState(false);
-  const [newPassword, setNewPassword] = React.useState<{ email: string; password: string; note: string } | null>(null);
-  const detail = useApi((s) => adminApi.getUser(userId!, s), [userId], { enabled: Boolean(userId) });
+  const [newPassword, setNewPassword] = React.useState<{
+    email: string;
+    password: string;
+    note: string;
+  } | null>(null);
+  const detail = useApi((s) => adminApi.getUser(userId!, s), [userId], {
+    enabled: Boolean(userId),
+  });
 
   React.useEffect(() => {
     setTab("overview");
@@ -63,7 +86,11 @@ export function UserDrawer({
   const d = detail.data;
   const u = d?.user;
 
-  const act = async (label: string, fn: () => Promise<unknown>, after?: () => void) => {
+  const act = async (
+    label: string,
+    fn: () => Promise<unknown>,
+    after?: () => void,
+  ) => {
     setBusy(true);
     try {
       await fn();
@@ -82,7 +109,10 @@ export function UserDrawer({
     <>
       {confirmDialog}
       {banDialog}
-      <PasswordDialog shown={newPassword} onClose={() => setNewPassword(null)} />
+      <PasswordDialog
+        shown={newPassword}
+        onClose={() => setNewPassword(null)}
+      />
       <Drawer
         open={userId !== null}
         onClose={onClose}
@@ -115,11 +145,17 @@ export function UserDrawer({
                 onClick={async () => {
                   const ok = await confirm({
                     title: `Delete ${u.email}?`,
-                    description: "Their account, notes and interview profile are permanently removed.",
+                    description:
+                      "Their account, notes and interview profile are permanently removed.",
                     confirmLabel: "Delete permanently",
                     destructive: true,
                   });
-                  if (ok) void act("User deleted", () => adminApi.deleteUser(u.id), onClose);
+                  if (ok)
+                    void act(
+                      "User deleted",
+                      () => adminApi.deleteUser(u.id),
+                      onClose,
+                    );
                 }}
                 title="Delete this account with its notes and interview profile permanently"
               >
@@ -131,7 +167,8 @@ export function UserDrawer({
                 onClick={async () => {
                   const ok = await confirm({
                     title: `Reset the password of ${u.email}?`,
-                    description: "A new password is generated and they are signed out of every device.",
+                    description:
+                      "A new password is generated and they are signed out of every device.",
                     confirmLabel: "Reset password",
                   });
                   if (!ok) return;
@@ -151,7 +188,11 @@ export function UserDrawer({
               <Button
                 variant="outline"
                 disabled={busy}
-                onClick={() => void act("Signed out everywhere", () => adminApi.revokeAllSessions(u.id))}
+                onClick={() =>
+                  void act("Signed out everywhere", () =>
+                    adminApi.revokeAllSessions(u.id),
+                  )
+                }
                 title="End all of this user's sign-ins; their password stays the same"
               >
                 <LogOut className="mr-1.5 h-3.5 w-3.5" /> Sign out everywhere
@@ -160,7 +201,11 @@ export function UserDrawer({
                 <Button
                   variant="outline"
                   disabled={busy}
-                  onClick={() => void act("User unbanned", () => adminApi.updateUser({ userId: u.id, isBanned: false }))}
+                  onClick={() =>
+                    void act("User unbanned", () =>
+                      adminApi.updateUser({ userId: u.id, isBanned: false }),
+                    )
+                  }
                   title="Lift the ban so this user can use the app again"
                 >
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Unban
@@ -173,7 +218,11 @@ export function UserDrawer({
                     const reason = await askBanReason(1);
                     if (reason === null) return;
                     void act("User banned", () =>
-                      adminApi.updateUser({ userId: u.id, isBanned: true, banReason: reason || undefined }),
+                      adminApi.updateUser({
+                        userId: u.id,
+                        isBanned: true,
+                        banReason: reason || undefined,
+                      }),
                     );
                   }}
                   title="Ban this user; they are signed out and blocked until unbanned"
@@ -186,7 +235,9 @@ export function UserDrawer({
                   variant="secondary"
                   disabled={busy}
                   onClick={() =>
-                    void act("Approval revoked", () => adminApi.updateUser({ userId: u.id, isApproved: false }))
+                    void act("Approval revoked", () =>
+                      adminApi.updateUser({ userId: u.id, isApproved: false }),
+                    )
                   }
                   title="Take approval away; this user goes back to pending and can't use the app"
                 >
@@ -195,7 +246,11 @@ export function UserDrawer({
               ) : (
                 <Button
                   disabled={busy}
-                  onClick={() => void act("User approved", () => adminApi.updateUser({ userId: u.id, isApproved: true }))}
+                  onClick={() =>
+                    void act("User approved", () =>
+                      adminApi.updateUser({ userId: u.id, isApproved: true }),
+                    )
+                  }
                   title="Approve this user so they can sign in and use the app"
                 >
                   <UserCheck className="mr-1.5 h-3.5 w-3.5" /> Approve
@@ -205,14 +260,19 @@ export function UserDrawer({
           ) : undefined
         }
       >
-        {detail.error && <ErrorBanner message={detail.error} onRetry={detail.reload} />}
+        {detail.error && (
+          <ErrorBanner message={detail.error} onRetry={detail.reload} />
+        )}
         {!d ? (
           !detail.error && <LoadingBlock rows={6} />
         ) : (
           <>
             {u?.isBanned && u.banReason && (
               <div className="mb-4 rounded-lg bg-destructive-muted px-3 py-2 text-[13px] text-text-primary">
-                <span className="font-medium text-destructive">Ban reason:</span> {u.banReason}
+                <span className="font-medium text-destructive">
+                  Ban reason:
+                </span>{" "}
+                {u.banReason}
               </div>
             )}
             <div className="mb-5">
@@ -221,22 +281,45 @@ export function UserDrawer({
                 onChange={setTab}
                 ariaLabel="User details"
                 options={[
-                  { value: "overview", label: "Overview", title: "Show this user's key facts and last 30 days of use" },
+                  {
+                    value: "overview",
+                    label: "Overview",
+                    title: "Show this user's key facts and last 30 days of use",
+                  },
                   {
                     value: "subscription",
                     label: "Subscription",
-                    title: "See and change this user's paid plan and question balance",
+                    title:
+                      "See and change this user's paid plan and question balance",
                   },
-                  { value: "plan", label: "Quota", title: "See and change this user's monthly allowances" },
-                  { value: "ai", label: "AI settings", title: "Set AI model and answer settings for this user only" },
-                  { value: "activity", label: "Activity", title: "Show this user's account events and sign-in sessions" },
+                  {
+                    value: "plan",
+                    label: "Quota",
+                    title: "See and change this user's monthly allowances",
+                  },
+                  {
+                    value: "ai",
+                    label: "AI settings",
+                    title:
+                      "Set AI model and answer settings for this user only",
+                  },
+                  {
+                    value: "activity",
+                    label: "Activity",
+                    title:
+                      "Show this user's account events and sign-in sessions",
+                  },
                 ]}
               />
             </div>
             {tab === "overview" && <OverviewTab d={d} />}
             {tab === "subscription" && <SubscriptionTab userId={d.user.id} />}
-            {tab === "plan" && <PlanTab d={d} onSaved={() => void detail.reload()} />}
-            {tab === "ai" && <AiTab d={d} onSaved={() => void detail.reload()} />}
+            {tab === "plan" && (
+              <PlanTab d={d} onSaved={() => void detail.reload()} />
+            )}
+            {tab === "ai" && (
+              <AiTab d={d} onSaved={() => void detail.reload()} />
+            )}
             {tab === "activity" && <ActivityTab d={d} />}
           </>
         )}
@@ -253,15 +336,30 @@ function OverviewTab({ d }: { d: UserDetail }) {
       <KeyValue
         items={[
           { label: "Joined", value: formatDateTime(d.user.createdAt) },
-          { label: "Last active", value: d.user.lastActiveAt ? formatRelative(d.user.lastActiveAt) : "Never" },
+          {
+            label: "Last active",
+            value: d.user.lastActiveAt
+              ? formatRelative(d.user.lastActiveAt)
+              : "Never",
+          },
           { label: "Saved answers", value: formatNumber(d.notesCount) },
-          { label: "Interview profile", value: d.hasInterviewContext ? "Filled in" : "Empty" },
+          {
+            label: "Interview profile",
+            value: d.hasInterviewContext ? "Filled in" : "Empty",
+          },
           { label: "Plan", value: planLabel(d.quota.planTier) },
-          { label: "User ID", value: <code className="text-xs text-text-secondary">{d.user.id}</code> },
+          {
+            label: "User ID",
+            value: (
+              <code className="text-xs text-text-secondary">{d.user.id}</code>
+            ),
+          },
         ]}
       />
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Last 30 days</h3>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+          Last 30 days
+        </h3>
         <div className="grid grid-cols-3 gap-2">
           <StatCard label="AI answers" value={answers} />
           <StatCard label="All events" value={d.usage.totals.events} />
@@ -274,7 +372,9 @@ function OverviewTab({ d }: { d: UserDetail }) {
       </div>
       {d.usage.perAction.length > 0 && (
         <div>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Activity by type</h3>
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            Activity by type
+          </h3>
           <BarList
             data={d.usage.perAction.map((p) => ({
               key: p.action,
@@ -301,10 +401,18 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
   const { confirm, dialog } = useConfirm();
   const tiers = useApi((s) => adminApi.quotaTiers(s), []);
   const q = d.quota;
-  const [tier, setTier] = React.useState<PlanTier>((PLAN_TIERS as readonly string[]).includes(q.planTier) ? (q.planTier as PlanTier) : "legacy_unlimited");
-  const [answers, setAnswers] = React.useState(q.monthlyAllowanceCompletions?.toString() ?? "");
+  const [tier, setTier] = React.useState<PlanTier>(
+    (PLAN_TIERS as readonly string[]).includes(q.planTier)
+      ? (q.planTier as PlanTier)
+      : "legacy_unlimited",
+  );
+  const [answers, setAnswers] = React.useState(
+    q.monthlyAllowanceCompletions?.toString() ?? "",
+  );
   const [minutes, setMinutes] = React.useState(
-    q.monthlyAllowanceSeconds != null ? Math.round(q.monthlyAllowanceSeconds / 60).toString() : "",
+    q.monthlyAllowanceSeconds != null
+      ? Math.round(q.monthlyAllowanceSeconds / 60).toString()
+      : "",
   );
   const [overage, setOverage] = React.useState(q.overageAllowed);
   const [saving, setSaving] = React.useState(false);
@@ -314,7 +422,11 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
     const preset = tiers.data?.tiers[t];
     if (preset) {
       setAnswers(preset.monthlyAllowanceCompletions?.toString() ?? "");
-      setMinutes(preset.monthlyAllowanceSeconds != null ? Math.round(preset.monthlyAllowanceSeconds / 60).toString() : "");
+      setMinutes(
+        preset.monthlyAllowanceSeconds != null
+          ? Math.round(preset.monthlyAllowanceSeconds / 60).toString()
+          : "",
+      );
     } else if (t === "unlimited" || t === "legacy_unlimited") {
       setAnswers("");
       setMinutes("");
@@ -335,7 +447,9 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
       toast.success("Plan updated");
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't update the plan");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't update the plan",
+      );
     } finally {
       setSaving(false);
     }
@@ -344,7 +458,8 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
   const reset = async () => {
     const ok = await confirm({
       title: "Reset this billing cycle?",
-      description: "Usage counters go back to zero and the next reset moves to 30 days from now.",
+      description:
+        "Usage counters go back to zero and the next reset moves to 30 days from now.",
       confirmLabel: "Reset cycle",
     });
     if (!ok) return;
@@ -353,7 +468,9 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
       toast.success("Cycle reset");
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't reset the cycle");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't reset the cycle",
+      );
     }
   };
 
@@ -362,8 +479,12 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
       {dialog}
       <div className="space-y-4 rounded-xl border border-border-subtle bg-surface-raised p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-[13px] font-semibold text-text-primary">This cycle</h3>
-          <span className="text-xs text-text-tertiary">Resets {formatDate(q.cycleResetAt)}</span>
+          <h3 className="text-[13px] font-semibold text-text-primary">
+            This cycle
+          </h3>
+          <span className="text-xs text-text-tertiary">
+            Resets {formatDate(q.cycleResetAt)}
+          </span>
         </div>
         <Meter
           label="AI answers"
@@ -389,9 +510,14 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
 
       <div className="space-y-4">
         <p className="text-xs text-text-tertiary">
-          Monthly allowances for this user. Nothing changes until you press Save plan.
+          Monthly allowances for this user. Nothing changes until you press Save
+          plan.
         </p>
-        <Field label="Plan" htmlFor="plan-tier" hint="Choosing a plan fills in its default allowances.">
+        <Field
+          label="Plan"
+          htmlFor="plan-tier"
+          hint="Choosing a plan fills in its default allowances."
+        >
           <Select
             id="plan-tier"
             value={tier}
@@ -401,17 +527,41 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="AI answers per month" htmlFor="plan-answers" hint="Leave empty for unlimited.">
-            <Input id="plan-answers" inputMode="numeric" value={answers} onChange={(e) => setAnswers(e.target.value)} placeholder="Unlimited" />
+          <Field
+            label="AI answers per month"
+            htmlFor="plan-answers"
+            hint="Leave empty for unlimited."
+          >
+            <Input
+              id="plan-answers"
+              inputMode="numeric"
+              value={answers}
+              onChange={(e) => setAnswers(e.target.value)}
+              placeholder="Unlimited"
+            />
           </Field>
-          <Field label="Transcription minutes per month" htmlFor="plan-minutes" hint="Leave empty for unlimited.">
-            <Input id="plan-minutes" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="Unlimited" />
+          <Field
+            label="Transcription minutes per month"
+            htmlFor="plan-minutes"
+            hint="Leave empty for unlimited."
+          >
+            <Input
+              id="plan-minutes"
+              inputMode="numeric"
+              value={minutes}
+              onChange={(e) => setMinutes(e.target.value)}
+              placeholder="Unlimited"
+            />
           </Field>
         </div>
         <label className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle px-3 py-2.5">
           <span>
-            <span className="block text-[13px] text-text-primary">Allow overage</span>
-            <span className="block text-xs text-text-tertiary">Keep working past the allowance (when enforcement is on).</span>
+            <span className="block text-[13px] text-text-primary">
+              Allow overage
+            </span>
+            <span className="block text-xs text-text-tertiary">
+              Keep working past the allowance (when enforcement is on).
+            </span>
           </span>
           <Switch
             checked={overage}
@@ -425,7 +575,8 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
             disabled={saving}
             title="Save the plan and monthly allowances above for this user"
           >
-            {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save plan
+            {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{" "}
+            Save plan
           </Button>
         </div>
       </div>
@@ -434,17 +585,36 @@ function PlanTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
 }
 
 const INHERIT = "__inherit";
+const CUSTOM_MODEL = "__custom";
+const MODEL_ID_RE = /^claude-[a-z0-9][a-z0-9.-]{1,60}$/;
 
 function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
   const toast = useToast();
   const o = d.modelParamsOverride;
-  const [maxTokens, setMaxTokens] = React.useState(o?.maxOutputTokens?.toString() ?? "");
-  const [temperature, setTemperature] = React.useState(o?.temperature?.toString() ?? "");
+  const [maxTokens, setMaxTokens] = React.useState(
+    o?.maxOutputTokens?.toString() ?? "",
+  );
+  const [temperature, setTemperature] = React.useState(
+    o?.temperature?.toString() ?? "",
+  );
   const [topP, setTopP] = React.useState(o?.topP?.toString() ?? "");
-  const [budget, setBudget] = React.useState<string>(o?.thinkingBudget ?? INHERIT);
-  const [model, setModel] = React.useState<string>(o?.model ?? INHERIT);
+  const [budget, setBudget] = React.useState<string>(
+    o?.thinkingBudget ?? INHERIT,
+  );
+  const listed = (id: string | null | undefined) =>
+    !id || ANTHROPIC_MODELS.some((m) => m.value === id);
+  const [model, setModel] = React.useState<string>(
+    o?.model ? (listed(o.model) ? o.model : CUSTOM_MODEL) : INHERIT,
+  );
+  const [customModel, setCustomModel] = React.useState(
+    o?.model && !listed(o.model) ? o.model : "",
+  );
+  const customBad =
+    model === CUSTOM_MODEL && !MODEL_ID_RE.test(customModel.trim());
   const [speakingPass, setSpeakingPass] = React.useState(!!o?.speakingPass);
-  const [speakingName, setSpeakingName] = React.useState(o?.speakingPass ?? d.user.name ?? "");
+  const [speakingName, setSpeakingName] = React.useState(
+    o?.speakingPass ?? d.user.name ?? "",
+  );
   const [saving, setSaving] = React.useState(false);
 
   const parse = (v: string, int = false): number | null => {
@@ -463,8 +633,14 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
         temperature: parse(temperature),
         topP: parse(topP),
         thinkingBudget: budget === INHERIT ? null : (budget as ThinkingBudget),
-        model: model === INHERIT ? null : model,
-        speakingPass: speakingPass && speakingName.trim() ? speakingName.trim() : null,
+        model:
+          model === INHERIT
+            ? null
+            : model === CUSTOM_MODEL
+              ? customModel.trim()
+              : model,
+        speakingPass:
+          speakingPass && speakingName.trim() ? speakingName.trim() : null,
       });
       toast.success("AI settings saved for this user");
       onSaved();
@@ -484,6 +660,7 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
       setTopP("");
       setBudget(INHERIT);
       setModel(INHERIT);
+      setCustomModel("");
       setSpeakingPass(false);
       setSpeakingName(d.user.name ?? "");
       toast.success("Overrides cleared — global defaults apply");
@@ -498,9 +675,10 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
   return (
     <div className="space-y-4">
       <p className="text-[13px] leading-relaxed text-text-secondary">
-        Override the global AI settings for this user only. Empty fields inherit the defaults from{" "}
-        <span className="text-text-primary">AI settings</span>. With Anthropic, “Reasoning effort” sets how hard the model
-        thinks; temperature and top-p apply to Gemini / OpenAI-compatible models.
+        Override the global AI settings for this user only. Empty fields inherit
+        the defaults from <span className="text-text-primary">AI settings</span>
+        . With Anthropic, “Reasoning effort” sets how hard the model thinks;
+        temperature and top-p apply to Gemini / OpenAI-compatible models.
       </p>
       <Field
         label="AI model"
@@ -515,19 +693,41 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
           options={[
             { value: INHERIT, label: "Same as everyone (AI settings)" },
             ...ANTHROPIC_MODELS,
-            ...(model !== INHERIT && !ANTHROPIC_MODELS.some((m) => m.value === model)
-              ? [{ value: model, label: model }]
-              : []),
+            { value: CUSTOM_MODEL, label: "Custom model id…" },
           ]}
         />
       </Field>
+      {model === CUSTOM_MODEL && (
+        <Field
+          label="Model id"
+          htmlFor="ump-model-id"
+          hint={
+            customBad
+              ? "Starts with claude-, e.g. claude-opus-5-5"
+              : "Any Anthropic model id this key can use"
+          }
+        >
+          <Input
+            id="ump-model-id"
+            value={customModel}
+            onChange={(e) => setCustomModel(e.target.value)}
+            placeholder="claude-…"
+            spellCheck={false}
+            autoCapitalize="off"
+          />
+        </Field>
+      )}
       <label className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle px-3 py-2.5">
         <span>
-          <span className="block text-[13px] text-text-primary">Speaking pass</span>
+          <span className="block text-[13px] text-text-primary">
+            Speaking pass
+          </span>
           <span className="block text-xs text-text-tertiary">
-            Before a live answer shows, a fast model reshapes it into short sentences that read aloud on the first try. Every
-            number and name is checked in code; if one changes, the original answer shows. Adds up to 3 seconds, and the
-            answer appears whole instead of word by word. Anthropic only.
+            Before a live answer shows, a fast model reshapes it into short
+            sentences that read aloud on the first try. Every number and name is
+            checked in code; if one changes, the original answer shows. Adds up
+            to 3 seconds, and the answer appears whole instead of word by word.
+            Anthropic only.
           </span>
         </span>
         <Switch
@@ -552,8 +752,18 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
         </Field>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Max answer length (tokens)" htmlFor="ump-max" hint="1 – 32,768">
-          <Input id="ump-max" inputMode="numeric" value={maxTokens} onChange={(e) => setMaxTokens(e.target.value)} placeholder="Inherit" />
+        <Field
+          label="Max answer length (tokens)"
+          htmlFor="ump-max"
+          hint="1 – 32,768"
+        >
+          <Input
+            id="ump-max"
+            inputMode="numeric"
+            value={maxTokens}
+            onChange={(e) => setMaxTokens(e.target.value)}
+            placeholder="Inherit"
+          />
         </Field>
         <Field label="Reasoning effort" htmlFor="ump-budget">
           <Select
@@ -571,21 +781,42 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
           />
         </Field>
         <Field label="Temperature" htmlFor="ump-temp" hint="0 – 2">
-          <Input id="ump-temp" inputMode="decimal" value={temperature} onChange={(e) => setTemperature(e.target.value)} placeholder="Inherit" />
+          <Input
+            id="ump-temp"
+            inputMode="decimal"
+            value={temperature}
+            onChange={(e) => setTemperature(e.target.value)}
+            placeholder="Inherit"
+          />
         </Field>
         <Field label="Top-p" htmlFor="ump-topp" hint="0 – 1">
-          <Input id="ump-topp" inputMode="decimal" value={topP} onChange={(e) => setTopP(e.target.value)} placeholder="Inherit" />
+          <Input
+            id="ump-topp"
+            inputMode="decimal"
+            value={topP}
+            onChange={(e) => setTopP(e.target.value)}
+            placeholder="Inherit"
+          />
         </Field>
       </div>
-      {o && <p className="text-xs text-text-tertiary">Last changed {formatRelative(o.updatedAt)}</p>}
+      {o && (
+        <p className="text-xs text-text-tertiary">
+          Last changed {formatRelative(o.updatedAt)}
+        </p>
+      )}
       <div className="flex justify-end gap-2">
         {o && (
-          <Button variant="ghost" onClick={() => void clear()} disabled={saving}>
+          <Button
+            variant="ghost"
+            onClick={() => void clear()}
+            disabled={saving}
+          >
             Clear overrides
           </Button>
         )}
-        <Button onClick={() => void save()} disabled={saving}>
-          {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save
+        <Button onClick={() => void save()} disabled={saving || customBad}>
+          {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{" "}
+          Save
         </Button>
       </div>
     </div>
@@ -597,23 +828,36 @@ function ActivityTab({ d }: { d: UserDetail }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Account events</h3>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+          Account events
+        </h3>
         {d.recentAuditEvents.length === 0 ? (
           <p className="text-[13px] text-text-tertiary">No events.</p>
         ) : (
           <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle">
             {d.recentAuditEvents.map((e) => (
-              <li key={e.id} className="flex items-center gap-3 px-3 py-2 text-[13px]">
-                <span className="min-w-0 flex-1 truncate text-text-primary">{humanizeKey(e.eventType)}</span>
-                <span className="hidden truncate text-xs text-text-tertiary sm:inline">{e.ipAddress}</span>
-                <span className="shrink-0 text-xs text-text-tertiary">{formatRelative(e.createdAt)}</span>
+              <li
+                key={e.id}
+                className="flex items-center gap-3 px-3 py-2 text-[13px]"
+              >
+                <span className="min-w-0 flex-1 truncate text-text-primary">
+                  {humanizeKey(e.eventType)}
+                </span>
+                <span className="hidden truncate text-xs text-text-tertiary sm:inline">
+                  {e.ipAddress}
+                </span>
+                <span className="shrink-0 text-xs text-text-tertiary">
+                  {formatRelative(e.createdAt)}
+                </span>
               </li>
             ))}
           </ul>
         )}
       </div>
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">Sign-in sessions</h3>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+          Sign-in sessions
+        </h3>
         {d.sessions.length === 0 ? (
           <p className="text-[13px] text-text-tertiary">No sessions.</p>
         ) : (
@@ -621,12 +865,24 @@ function ActivityTab({ d }: { d: UserDetail }) {
             {d.sessions.map((s) => {
               const expired = new Date(s.expiresAt).getTime() < now;
               return (
-                <li key={s.id} className="flex items-center gap-3 px-3 py-2 text-[13px]">
-                  <span className="min-w-0 flex-1 truncate text-text-primary" title={s.userAgent ?? undefined}>
+                <li
+                  key={s.id}
+                  className="flex items-center gap-3 px-3 py-2 text-[13px]"
+                >
+                  <span
+                    className="min-w-0 flex-1 truncate text-text-primary"
+                    title={s.userAgent ?? undefined}
+                  >
                     {s.ipAddress || "Unknown IP"}
                   </span>
-                  {expired ? <Pill tone="neutral">Expired</Pill> : <Pill tone="success">Active</Pill>}
-                  <span className="shrink-0 text-xs text-text-tertiary">{formatRelative(s.createdAt)}</span>
+                  {expired ? (
+                    <Pill tone="neutral">Expired</Pill>
+                  ) : (
+                    <Pill tone="success">Active</Pill>
+                  )}
+                  <span className="shrink-0 text-xs text-text-tertiary">
+                    {formatRelative(s.createdAt)}
+                  </span>
                 </li>
               );
             })}
