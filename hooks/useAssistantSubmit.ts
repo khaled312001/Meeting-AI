@@ -47,6 +47,11 @@ export interface AssistantSubmitHandle {
   reviewNow: (opts: LiveAnswerOptions) => Promise<void>;
   /** Summarize the conversation so far (one-off). */
   summarizeNow: () => Promise<void>;
+  /** Typed questions, answered one after another exactly as heard ones
+   *  are after Start (same request, same speaking step, same numbers). */
+  answerTyped: (questions: string[]) => Promise<void>;
+  /** The typed questions being answered: how many are done, of how many. */
+  typedRun: { done: number; total: number } | null;
   stop: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   regenerate: () => Promise<void>;
   canRegenerate: boolean;
@@ -69,6 +74,11 @@ export function useAssistantSubmit({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const [canRegenerate, setCanRegenerate] = useState(false);
+  const [typedRun, setTypedRun] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const typedStopRef = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const lastFailedRef = useRef<{
     flag: FLAGS;
@@ -82,6 +92,7 @@ export function useAssistantSubmit({
       e.stopPropagation();
       e.currentTarget.blur();
     }
+    typedStopRef.current = true;
     if (controller.current) {
       controller.current.abort();
       controller.current = null;
@@ -104,11 +115,11 @@ export function useAssistantSubmit({
       runBg: string,
       prompt: string,
       opts: LiveAnswerOptions = {},
-    ) => {
-      if (isLoading || controller.current) return;
+    ): Promise<"ok" | "busy" | "failed" | "stopped"> => {
+      if (isLoading || controller.current) return "busy";
       if (!prompt.trim()) {
         setError(new Error(humanizeHttpStatus(0, { kind: "no-input" })));
-        return;
+        return "failed";
       }
 
       const isReview = runFlag === FLAGS.REVIEW;
@@ -145,7 +156,11 @@ export function useAssistantSubmit({
         // It shows the question as heard until the model's clean one-line
         // version of it arrives.
         const live = liveQuestion
-          ? createLiveAnswer(liveQuestion, replyLanguage ?? guessLanguage(liveQuestion), n)
+          ? createLiveAnswer(
+              liveQuestion,
+              replyLanguage ?? guessLanguage(liveQuestion),
+              n,
+            )
           : null;
         let acc = live ? live.text() : "";
         const flusher = createStreamFlusher(() => setCompletion(acc));
@@ -200,8 +215,10 @@ export function useAssistantSubmit({
         }
         lastFailedRef.current = null;
         setCanRegenerate(false);
+        return "ok";
       } catch (err: unknown) {
-        if (!isAbortError(err) && !isReview) {
+        if (isAbortError(err)) return "stopped";
+        if (!isReview) {
           console.error("Stream error:", err);
           setError(new Error(humanizeStreamError(err)));
           posthog.captureException(err);
@@ -212,6 +229,7 @@ export function useAssistantSubmit({
           };
           setCanRegenerate(true);
         }
+        return "failed";
       } finally {
         setIsLoading(false);
         controller.current = null;
@@ -238,20 +256,51 @@ export function useAssistantSubmit({
   );
 
   const generateNow = useCallback(
-    (opts?: LiveAnswerOptions) =>
-      runCompletion(FLAGS.ASSISTANT, bg, getTranscribedText(), opts),
+    async (opts?: LiveAnswerOptions) => {
+      await runCompletion(FLAGS.ASSISTANT, bg, getTranscribedText(), opts);
+    },
     [bg, runCompletion, getTranscribedText],
   );
 
   const reviewNow = useCallback(
-    (opts: LiveAnswerOptions) =>
-      runCompletion(FLAGS.REVIEW, bg, getTranscribedText(), opts),
+    async (opts: LiveAnswerOptions) => {
+      await runCompletion(FLAGS.REVIEW, bg, getTranscribedText(), opts);
+    },
     [bg, runCompletion, getTranscribedText],
   );
 
-  const summarizeNow = useCallback(
-    () => runCompletion(FLAGS.SUMMARIZER, bg, getTranscribedText()),
-    [bg, runCompletion, getTranscribedText],
+  const summarizeNow = useCallback(async () => {
+    await runCompletion(FLAGS.SUMMARIZER, bg, getTranscribedText());
+  }, [bg, runCompletion, getTranscribedText]);
+
+  // Each typed question goes the way a heard one does: it joins the
+  // transcript as the interviewer's line, and it is answered as the
+  // question, with the earlier answers, before the next one starts.
+  const answerTyped = useCallback(
+    async (questions: string[]) => {
+      const list = questions.map((q) => q.trim()).filter(Boolean);
+      if (list.length === 0 || controller.current) return;
+      typedStopRef.current = false;
+      const asked: string[] = [];
+      setTypedRun({ done: 0, total: list.length });
+      try {
+        for (const [i, question] of list.entries()) {
+          if (typedStopRef.current) break;
+          asked.push(`Interviewer: ${question}`);
+          const transcript = [getTranscribedText().trim(), ...asked]
+            .filter(Boolean)
+            .join("\n");
+          const result = await runCompletion(FLAGS.ASSISTANT, bg, transcript, {
+            question,
+          });
+          if (result !== "ok") break;
+          setTypedRun({ done: i + 1, total: list.length });
+        }
+      } finally {
+        setTypedRun(null);
+      }
+    },
+    [bg, getTranscribedText, runCompletion],
   );
 
   const regenerate = useCallback(async () => {
@@ -270,6 +319,8 @@ export function useAssistantSubmit({
     generateNow,
     reviewNow,
     summarizeNow,
+    answerTyped,
+    typedRun,
     stop,
     regenerate,
     canRegenerate,

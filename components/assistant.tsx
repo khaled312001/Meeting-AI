@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { ContextCard } from "@/components/assistant/ContextCard";
 import { OutputCard } from "@/components/assistant/OutputCard";
 import { TranscriptionCard } from "@/components/assistant/TranscriptionCard";
+import { TypedQuestionsBox } from "@/components/assistant/TypedQuestionsBox";
 import { AlertBanner } from "@/components/shell/AlertBanner";
 import { useTranscription } from "@/components/TranscriptionContext";
 import { useClientReady } from "@/hooks/useClientReady";
@@ -27,7 +28,10 @@ interface AssistantProps {
   isActive?: boolean;
 }
 
-export function Assistant({ addInSavedData, isActive = false }: AssistantProps) {
+export function Assistant({
+  addInSavedData,
+  isActive = false,
+}: AssistantProps) {
   const isClientReady = useClientReady();
   const { data: session } = authClient.useSession();
   const { compactMode } = useTab();
@@ -89,6 +93,8 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
     error,
     generateNow,
     summarizeNow,
+    answerTyped,
+    typedRun,
     stop,
     regenerate,
     canRegenerate,
@@ -99,33 +105,32 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
   });
 
   const auto = isActive && answerMode === "auto";
-  const {
-    takeQuestion,
-    answerHeard,
-    sentRanges,
-    updateAnswer,
-    moreOnAnswer,
-  } = useAutoAnswer({
-    enabled: auto,
-    isLive: sessionState === "live",
-    isBusy: isLoading,
-    transcript: interviewerText,
-    hasInterim: interviewerSpeaking,
-    interimText: interviewerInterim,
-    myTranscript: myText,
-    onTrigger: ({ question, replace, updated, more }) =>
-      void generateNow({ question: question || undefined, replace, updated, more }),
-    onInterrupt: () => stop(),
-  });
+  const { takeQuestion, answerHeard, sentRanges, updateAnswer, moreOnAnswer } =
+    useAutoAnswer({
+      enabled: auto,
+      isLive: sessionState === "live",
+      isBusy: isLoading,
+      transcript: interviewerText,
+      hasInterim: interviewerSpeaking,
+      interimText: interviewerInterim,
+      myTranscript: myText,
+      onTrigger: ({ question, replace, updated, more }) =>
+        void generateNow({
+          question: question || undefined,
+          replace,
+          updated,
+          more,
+        }),
+      onInterrupt: () => stop(),
+    });
 
   // Every interviewer segment numbered, marked when an answer got it.
   const segmentNumbering = useMemo(
     () =>
       new Map(
-        numberInterviewerSegments(transcriptionSegments, sentRanges).map((seg) => [
-          seg.id,
-          { n: seg.n, sent: seg.sent },
-        ]),
+        numberInterviewerSegments(transcriptionSegments, sentRanges).map(
+          (seg) => [seg.id, { n: seg.n, sent: seg.sent }],
+        ),
       ),
     [transcriptionSegments, sentRanges],
   );
@@ -286,6 +291,12 @@ export function Assistant({ addInSavedData, isActive = false }: AssistantProps) 
             onScroll={handleTranscriptScroll}
             showLatest={showLatest}
             onJumpToLatest={scrollToLatest}
+          />
+          <TypedQuestionsBox
+            run={typedRun}
+            busy={isLoading}
+            onAnswer={(questions) => void answerTyped(questions)}
+            onStop={() => stop()}
           />
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
