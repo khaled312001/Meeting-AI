@@ -612,9 +612,6 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
   const customBad =
     model === CUSTOM_MODEL && !MODEL_ID_RE.test(customModel.trim());
   const [speakingPass, setSpeakingPass] = React.useState(!!o?.speakingPass);
-  const [speakingName, setSpeakingName] = React.useState(
-    o?.speakingPass ?? d.user.name ?? "",
-  );
   const [saving, setSaving] = React.useState(false);
 
   const parse = (v: string, int = false): number | null => {
@@ -639,8 +636,8 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
             : model === CUSTOM_MODEL
               ? customModel.trim()
               : model,
-        speakingPass:
-          speakingPass && speakingName.trim() ? speakingName.trim() : null,
+        // Any value turns the step on (older rows hold a name there).
+        speakingPass: speakingPass ? o?.speakingPass || "on" : null,
       });
       toast.success("AI settings saved for this user");
       onSaved();
@@ -662,7 +659,6 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
       setModel(INHERIT);
       setCustomModel("");
       setSpeakingPass(false);
-      setSpeakingName(d.user.name ?? "");
       toast.success("Overrides cleared — global defaults apply");
       onSaved();
     } catch (err) {
@@ -720,37 +716,23 @@ function AiTab({ d, onSaved }: { d: UserDetail; onSaved: () => void }) {
       <label className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle px-3 py-2.5">
         <span>
           <span className="block text-[13px] text-text-primary">
-            Speaking pass
+            Speaking step
           </span>
           <span className="block text-xs text-text-tertiary">
-            Before a live answer shows, a fast model reshapes it into short
-            sentences that read aloud on the first try. Every number and name is
-            checked in code; if one changes, the original answer shows. Adds up
-            to 3 seconds, and the answer appears whole instead of word by word.
-            Anthropic only.
+            Before a live answer shows, a fast model makes each line easy to say
+            aloud. It fixes words only: every bullet, sentence, name and number
+            stays, and at most 5 bullets show per answer (6 for a background
+            answer). If it changes the shape or a fact, the original answer
+            shows. Adds up to 3 seconds, and the answer appears whole instead of
+            word by word. Anthropic only.
           </span>
         </span>
         <Switch
           checked={speakingPass}
           onCheckedChange={setSpeakingPass}
-          title="Reshape this user's live answers for reading aloud"
+          title="Fix the words of this user's live answers for reading aloud"
         />
       </label>
-      {speakingPass && (
-        <Field
-          label="Candidate's name in the speaking pass"
-          htmlFor="ump-speak-name"
-          hint="Full name, as the pass should call the person reading the answers"
-        >
-          <Input
-            id="ump-speak-name"
-            value={speakingName}
-            maxLength={80}
-            onChange={(e) => setSpeakingName(e.target.value)}
-            placeholder="First and last name"
-          />
-        </Field>
-      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           label="Max answer length (tokens)"

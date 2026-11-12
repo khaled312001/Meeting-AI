@@ -1,10 +1,10 @@
-/** Holds a live answer back while the speaking pass reshapes it.
+/** Holds a live answer back while the speaking step fixes its words.
  *
  *  The provider writes its SSE frames here instead of to the client. The
  *  question line (the first line of a `questionLine` reply) goes through at
  *  once, so the heading updates while the answer is being written; citation
  *  frames pass through too. The answer itself is kept until the provider
- *  finishes, then the speaking pass runs and the reshaped answer is sent,
+ *  finishes, then the speaking step runs and the screen it gives is sent,
  *  followed by `[DONE]`. */
 
 import { encoder } from "../lib/http";
@@ -16,13 +16,10 @@ const QUESTION_LINE_MAX_CHARS = 400;
 export interface SpeakingHoldOptions {
   out: WritableStreamDefaultWriter<Uint8Array>;
   apiKey: string;
-  /** The candidate's name, as the pass's prompt names them. */
-  name: string;
   /** The reply starts with the question restated on one line. */
   questionLine: boolean;
   /** The question as heard, when the reply has no question line. */
   question: string;
-  shown: string[];
   /** The candidate's files, for the checks made in code. */
   feed?: Feed | null;
   signal?: AbortSignal;
@@ -91,8 +88,9 @@ export function createSpeakingHold(opts: SpeakingHoldOptions) {
     },
   } as unknown as WritableStreamDefaultWriter<Uint8Array>;
 
-  /** The provider is finished: reshape and send the answer. */
-  async function finish(): Promise<SpeakingPassResult | null> {
+  /** The provider is finished: run the speaking step and send the screen.
+   *  Returns the step's result and the question line sent before it. */
+  async function finish(): Promise<{ result: SpeakingPassResult; questionLine: string } | null> {
     if (error !== null) {
       await opts.out.write(frame({ error }));
       return null;
@@ -110,17 +108,16 @@ export function createSpeakingHold(opts: SpeakingHoldOptions) {
     const question = sent > 0 ? cleanQuestion(held.slice(0, sent)) || opts.question : opts.question;
     const result = await (opts.pass ?? runSpeakingPass)({
       apiKey: opts.apiKey,
-      name: opts.name,
       question,
       answer: body,
-      shown: opts.shown,
       feed: opts.feed,
       signal: opts.signal,
     });
-    if (opts.signal?.aborted) return result;
+    const questionLine = held.slice(0, sent).trim();
+    if (opts.signal?.aborted) return { result, questionLine };
     await opts.out.write(frame({ text: lead + result.text }));
     await opts.out.write(encoder.encode("data: [DONE]\n\n"));
-    return result;
+    return { result, questionLine };
   }
 
   return { writer, finish };

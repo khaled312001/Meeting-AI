@@ -1,14 +1,19 @@
-/** The speaking pass: one more fast model call that reshapes a live answer
- *  so it can be read aloud on the first try, before it is shown.
+/** The speaking step: one fast model call that makes each line of a live
+ *  answer easy to say aloud, before it is shown. It changes words only,
+ *  never the shape of the screen.
  *
- *  Two checks in code keep it safe:
- *    - fact guard: the same numbers and names as the main answer, or the
- *      main answer is shown as it is;
- *    - speaking guard: no long, counted, dashed or hanging sentences; if any
- *      are left, the pass runs once more on them and the version with fewer
- *      failures is shown.
- *  The whole step has a time limit; after it the best version so far that
- *  passed the fact guard is shown, or else the main answer. */
+ *  Code around the call keeps it safe:
+ *    - bullet limit: at most 5 bullets per answer (6 for an answer about the
+ *      candidate's background), applied to the draft and to the result;
+ *    - fact guard: the same numbers and names as the draft, or the draft is
+ *      shown;
+ *    - shape guard: no answer lost and no line, bullet or sentence added, or
+ *      the draft is shown;
+ *    - against the candidate's files: a line whose opening phrase was
+ *      swapped gets the files' own opening back, and a label put in front
+ *      of a file line is removed.
+ *  One call, no second run. The whole step has a time limit; after it the
+ *  draft is shown. */
 
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -16,82 +21,223 @@ export const SPEAKING_PASS_MODEL = "claude-haiku-5-5";
 export const SPEAKING_PASS_MAX_TOKENS = 800;
 export const SPEAKING_PASS_DEADLINE_MS = 3000;
 
-/** The pass's system prompt. The candidate's name is filled in per user
- *  (an admin sets it with the speaking pass), so no name is kept here. */
-const SPEAKING_PASS_TEMPLATE = `You reshape interview answers so they can be read aloud live. {{name}} reads each answer from his screen while the interviewer listens. English is his second language. A sentence he cannot say on the first try makes him stop, restart and lose the thread. That costs him more than a missing detail. Your only job is the shape of the sentences. The content stays exactly as it is.
+/** At most this many bullets per answer, or BACKGROUND_BULLETS for an
+ *  answer about the candidate's background. */
+export const MAX_BULLETS = 5;
+export const BACKGROUND_BULLETS = 6;
 
-<input>
-You receive three things in the user message:
-<question> the interviewer's question </question>
-<answer> the answer the main model wrote </answer>
-<shown> the screens already shown in this interview, oldest first </shown>
-</input>
+/** The speaking step's system prompt, as the candidate's developer note
+ *  gives it. It holds no job or company of its own beyond its examples. */
+export const SPEAKING_PASS_SYSTEM = `You are the speaking step of a live interview assistant. The main model has drafted one answer screen. The candidate reads that screen aloud, live, in English, his second language, while the interviewer listens. Your job is to make each line easy to say, while the screen keeps exactly the shape the main model gave it.
+
+<context>
+The answer must sound like one person talking through one thought. When a sentence is cut into pieces and each piece gets its own line, the listener hears a list of loose facts, and the candidate loses the thread while reading. In a real interview on 12 November 2026, splitting short, sound sentences turned every answer into 8 to 11 loose lines. So this step changes words only, never the structure. These rules hold for every employer, every feed and every question.
+</context>
 
 <instructions>
-1. Read the answer one sentence at a time and rewrite only the sentences that break a rule below. Leave every other sentence word for word.
-2. Give each sentence one subject. Say the subject first, then the verb. When the sentence is about his own work, make the subject "I". When a second person or team appears, give them their own sentence: "I own how the model is used. The data science team builds it."
-3. Keep every sentence at 20 words or fewer. Split a long sentence at its natural joint, usually ", and", ", so", ", because" or ", with". Two sentences are the normal result. Every new sentence has its own subject and verb and at least 6 words. Apply this to every sentence, whatever its length: a second subject or a "because" clause becomes its own sentence. Only when the interviewer asked for one sentence, leave that sentence as it is.
-4. Say each list once, with three items at most.
-5. Say the thing itself, never a count of its parts. Never start a line with "The first", "The second" or "The last".
-6. Use plain words he can say at once. Move a phrase that hangs at the end, such as ", end to end" or ", with the team building it", into its own sentence or to the front.
-7. Repair any sentence that is broken, such as a verb with no object or an "it" that could mean two things, using only words already in the answer.
-8. If a bullet says nearly the same thing as a sentence in <shown>, remove that bullet. Do this only while the answer still keeps its opening and at least two bullets.
-9. Keep the language the answer is in. A German answer stays German, with the same rules.
-10. Every sentence must make sense on its own screen line. When a sentence opens with "It", "Its", "They", "Their", "This", "That", "These", "Those" or "There" standing for a thing named in an earlier sentence, put that thing's name in its place, using words already in the answer. A pronoun that points to a name earlier in the same sentence stays.
-11. Remove a label at the front of a line and keep the sentence after it: a topic label such as "For positioning," or "For the packaging,", a part of the question said as a label such as "On the one-date question,", and a story label such as "The task was to" or "The situation was".
-12. Every "the" thing in a bullet or in the close, such as "the limit" or "the slot", must already be named earlier on the screen or in the question. When a line or the close uses one that is not, that line came from another answer: drop it, and end on the last bullet.
-</instructions>
+Keep the shape:
+1. Keep every bullet as one bullet, on its own line, in the same order. A bullet with two sentences stays one bullet with two sentences.
+2. Keep every sentence whole. When a sentence has more than 20 words, shorten it inside the same sentence by removing words that carry no fact. The sentence stays in its own bullet.
+3. Show at most 5 bullets per answer, or 6 for an answer about the candidate's background. When an answer has more, keep its bold title line, its opening line, its first 5 bullets and its bold closing line. A screen that holds two answers, each under its own bold title line, keeps both answers, each with its own limit.
 
-<constraints>
-- Keep every fact exactly: every number, name, employer, product, title, tense and limit. These are true facts about a real person, and one changed word can make him say something false in an interview.
-- Add nothing: no new fact, reason, step, person, number or claim. Remove no fact, except a bullet removed under instruction 8 or a line dropped under instruction 12.
-- Keep the screen format: the bold first line, the opening sentence, the bullets starting with "- ", the bold close, and figures in bold such as **70%**.
-- Write no "I would", no em dash or en dash, and no colon or semicolon inside a sentence.
-- When the answer already follows every rule, return it unchanged.
-</constraints>
+Fix words only:
+4. Replace a word that is hard to say aloud with the everyday word, keeping the meaning.
+5. When a sentence opens with "It", "Its", "They", "Their", "This", "That", "These", "Those" or "There" and points to something in another line, put the name of that thing in its place. A pronoun that points to a name inside its own sentence stays.
+6. When a line opens with a label, such as "Task:", "The situation was", "Result:" or a part of the question such as "On the one-date question,", remove the label and keep the sentence after it.
+7. When the draft changed the opening phrase of a line taken from the feed, and the change moves the fact to another project or time, put the feed's own opening phrase back.
+8. Keep every name exactly as the draft writes it: products, companies, systems, places and people. A name is never replaced with a description.
+9. When a line or a close came from another answer and names a "the" thing that is neither on this screen nor in the question, drop that line. For a dropped close, the screen ends on its last bullet.
+
+Keep the facts:
+10. Every number, name, tense and employer stays as the draft has it. No fact is added.
+</instructions>
 
 <examples>
 <example>
-<answer>**What I decide alone**
-At UBS, as deputy product owner, three decisions are mine alone, and two kinds go up for approval.
-- The first alone is each release, because I chair the change forum.
-- The second is the AI model, where the data science team builds the models. Their use, thresholds and sign-off are mine.</answer>
-<reshaped>**What I decide alone**
-At UBS, I approve every release on my own, because I chair the change forum.
-- I also own how the AI model is used, its thresholds and its sign-off.
-- The data science team builds the model.</reshaped>
+<draft>- That launch puts Sentinel where security and AI meet, which is close to my own work.</draft>
+<wrong>- That launch puts Thales's licensing platform where security and AI meet.
+- That is close to my own work.</wrong>
+<right>- That launch puts Sentinel where security and AI meet, which is close to my own work.</right>
+<why>Under 20 words, so nothing changes. The name stays, and no line is added.</why>
 </example>
 <example>
-<answer>- On the platform itself, the bank's own development team built, and it reported into my programme.</answer>
-<reshaped>- The bank's own development team built the platform. That team reported into my programme.</reshaped>
+<draft>- In the Credit Suisse migration, I moved about 400,000 debit card customers across four phases.</draft>
+<wrong>- In the Credit Suisse migration, I moved about 400,000 debit card customers to UBS.
+- I did this in 4 phases.</wrong>
+<right>- In the Credit Suisse migration, I moved about 400,000 debit card customers across four phases.</right>
+<why>A split leaves a short line with no fact of its own.</why>
 </example>
 <example>
-<answer>- My part was writing its requirements and leading it to release, with the bank's own development team building it.</answer>
-<reshaped>- I wrote its requirements and led it to release. The bank's own development team built it.</reshaped>
+<draft>- At UBS, I was the one who actually wrote the documentation for my dispute platform completely from scratch, covering the business requirements and the rules.</draft>
+<right>- At UBS, I wrote the documentation for my dispute platform from scratch, covering the business requirements and the rules.</right>
+<why>Over 20 words, so it is shortened inside the same sentence and stays one bullet.</why>
 </example>
 <example>
-<answer>At UBS I own an AI platform for the bank's fraud and dispute specialists, end to end. It brings the evidence on each case into one view, recommends an outcome and drafts the replies, and a specialist signs every decision.</answer>
-<reshaped>At UBS I own the whole AI platform for the bank's fraud and dispute specialists. The platform brings the evidence on each case into one view, recommends an outcome and drafts the replies. A specialist signs every decision.</reshaped>
-</example>
-<example>
-<answer>**What my team says about me**
-My team would say I give them real decisions, and I back them.
-- Every week I go through the numbers with each team lead, and I coach there.</answer>
-<reshaped>**What my team says about me**
-My team would say I give them real decisions, and I back them.
-- Every week I go through the numbers with each team lead, and I coach there.</reshaped>
-<note>Already clean, so it is returned unchanged.</note>
+<draft>A screen with an opening and 8 bullets.</draft>
+<right>The title line, the opening, bullets 1 to 5 and the close.</right>
+<why>The limit is 5 bullets, 6 only for the background answer.</why>
 </example>
 </examples>
 
 <output_format>
-Return only the reshaped answer, in the same screen format, with no tags, notes or comments.
+Return the screen in the same format as the draft: the bold title line, the opening line, bullets starting with "- ", and the bold closing line when there is one. Return nothing else.
 </output_format>
 
-Before you return, check that every number and name from the answer is still there, that no sentence is over 20 words, and that each sentence has one subject.`;
+Before returning, check: every answer on the screen is still there, the number of bullets in each answer is the same or fewer and never above the limit, no line was added, no sentence has more than 20 words, every name and every number in the draft is still there, and no line is only a few words with no fact.`;
 
-export function speakingPassSystem(name: string): string {
-  return SPEAKING_PASS_TEMPLATE.replace("{{name}}", name.trim() || "The candidate");
+// ── Reading a screen ────────────────────────────────────────────────────
+
+const BOLD_LINE_RE = /^\s*\*\*[^*\n]+\*\*[.!?]?\s*$/;
+/** A bullet line ("**Title**" is not one: no space after its first "*"). */
+const BULLET_RE = /^\s*[-•*]\s+/;
+const PART_LINE_RE = /^\s*\[\d+\/\d+[^\]]*\]\s*$/;
+
+function wordCount(sentence: string): number {
+  // Every letter counts, so German words with umlauts count as one word.
+  return (sentence.match(/[\p{L}0-9%']+/gu) ?? []).length;
+}
+
+/** Sentences split at . ? ! (and at line ends, which end a screen line),
+ *  with the ** bold markers stripped. */
+export function sentences(text: string): string[] {
+  return text
+    .replace(/\*\*/g, "")
+    .split("\n")
+    .flatMap((line) => line.split(/(?<=[.?!])\s+/))
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** One answer on the screen: its lines, with which ones are the title, the
+ *  bullets and the close. */
+interface Answer {
+  lines: string[];
+  title: string | null;
+}
+
+/** The screen cut into its answers. A bold line followed by a line that is
+ *  not bold is an answer's title; a bold line followed by nothing or by
+ *  another bold line is a close. */
+export function splitAnswers(text: string): Answer[] {
+  const lines = text.split("\n");
+  const nextFilled = (i: number) => {
+    for (let j = i + 1; j < lines.length; j++) if (lines[j].trim()) return lines[j];
+    return null;
+  };
+  const answers: Answer[] = [];
+  let current: Answer = { lines: [], title: null };
+  lines.forEach((line, i) => {
+    const next = nextFilled(i);
+    const isTitle = BOLD_LINE_RE.test(line) && next !== null && !BOLD_LINE_RE.test(next);
+    if (isTitle && current.lines.some((l) => l.trim())) {
+      answers.push(current);
+      current = { lines: [], title: null };
+    }
+    if (isTitle && current.title === null) current.title = line;
+    current.lines.push(line);
+  });
+  answers.push(current);
+  return answers;
+}
+
+const BACKGROUND_RE =
+  /\b(?:about (?:yourself|you|me)|introduce yourself|(?:your|my) background|who (?:you are|I am)|walk (?:me|us) through your (?:background|cv|resume|résumé|career|experience|profile)|your (?:career|professional) (?:story|journey|path)|über sich|vorstellen)\b/i;
+
+/** An answer about the candidate's background may show one bullet more. */
+function bulletLimit(answer: Answer, question: string, onlyAnswer: boolean): number {
+  if (answer.title && BACKGROUND_RE.test(answer.title.replace(/\*\*/g, ""))) return BACKGROUND_BULLETS;
+  if (onlyAnswer && BACKGROUND_RE.test(question)) return BACKGROUND_BULLETS;
+  return MAX_BULLETS;
+}
+
+/** Each answer kept to its bullet limit: its title, its opening, its first
+ *  bullets and its close. A part line left with nothing under it goes too. */
+export function limitBullets(text: string, question = ""): { text: string; dropped: number } {
+  const answers = splitAnswers(text);
+  let dropped = 0;
+  const out = answers.map((answer) => {
+    const limit = bulletLimit(answer, question, answers.length === 1);
+    const lines = answer.lines;
+    const closeAt = (() => {
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (!lines[i].trim()) continue;
+        return BOLD_LINE_RE.test(lines[i]) && lines[i] !== answer.title ? i : -1;
+      }
+      return -1;
+    })();
+    let bullets = 0;
+    let cut = false;
+    const kept: string[] = [];
+    lines.forEach((line, i) => {
+      if (i === closeAt || (!line.trim() && i > closeAt && closeAt >= 0)) {
+        kept.push(line);
+        return;
+      }
+      if (cut) {
+        if (line.trim()) dropped++;
+        return;
+      }
+      if (BULLET_RE.test(line)) {
+        if (bullets === limit) {
+          cut = true;
+          dropped++;
+          return;
+        }
+        bullets++;
+      }
+      kept.push(line);
+    });
+    // A part line with no bullet or text left under it.
+    const close = closeAt >= 0 ? lines[closeAt] : null;
+    const tidy = kept.filter((line, i) => {
+      if (!PART_LINE_RE.test(line)) return true;
+      const after = kept.slice(i + 1).find((l) => l.trim());
+      return after !== undefined && !PART_LINE_RE.test(after) && after !== close;
+    });
+    dropped += kept.length - tidy.length;
+    // No blank lines piled up where bullets were cut.
+    return tidy.join("\n").replace(/\n{3,}/g, "\n\n");
+  });
+  return { text: out.join("\n"), dropped };
+}
+
+// ── Checks on what is shown (for the log) ──────────────────────────────
+
+/** A sentence that opens with a pronoun standing for something said before
+ *  it: "It…", "They…", "That is…", "Those are…". "That launch…" names its
+ *  thing, and "There is…" says nothing back, so they pass. */
+const PRONOUN_OPEN_RE =
+  /^(?:[-•*]\s+)?(?:(?:It|Its|They|Their)\b|(?:This|That|These|Those) (?:is|are|was|were|has|have|had|means|meant|makes|made|gives|gave|keeps|kept)\b|There\b(?!\s+(?:is|are|was|were|will|has|have|had)\b|['’]s\b))/;
+
+export interface ScreenChecks {
+  /** The most bullets in one answer. */
+  maxBullets: number;
+  /** Sentences of more than 20 words. */
+  longSentences: number;
+  /** Lines of under 5 words that are not a title, close or part line. */
+  shortLines: number;
+  /** Sentences after the first that open with a pronoun pointing back. */
+  pronounOpenings: number;
+}
+
+/** What the candidate's checks count on a screen. */
+export function screenChecks(text: string): ScreenChecks {
+  const answers = splitAnswers(text);
+  const maxBullets = Math.max(0, ...answers.map((a) => a.lines.filter((l) => BULLET_RE.test(l)).length));
+  let longSentences = 0;
+  let shortLines = 0;
+  let pronounOpenings = 0;
+  let before = 0;
+  for (const line of text.split("\n")) {
+    if (!line.trim() || BOLD_LINE_RE.test(line) || PART_LINE_RE.test(line)) continue;
+    if (wordCount(line) < 5) shortLines++;
+    for (const s of sentences(line)) {
+      if (wordCount(s) > 20) longSentences++;
+      if (before > 0 && PRONOUN_OPEN_RE.test(s)) pronounOpenings++;
+      before++;
+    }
+  }
+  return { maxBullets, longSentences, shortLines, pronounOpenings };
 }
 
 // ── Fact guard ─────────────────────────────────────────────────────────
@@ -141,96 +287,40 @@ export function passesFactGuard(main: string, pass: string): boolean {
   return true;
 }
 
-// ── Speaking guard ─────────────────────────────────────────────────────
+// ── Shape guard ────────────────────────────────────────────────────────
 
-const COUNTED_RE =
-  /\b(two|three|four|five) (decisions|kinds|ways|things|checks|parts|points|reasons|steps|levels)\b/i;
-/** A sentence that opens with an ordinal, at the start of a line or not,
- *  with or without a bullet or "The". */
-const ORDINAL_LINE_RE = /^(?:[-•*]\s+)?(?:the\s+)?(first|second|third|fourth|then|finally|last)\b/i;
-const MY_PART_RE = /\bMy (part|task|role|job) (was|is)\b/;
-const HANGING_RE = /, with ([^,]*)$/;
-const DASH_RE = /[–—]/;
-
-/** Sentences split at . ? ! (and at line ends, which end a screen line),
- *  with the ** bold markers stripped. */
-export function sentences(text: string): string[] {
-  return text
-    .replace(/\*\*/g, "")
-    .split("\n")
-    .flatMap((line) => line.split(/(?<=[.?!])\s+/))
-    .map((s) => s.trim())
-    .filter(Boolean);
+/** True when the pass kept the draft's shape: every answer still there, and
+ *  no line, bullet or sentence added. (Fewer is allowed: a borrowed line
+ *  may be dropped.) */
+export function keepsShape(draft: string, pass: string): boolean {
+  const filled = (t: string) => t.split("\n").filter((l) => l.trim()).length;
+  const bullets = (t: string) => t.split("\n").filter((l) => BULLET_RE.test(l)).length;
+  const titles = (t: string) => splitAnswers(t).filter((a) => a.title).length;
+  return (
+    titles(pass) === titles(draft) &&
+    filled(pass) <= filled(draft) &&
+    bullets(pass) <= bullets(draft) &&
+    sentences(pass).length <= sentences(draft).length
+  );
 }
 
-function wordCount(sentence: string): number {
-  // The note's [A-Za-z0-9%']+, widened to every letter so German words
-  // with umlauts count as one word.
-  return (sentence.match(/[\p{L}0-9%']+/gu) ?? []).length;
-}
-
-/** The interviewer asked for the answer in one sentence: that sentence may
- *  be long, and it is not split. */
-export function asksOneSentence(question: string): boolean {
-  return /\b(?:one|a single|single|1)\s+sentence\b|\bin a sentence\b/i.test(question);
-}
-
-/** A sentence that opens with a pronoun, which stands for something said
- *  before it ("There is…" / "There are…" say nothing back, so they pass). */
-const PRONOUN_OPEN_RE =
-  /^(?:[-•*]\s+)?(?:(?:It|Its|They|Their|This|That|These|Those)\b|There\b(?!\s+(?:is|are|was|were|will|has|have|had)\b|['’]s\b))/;
-/** A story label said aloud: "The task was to…", "The situation was…". */
-const STORY_LABEL_RE =
-  /^(?:[-•*]\s+)?The (task|situation|challenge|context|background|goal) (was|is)\b/i;
-
-const BOLD_LINE_RE = /^\s*\*\*[^*]+\*\*\s*$/;
-
-/** Each sentence that breaks a speaking rule, once per rule it breaks. */
-export function speakingFailures(text: string, opts: { oneSentence?: boolean } = {}): string[] {
-  const out: string[] = [];
-  let before = 0; // sentences already on the screen, the title not counted
-  for (const line of text.split("\n")) {
-    if (before === 0 && BOLD_LINE_RE.test(line)) continue; // the title
-    for (const s of sentences(line)) {
-      const bare = s.replace(/[.?!]+$/, "");
-      if (!opts.oneSentence && wordCount(s) > 20) out.push(s);
-      if (COUNTED_RE.test(s)) out.push(s);
-      if (ORDINAL_LINE_RE.test(s)) out.push(s);
-      if (MY_PART_RE.test(s)) out.push(s);
-      const hang = HANGING_RE.exec(bare);
-      if (hang && /\p{L}+ing\b/u.test(hang[1])) out.push(s);
-      if (DASH_RE.test(s)) out.push(s);
-      if (before > 0 && PRONOUN_OPEN_RE.test(s)) out.push(s);
-      if (STORY_LABEL_RE.test(s)) out.push(s);
-      before++;
-    }
-  }
-  return out;
-}
-
-// ── Tidy in code, against the candidate's files ────────────────────────
-// Two things the models keep doing that code can see once it has the files
-// the answer is written from (the "feed"):
-//   - two feed lines joined into one sentence with ", and" / ", because"…:
-//     split back into the two lines;
-//   - a "so" / "because" / "which" clause added at the end of a sentence
-//     whose words are nowhere in the files: removed.
+// ── Against the candidate's files ──────────────────────────────────────
+// Two word fixes that code can make once it has the files the answer is
+// written from (the "feed"):
 //   - the opening phrase of a feed line swapped for another ("For my
 //     self-service launch," for "When the operation moved onto the
 //     platform,"): the feed's own opening is put back;
 //   - a label put in front of a feed line ("For positioning,"): removed.
-// Plus two rules that need no files: a sentence opening with "First",
-// "Then" or "Finally" before its subject loses that word, and "The
-// situation was that" before a sentence is removed.
+// And one that needs no files: "The situation was that" before a whole
+// sentence is removed.
 
 /** The candidate's files, folded for matching. */
 export interface Feed {
-  norm: string;
   /** Every sentence of the files, as written and folded. */
   sentences: Array<{ raw: string; fold: string }>;
 }
 
-/** A feed under this many folded characters is too small to judge by. */
+/** A feed under this many characters is too small to judge by. */
 const MIN_FEED_CHARS = 300;
 
 function fold(text: string): string {
@@ -244,41 +334,20 @@ function fold(text: string): string {
 
 export function buildFeed(texts: Array<string | null | undefined>): Feed | null {
   const all = texts.filter(Boolean).join("\n");
-  const norm = fold(all);
-  if (norm.length < MIN_FEED_CHARS) return null;
-  const sentences = all
+  if (fold(all).length < MIN_FEED_CHARS) return null;
+  const feedSentences = all
     .split("\n")
     .map((line) => line.replace(/\*\*/g, "").replace(/^\s*(?:[-•*>]|\d+[.)])\s+/, ""))
     .flatMap((line) => line.split(/(?<=[.?!])\s+/))
     .map((raw) => raw.trim().replace(/[.?!]+$/, ""))
     .filter((raw) => wordCount(raw) >= 5)
     .map((raw) => ({ raw, fold: fold(raw) }));
-  return { norm: ` ${norm} `, sentences };
-}
-
-function inFeed(feed: Feed, text: string): boolean {
-  const f = fold(text);
-  return !!f && feed.norm.includes(` ${f} `);
-}
-
-/** True when no run of four words of `text` is in the files. */
-function newToFeed(feed: Feed, text: string): boolean {
-  const words = fold(text).split(" ").filter(Boolean);
-  if (words.length < 4) return false;
-  for (let i = 0; i + 4 <= words.length; i++) {
-    if (feed.norm.includes(` ${words.slice(i, i + 4).join(" ")} `)) return false;
-  }
-  return true;
+  return { sentences: feedSentences };
 }
 
 /** Words a sentence can start with as its subject. */
 const SUBJECT_START =
   /^(?:I|we|he|she|they|it|my|our|his|her|their|its|the|a|an|this|that|these|those|each|every|one|two|three|four|five|here|there|no|all|most|some|\p{Lu}[\p{L}\p{N}'’&.-]*)\b/u;
-const JOINT_RE = /,\s+(and|because|so|but)\s+/gi;
-const ADDED_CLAUSE_RE = /^(.*\S),\s+(so|because|which)\s+([^,]+)$/i;
-const ORDINAL_WORD_RE =
-  /^(First|Second|Third|Then|Finally|Lastly),?\s+(?=(?:I|we|my|our|the|a|an|this|that|it|they|each|every)\b)/i;
-
 /** An opening that is only a label for what follows. */
 const LABEL_RE = /^(?:for|on|about|regarding|as for|as to|in terms of|when it comes to)\s/i;
 /** "The situation was that …": the sentence after it stands alone. */
@@ -321,88 +390,53 @@ function feedOpening(feed: Feed, body: string): string | null {
   if (!ownFold) return LABEL_RE.test(opening) ? capitalise(rest) : null;
   return `${capitalise(own)}, ${rest}`;
 }
-const evenBold = (s: string) => (s.match(/\*\*/g)?.length ?? 0) % 2 === 0;
 
-/** One sentence, tidied. `changed` counts the changes made. */
-function tidySentence(
-  sentence: string,
-  feed: Feed | null,
-  oneSentence: boolean,
-  changed: { n: number },
-): string {
+/** One sentence with its words fixed. `changed` counts the fixes. */
+function tidySentence(sentence: string, feed: Feed | null, changed: { n: number }): string {
   const end = /[.?!]+$/.exec(sentence)?.[0] ?? "";
   let body = sentence.slice(0, sentence.length - end.length);
-
-  const ordinal = ORDINAL_WORD_RE.exec(body);
-  if (ordinal && wordCount(body.slice(ordinal[0].length)) >= 3) {
-    body = capitalise(body.slice(ordinal[0].length));
-    changed.n++;
-  }
   const story = STORY_THAT_RE.exec(body);
   const told = story ? body.slice(story[0].length) : "";
   if (story && SUBJECT_START.test(told) && wordCount(told) >= 4) {
     body = capitalise(told);
     changed.n++;
   }
-  if (!feed) return body + end;
-
-  const opened = feedOpening(feed, body);
+  const opened = feed ? feedOpening(feed, body) : null;
   if (opened !== null) {
     body = opened;
     changed.n++;
   }
-
-  const added = ADDED_CLAUSE_RE.exec(body);
-  if (added && wordCount(added[1]) >= 5 && evenBold(added[1]) && newToFeed(feed, added[3])) {
-    body = added[1];
-    changed.n++;
-  }
-
-  if (!oneSentence && !inFeed(feed, body)) {
-    for (const m of body.matchAll(JOINT_RE)) {
-      const a = body.slice(0, m.index);
-      const b = body.slice((m.index ?? 0) + m[0].length);
-      if (wordCount(a) < 5 || wordCount(b) < 5 || !evenBold(a)) continue;
-      if (!SUBJECT_START.test(b) || !inFeed(feed, a) || !inFeed(feed, b)) continue;
-      changed.n++;
-      return `${a}. ${tidySentence(capitalise(b) + (end || "."), feed, oneSentence, changed)}`;
-    }
-  }
   return body + end;
 }
 
-/** The answer with joined feed lines split, added clauses removed and
- *  ordinal openings dropped. Bold lines (title, close) and part lines are
- *  left as they are. */
-export function tidyForSpeaking(
-  text: string,
-  opts: { feed?: Feed | null; oneSentence?: boolean } = {},
-): { text: string; changed: number } {
+/** The screen with the word fixes made in code. Every line and sentence
+ *  stays where it is; bold lines (title, close) and part lines are left
+ *  as they are. */
+export function tidyForSpeaking(text: string, opts: { feed?: Feed | null } = {}): { text: string; changed: number } {
   const changed = { n: 0 };
   const lines = text.split("\n").map((line) => {
-    if (/^\s*\*\*[^*]+\*\*\s*$/.test(line) || /^\s*\[\d+\/\d+[^\]]*\]\s*$/.test(line)) return line;
+    if (BOLD_LINE_RE.test(line) || PART_LINE_RE.test(line)) return line;
     const lead = /^\s*(?:[-•*]\s+)?/.exec(line)?.[0] ?? "";
     const body = line.slice(lead.length);
     if (!body.trim()) return line;
-    const tidied = body
-      .split(/(?<=[.?!])\s+/)
-      .map((s) => tidySentence(s, opts.feed ?? null, !!opts.oneSentence, changed))
-      .join(" ");
-    return lead + tidied;
+    return (
+      lead +
+      body
+        .split(/(?<=[.?!])(\s+)/)
+        .map((part) => (/^\s+$/.test(part) ? part : tidySentence(part, opts.feed ?? null, changed)))
+        .join("")
+    );
   });
   return { text: lines.join("\n"), changed: changed.n };
 }
 
-// ── The pass ───────────────────────────────────────────────────────────
+// ── The step ───────────────────────────────────────────────────────────
 
 export interface SpeakingPassInput {
   apiKey: string;
-  /** The candidate's name, as the prompt names them. */
-  name: string;
   question: string;
+  /** The main model's draft of the screen. */
   answer: string;
-  /** Screens already shown in this interview, oldest first. */
-  shown: string[];
   /** The candidate's files the answer is written from (see buildFeed). */
   feed?: Feed | null;
   signal?: AbortSignal;
@@ -413,38 +447,32 @@ export interface SpeakingPassInput {
 }
 
 export interface SpeakingPassResult {
+  /** The screen to show. */
   text: string;
-  /** main = the main answer as it was; pass = first pass; retry = second. */
-  source: "main" | "pass" | "retry";
+  /** main = the draft (with the code fixes); pass = the speaking step. */
+  source: "main" | "pass";
   reason: string;
   ms: number;
   /** The step finished before its time limit. */
   inTime: boolean;
-  /** The fact guard on the first pass; "none" when no pass came back. */
+  /** The guards on the step's reply; "none" when no reply came back. */
   factGuard: "pass" | "fail" | "none";
-  /** Speaking-guard failures in the first pass, and in the text shown. */
-  failsFirst: number | null;
-  failsShown: number;
-  /** Sentences changed in code (split, clause removed, ordinal dropped). */
+  shapeGuard: "pass" | "fail" | "none";
+  /** Word fixes made in code (opening put back, label removed). */
   tidied: number;
+  /** Bullets (and their part lines) cut by the limit. */
+  bulletsDropped: number;
+  /** The candidate's checks, counted on the screen shown. */
+  checks: ScreenChecks;
+  /** The three versions, for the log: the main model's draft as it came,
+   *  the speaking step's reply as it came (null when none), and the
+   *  screen shown. */
+  draft: string;
+  passReply: string | null;
 }
 
-function userMessage(question: string, answer: string, shown: string[], failing?: string[]): string {
-  const parts = [
-    `<question>${question}</question>`,
-    `<answer>${answer}</answer>`,
-    `<shown>${shown.join("\n\n")}</shown>`,
-  ];
-  if (failing?.length) {
-    parts.push(
-      `These sentences still break the rules. Reshape them, and keep everything else as it is:\n${[
-        ...new Set(failing),
-      ]
-        .map((s) => `- ${s}`)
-        .join("\n")}`,
-    );
-  }
-  return parts.join("\n\n");
+function userMessage(question: string, draft: string): string {
+  return `<question>${question}</question>\n\n<draft>${draft}</draft>`;
 }
 
 function anthropicCall(apiKey: string, model: string) {
@@ -464,7 +492,7 @@ function anthropicCall(apiKey: string, model: string) {
       { signal },
     );
     if (msg.stop_reason === "max_tokens" || msg.stop_reason === "refusal") {
-      throw new Error(`speaking pass stopped: ${msg.stop_reason}`);
+      throw new Error(`speaking step stopped: ${msg.stop_reason}`);
     }
     return msg.content
       .map((b) => (b.type === "text" ? b.text : ""))
@@ -484,82 +512,71 @@ function anySignal(signals: AbortSignal[]): AbortSignal {
   return c.signal;
 }
 
-/** Reshape a live answer for speaking. Never throws: on any failure or
- *  timeout the best safe version is returned (at worst the main answer). */
+/** Run the speaking step on a live answer. Never throws: on any failure or
+ *  timeout the draft is shown, with the bullet limit and the code fixes. */
 export async function runSpeakingPass(input: SpeakingPassInput): Promise<SpeakingPassResult> {
   const started = Date.now();
   const deadline = new AbortController();
   const timer = setTimeout(
-    () => deadline.abort(new Error("speaking pass deadline")),
+    () => deadline.abort(new Error("speaking step deadline")),
     input.deadlineMs ?? SPEAKING_PASS_DEADLINE_MS,
   );
   const signal = anySignal(input.signal ? [deadline.signal, input.signal] : [deadline.signal]);
   const call = input.call ?? anthropicCall(input.apiKey, input.model ?? SPEAKING_PASS_MODEL);
-  const system = speakingPassSystem(input.name);
-  const oneSentence = asksOneSentence(input.question);
-  const tidy = (text: string) => tidyForSpeaking(text, { feed: input.feed, oneSentence });
-  const fails = (text: string) => speakingFailures(text, { oneSentence });
+
+  // The draft, kept to the bullet limit and with the code fixes: what the
+  // step works on, what its reply is checked against, and what is shown
+  // when the step fails.
+  const limited = limitBullets(input.answer, input.question);
+  const fixed = tidyForSpeaking(limited.text, { feed: input.feed });
+  const draft = fixed.text;
+
   let factGuard: SpeakingPassResult["factGuard"] = "none";
-  let failsFirst: number | null = null;
-  // The main answer is tidied before the pass sees it, so a clause the main
-  // model added is gone before the pass can turn it into a sentence of its
-  // own. Until a pass passes the fact guard, this is the one to show.
-  const tidyMain = tidy(input.answer);
-  const main = tidyMain.text;
-  let best = { text: main, source: "main" as SpeakingPassResult["source"], changed: tidyMain.changed };
-  const done = (r: { text: string; source: SpeakingPassResult["source"]; reason: string; changed: number }) => {
+  let shapeGuard: SpeakingPassResult["shapeGuard"] = "none";
+  let passReply: string | null = null;
+  const done = (text: string, source: SpeakingPassResult["source"], reason: string, tidied: number, dropped: number) => {
     clearTimeout(timer);
     return {
-      text: r.text,
-      source: r.source,
-      reason: r.reason,
+      text,
+      source,
+      reason,
       ms: Date.now() - started,
       inTime: !deadline.signal.aborted,
       factGuard,
-      failsFirst,
-      failsShown: fails(r.text).length,
-      tidied: r.changed,
+      shapeGuard,
+      tidied,
+      bulletsDropped: dropped,
+      checks: screenChecks(text),
+      draft: input.answer,
+      passReply,
     } satisfies SpeakingPassResult;
   };
-  // A deadline that fires mid-call rejects at once, not when the call ends.
-  const raced = <T>(p: Promise<T>) =>
-    Promise.race([
-      p,
+  const showDraft = (reason: string) => done(draft, "main", reason, fixed.changed, limited.dropped);
+
+  try {
+    const reply = await Promise.race([
+      call(SPEAKING_PASS_SYSTEM, userMessage(input.question, draft), signal),
       new Promise<never>((_, reject) => {
+        // A deadline that fires mid-call rejects at once, not when the call ends.
         if (signal.aborted) reject(signal.reason);
         signal.addEventListener("abort", () => reject(signal.reason), { once: true });
       }),
     ]);
-
-  try {
-    const raw1 = await raced(call(system, userMessage(input.question, main, input.shown), signal));
-    if (!passesFactGuard(main, raw1)) {
-      factGuard = "fail";
-      return done({ ...best, reason: "fact guard" });
-    }
-    factGuard = "pass";
-    const first = tidy(raw1);
-    const firstFails = fails(first.text);
-    failsFirst = firstFails.length;
-    best = { text: first.text, source: "pass", changed: tidyMain.changed + first.changed };
-    if (!firstFails.length) return done({ ...best, reason: "clean" });
-
-    const raw2 = await raced(
-      call(system, userMessage(input.question, first.text, input.shown, firstFails), signal),
+    passReply = reply;
+    factGuard = passesFactGuard(draft, reply) ? "pass" : "fail";
+    shapeGuard = keepsShape(draft, reply) ? "pass" : "fail";
+    if (factGuard === "fail") return showDraft("fact guard");
+    if (shapeGuard === "fail") return showDraft("shape guard");
+    // The limit and the code fixes again, on the step's reply.
+    const limitedReply = limitBullets(reply, input.question);
+    const fixedReply = tidyForSpeaking(limitedReply.text, { feed: input.feed });
+    return done(
+      fixedReply.text,
+      "pass",
+      "ok",
+      fixed.changed + fixedReply.changed,
+      limited.dropped + limitedReply.dropped,
     );
-    if (!passesFactGuard(main, raw2)) {
-      return done({ ...best, reason: "retry failed the fact guard" });
-    }
-    const second = tidy(raw2);
-    const secondFails = fails(second.text);
-    return secondFails.length < firstFails.length
-      ? done({
-          text: second.text,
-          source: "retry",
-          changed: tidyMain.changed + second.changed,
-          reason: `${secondFails.length} left (was ${firstFails.length})`,
-        })
-      : done({ ...best, reason: `retry not better (${secondFails.length} vs ${firstFails.length})` });
   } catch (err) {
     const why = deadline.signal.aborted
       ? "deadline"
@@ -568,6 +585,6 @@ export async function runSpeakingPass(input: SpeakingPassInput): Promise<Speakin
         : err instanceof Error
           ? err.message.slice(0, 120)
           : "error";
-    return done({ ...best, reason: why });
+    return showDraft(why);
   }
 }

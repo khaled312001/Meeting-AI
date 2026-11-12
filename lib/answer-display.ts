@@ -1,24 +1,24 @@
 "use client";
 
-/** How live answers are shown: one sentence per line, in a size the user
- *  picks, so the candidate can read the next sentence at a glance while
- *  the rest is still being written. */
+/** How live answers are shown: each line as the model wrote it, in a size
+ *  the user picks. A bullet stays one line even when it holds two
+ *  sentences; sentences are never put on lines of their own. */
 
 import { useCallback, useEffect, useState } from "react";
 
-/** A sentence end followed by the next sentence; common abbreviations
- *  ("e.g.", "Dr.") and numbers ("2.5") don't end a sentence. */
-const SENTENCE_END_RE =
-  /(?<!\b(?:e\.g|i\.e|etc|vs|approx|Mr|Mrs|Ms|Dr|Prof|St|Inc|Ltd|bzw|ca|z\.B|d\.h))([.!?؟…])["'”’»)]*[ \t]+(?=\S)/g;
-
 /** A line all in bold (the closing line) right after a bullet: Markdown
  *  would fold it into that bullet. */
-const BOLD_LINE_AFTER_BULLET_RE = /^([ \t]*[-*•][ \t].*)\n([ \t]*\*\*[^*\n]+\*\*[ \t]*)$/gm;
+const BOLD_LINE_AFTER_BULLET_RE =
+  /^([ \t]*[-*•][ \t].*)\n([ \t]*\*\*[^*\n]+\*\*[ \t]*)$/gm;
 
-/** The answer text with each sentence on its own line (a Markdown line
- *  break), and a bold closing line kept apart from the last bullet. Code
- *  blocks stay as they are. */
-export function sentenceLines(reply: string): string {
+/** A line end between two written lines. */
+const LINE_END_RE = /([^\n])[ \t]*\n(?=[^\n])/g;
+
+/** The answer text with each written line on a line of its own (a Markdown
+ *  line break, so the title and the opening don't run together), and a
+ *  bold closing line kept apart from the last bullet. Code blocks stay as
+ *  they are. */
+export function answerLines(reply: string): string {
   // Odd parts are fenced code blocks.
   return reply
     .split(/(```[\s\S]*?(?:```|$))/)
@@ -27,7 +27,7 @@ export function sentenceLines(reply: string): string {
         ? part
         : part
             .replace(BOLD_LINE_AFTER_BULLET_RE, "$1\n\n$2")
-            .replace(SENTENCE_END_RE, (m) => `${m.trimEnd()}  \n`),
+            .replace(LINE_END_RE, "$1  \n"),
     )
     .join("");
 }
@@ -38,7 +38,10 @@ const SIZE_KEY = "meeting-ai-answer-text-size";
 const SIZES: AnswerTextSize[] = ["normal", "large", "larger"];
 
 /** Font size in px per surface and size. */
-export const ANSWER_FONT_PX: Record<"compact" | "full", Record<AnswerTextSize, number>> = {
+export const ANSWER_FONT_PX: Record<
+  "compact" | "full",
+  Record<AnswerTextSize, number>
+> = {
   compact: { normal: 14.5, large: 17, larger: 20 },
   full: { normal: 15, large: 18, larger: 21 },
 };

@@ -388,9 +388,9 @@ export async function handleCompletion(
     rulesFromFiles,
   );
 
-  // Speaking pass (set per user by an admin): a live answer to a heard
-  // question is held back and reshaped for reading aloud before it shows.
-  // Screenshot answers (code) and typed chats are left as they are.
+  // Speaking step (set per user by an admin): a live answer to a heard
+  // question is held back and its words fixed for reading aloud before it
+  // shows. Screenshot answers (code) and typed chats are left as they are.
   const speakingSkip = !modelParams.speakingPass || payload.flag !== FLAGS.ASSISTANT
     ? null
     : !useAnthropic
@@ -402,18 +402,27 @@ export async function handleCompletion(
           : totalImages > 0
             ? "screenshot answer"
             : "";
-  if (speakingSkip) console.log("[speaking-pass]", JSON.stringify({ ran: false, why: speakingSkip }));
+  // Which files went to the model, whole (nothing is cut): their names
+  // carry the version, so the log shows which upload was used.
+  const filesSent = [
+    ...instructions.map((d) => ({ role: "instructions", name: d.fileName, chars: d.content.length })),
+    ...material.map((d) => ({ role: "material", name: d.fileName, chars: d.content.length })),
+  ];
+  if (speakingSkip) {
+    console.log(
+      "[speaking-pass]",
+      JSON.stringify({ ran: false, why: speakingSkip, user: trackedUser.id, model: anthropicModel, files: filesSent }),
+    );
+  }
   const speakingHold =
     speakingSkip === ""
       ? createSpeakingHold({
           out: trackingWriter,
           apiKey: cfg.anthropicKey,
-          name: modelParams.speakingPass!,
           questionLine: payload.questionLine === true,
           question: (payload.question ?? basePrompt).trim(),
-          shown: payload.previousAnswers ?? [],
-          // The files the answer is written from, to check joined lines and
-          // added clauses against.
+          // The files the answer is written from, to put a line's own
+          // opening back and to spot a label in front of a file line.
           feed: buildFeed([...knowledgeDocs.map((d) => d.content), payload.bg]),
           signal: request.signal,
         })
@@ -437,23 +446,34 @@ export async function handleCompletion(
         trackedUser,
         signal: request.signal,
       }).then(async () => {
-        const result = await speakingHold?.finish();
-        if (result) {
-          // One line per answer: did the step run in time, did the fact
-          // guard pass, how many guard failures were found and are left.
+        const held = await speakingHold?.finish();
+        if (held) {
+          const { result, questionLine } = held;
+          // One line per answer: the files sent, whether the step ran in
+          // time and what its guards said, the candidate's checks on the
+          // screen shown, and the three versions (the main model's draft,
+          // the speaking step's reply, the screen shown).
           console.log(
             "[speaking-pass]",
             JSON.stringify({
               ran: true,
+              at: new Date().toISOString(),
               user: trackedUser.id,
+              model: anthropicModel,
+              files: filesSent,
               source: result.source,
               reason: result.reason,
               ms: result.ms,
               inTime: result.inTime,
               factGuard: result.factGuard,
-              failsFirst: result.failsFirst,
-              failsShown: result.failsShown,
+              shapeGuard: result.shapeGuard,
               tidied: result.tidied,
+              bulletsDropped: result.bulletsDropped,
+              checks: result.checks,
+              questionLine,
+              draft: result.draft,
+              passReply: result.passReply,
+              shown: result.text,
             }),
           );
         }

@@ -6,7 +6,7 @@
  *  one sentence per line, in the user's text size. **Bold** shows as bold. */
 
 import SafeMarkdown from "@/components/SafeMarkdown";
-import { sentenceLines } from "@/lib/answer-display";
+import { answerLines } from "@/lib/answer-display";
 import { cn } from "@/lib/utils";
 
 /** "**Question 3:** …\n\n**Answer:** …" */
@@ -49,7 +49,9 @@ interface AnswerPart {
 /** The answer split at its part lines; text before the first one is a part
  *  without a label. A part line still being written is held back. */
 export function splitAnswerParts(body: string): AnswerPart[] {
-  const text = body.replace(/\n[ \t]*\[[^\]\n]*$/, "").replace(/^[ \t]*\[[^\]\n]*$/, "");
+  const text = body
+    .replace(/\n[ \t]*\[[^\]\n]*$/, "")
+    .replace(/^[ \t]*\[[^\]\n]*$/, "");
   const parts: AnswerPart[] = [];
   let last = 0;
   let label: string | null = null;
@@ -106,7 +108,9 @@ export function AnswerBody({
             </div>
           )}
           <div className={proseClassName} style={style}>
-            <SafeMarkdown>{sentenceLines(hideOpenBold(part.text.trim()))}</SafeMarkdown>
+            <SafeMarkdown>
+              {answerLines(hideOpenBold(part.text.trim()))}
+            </SafeMarkdown>
           </div>
         </div>
       ))}
