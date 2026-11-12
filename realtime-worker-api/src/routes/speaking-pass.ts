@@ -406,16 +406,18 @@ export async function runSpeakingPass(input: SpeakingPassInput): Promise<Speakin
   );
   const signal = anySignal(input.signal ? [deadline.signal, input.signal] : [deadline.signal]);
   const call = input.call ?? anthropicCall(input.apiKey, input.model ?? SPEAKING_PASS_MODEL);
-  const main = input.answer;
   const system = speakingPassSystem(input.name);
   const oneSentence = asksOneSentence(input.question);
   const tidy = (text: string) => tidyForSpeaking(text, { feed: input.feed, oneSentence });
   const fails = (text: string) => speakingFailures(text, { oneSentence });
   let factGuard: SpeakingPassResult["factGuard"] = "none";
   let failsFirst: number | null = null;
-  // Until a pass passes the fact guard, the main answer (tidied) is the one to show.
-  const tidyMain = tidy(main);
-  let best = { text: tidyMain.text, source: "main" as SpeakingPassResult["source"], changed: tidyMain.changed };
+  // The main answer is tidied before the pass sees it, so a clause the main
+  // model added is gone before the pass can turn it into a sentence of its
+  // own. Until a pass passes the fact guard, this is the one to show.
+  const tidyMain = tidy(input.answer);
+  const main = tidyMain.text;
+  let best = { text: main, source: "main" as SpeakingPassResult["source"], changed: tidyMain.changed };
   const done = (r: { text: string; source: SpeakingPassResult["source"]; reason: string; changed: number }) => {
     clearTimeout(timer);
     return {
@@ -450,7 +452,7 @@ export async function runSpeakingPass(input: SpeakingPassInput): Promise<Speakin
     const first = tidy(raw1);
     const firstFails = fails(first.text);
     failsFirst = firstFails.length;
-    best = { text: first.text, source: "pass", changed: first.changed };
+    best = { text: first.text, source: "pass", changed: tidyMain.changed + first.changed };
     if (!firstFails.length) return done({ ...best, reason: "clean" });
 
     const raw2 = await raced(
@@ -465,7 +467,7 @@ export async function runSpeakingPass(input: SpeakingPassInput): Promise<Speakin
       ? done({
           text: second.text,
           source: "retry",
-          changed: second.changed,
+          changed: tidyMain.changed + second.changed,
           reason: `${secondFails.length} left (was ${firstFails.length})`,
         })
       : done({ ...best, reason: `retry not better (${secondFails.length} vs ${firstFails.length})` });

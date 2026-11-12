@@ -271,13 +271,24 @@ test("pass: the result says whether it ran in time and what the guards found", a
 test("pass: the shown text is tidied against the files too", async () => {
   const joined =
     "**Talking to the business**\nI know the other side of that talk, because I am project owner of my platform, and deputy product owner of its core team.";
+  // The pass joins it again: the code splits it once more.
   const r = await runSpeakingPass({ apiKey: "x", name: "T", question: "q", answer: joined, shown: [], feed: FEED, call: call([joined, joined]).fn });
   assert.equal(
     r.text,
     "**Talking to the business**\nI know the other side of that talk. I am project owner of my platform, and deputy product owner of its core team.",
   );
-  assert.equal(r.tidied, 1);
+  assert.equal(r.tidied, 2);
   assert.equal(r.failsShown, 0);
+});
+
+test("pass: an added clause is gone before the pass sees the answer", async () => {
+  const added =
+    "- Acceptance criteria are written with the business and signed before an item enters a sprint, so the argument happens before the build.";
+  const c = call(["- Acceptance criteria are written with the business and signed before an item enters a sprint."]);
+  const r = await runSpeakingPass({ apiKey: "x", name: "T", question: "q", answer: added, shown: [], feed: FEED, call: c.fn });
+  assert.doesNotMatch(c.seen[0], /argument/);
+  assert.doesNotMatch(r.text, /argument/);
+  assert.equal(r.factGuard, "pass");
 });
 
 /** The log fields a stub pass result needs. */
