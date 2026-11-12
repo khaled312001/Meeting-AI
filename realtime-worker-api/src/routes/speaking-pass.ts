@@ -37,11 +37,14 @@ You receive three things in the user message:
 7. Repair any sentence that is broken, such as a verb with no object or an "it" that could mean two things, using only words already in the answer.
 8. If a bullet says nearly the same thing as a sentence in <shown>, remove that bullet. Do this only while the answer still keeps its opening and at least two bullets.
 9. Keep the language the answer is in. A German answer stays German, with the same rules.
+10. Every sentence must make sense on its own screen line. When a sentence opens with "It", "Its", "They", "Their", "This", "That", "These", "Those" or "There" standing for a thing named in an earlier sentence, put that thing's name in its place, using words already in the answer. A pronoun that points to a name earlier in the same sentence stays.
+11. Remove a label at the front of a line and keep the sentence after it: a topic label such as "For positioning," or "For the packaging,", a part of the question said as a label such as "On the one-date question,", and a story label such as "The task was to" or "The situation was".
+12. Every "the" thing in a bullet or in the close, such as "the limit" or "the slot", must already be named earlier on the screen or in the question. When a line or the close uses one that is not, that line came from another answer: drop it, and end on the last bullet.
 </instructions>
 
 <constraints>
 - Keep every fact exactly: every number, name, employer, product, title, tense and limit. These are true facts about a real person, and one changed word can make him say something false in an interview.
-- Add nothing: no new fact, reason, step, person, number or claim. Remove no fact, except a bullet removed under instruction 8.
+- Add nothing: no new fact, reason, step, person, number or claim. Remove no fact, except a bullet removed under instruction 8 or a line dropped under instruction 12.
 - Keep the screen format: the bold first line, the opening sentence, the bullets starting with "- ", the bold close, and figures in bold such as **70%**.
 - Write no "I would", no em dash or en dash, and no colon or semicolon inside a sentence.
 - When the answer already follows every rule, return it unchanged.
@@ -68,7 +71,7 @@ At UBS, I approve every release on my own, because I chair the change forum.
 </example>
 <example>
 <answer>At UBS I own an AI platform for the bank's fraud and dispute specialists, end to end. It brings the evidence on each case into one view, recommends an outcome and drafts the replies, and a specialist signs every decision.</answer>
-<reshaped>At UBS I own the whole AI platform for the bank's fraud and dispute specialists. It brings the evidence on each case into one view, recommends an outcome and drafts the replies. A specialist signs every decision.</reshaped>
+<reshaped>At UBS I own the whole AI platform for the bank's fraud and dispute specialists. The platform brings the evidence on each case into one view, recommends an outcome and drafts the replies. A specialist signs every decision.</reshaped>
 </example>
 <example>
 <answer>**What my team says about me**
@@ -172,18 +175,35 @@ export function asksOneSentence(question: string): boolean {
   return /\b(?:one|a single|single|1)\s+sentence\b|\bin a sentence\b/i.test(question);
 }
 
+/** A sentence that opens with a pronoun, which stands for something said
+ *  before it ("There is…" / "There are…" say nothing back, so they pass). */
+const PRONOUN_OPEN_RE =
+  /^(?:[-•*]\s+)?(?:(?:It|Its|They|Their|This|That|These|Those)\b|There\b(?!\s+(?:is|are|was|were|will|has|have|had)\b|['’]s\b))/;
+/** A story label said aloud: "The task was to…", "The situation was…". */
+const STORY_LABEL_RE =
+  /^(?:[-•*]\s+)?The (task|situation|challenge|context|background|goal) (was|is)\b/i;
+
+const BOLD_LINE_RE = /^\s*\*\*[^*]+\*\*\s*$/;
+
 /** Each sentence that breaks a speaking rule, once per rule it breaks. */
 export function speakingFailures(text: string, opts: { oneSentence?: boolean } = {}): string[] {
   const out: string[] = [];
-  for (const s of sentences(text)) {
-    const bare = s.replace(/[.?!]+$/, "");
-    if (!opts.oneSentence && wordCount(s) > 20) out.push(s);
-    if (COUNTED_RE.test(s)) out.push(s);
-    if (ORDINAL_LINE_RE.test(s)) out.push(s);
-    if (MY_PART_RE.test(s)) out.push(s);
-    const hang = HANGING_RE.exec(bare);
-    if (hang && /\p{L}+ing\b/u.test(hang[1])) out.push(s);
-    if (DASH_RE.test(s)) out.push(s);
+  let before = 0; // sentences already on the screen, the title not counted
+  for (const line of text.split("\n")) {
+    if (before === 0 && BOLD_LINE_RE.test(line)) continue; // the title
+    for (const s of sentences(line)) {
+      const bare = s.replace(/[.?!]+$/, "");
+      if (!opts.oneSentence && wordCount(s) > 20) out.push(s);
+      if (COUNTED_RE.test(s)) out.push(s);
+      if (ORDINAL_LINE_RE.test(s)) out.push(s);
+      if (MY_PART_RE.test(s)) out.push(s);
+      const hang = HANGING_RE.exec(bare);
+      if (hang && /\p{L}+ing\b/u.test(hang[1])) out.push(s);
+      if (DASH_RE.test(s)) out.push(s);
+      if (before > 0 && PRONOUN_OPEN_RE.test(s)) out.push(s);
+      if (STORY_LABEL_RE.test(s)) out.push(s);
+      before++;
+    }
   }
   return out;
 }
@@ -195,12 +215,19 @@ export function speakingFailures(text: string, opts: { oneSentence?: boolean } =
 //     split back into the two lines;
 //   - a "so" / "because" / "which" clause added at the end of a sentence
 //     whose words are nowhere in the files: removed.
-// Plus one rule that needs no files: a sentence opening with "First",
-// "Then" or "Finally" before its subject loses that word.
+//   - the opening phrase of a feed line swapped for another ("For my
+//     self-service launch," for "When the operation moved onto the
+//     platform,"): the feed's own opening is put back;
+//   - a label put in front of a feed line ("For positioning,"): removed.
+// Plus two rules that need no files: a sentence opening with "First",
+// "Then" or "Finally" before its subject loses that word, and "The
+// situation was that" before a sentence is removed.
 
 /** The candidate's files, folded for matching. */
 export interface Feed {
   norm: string;
+  /** Every sentence of the files, as written and folded. */
+  sentences: Array<{ raw: string; fold: string }>;
 }
 
 /** A feed under this many folded characters is too small to judge by. */
@@ -216,8 +243,17 @@ function fold(text: string): string {
 }
 
 export function buildFeed(texts: Array<string | null | undefined>): Feed | null {
-  const norm = fold(texts.filter(Boolean).join("\n"));
-  return norm.length >= MIN_FEED_CHARS ? { norm: ` ${norm} ` } : null;
+  const all = texts.filter(Boolean).join("\n");
+  const norm = fold(all);
+  if (norm.length < MIN_FEED_CHARS) return null;
+  const sentences = all
+    .split("\n")
+    .map((line) => line.replace(/\*\*/g, "").replace(/^\s*(?:[-•*>]|\d+[.)])\s+/, ""))
+    .flatMap((line) => line.split(/(?<=[.?!])\s+/))
+    .map((raw) => raw.trim().replace(/[.?!]+$/, ""))
+    .filter((raw) => wordCount(raw) >= 5)
+    .map((raw) => ({ raw, fold: fold(raw) }));
+  return { norm: ` ${norm} `, sentences };
 }
 
 function inFeed(feed: Feed, text: string): boolean {
@@ -243,7 +279,48 @@ const ADDED_CLAUSE_RE = /^(.*\S),\s+(so|because|which)\s+([^,]+)$/i;
 const ORDINAL_WORD_RE =
   /^(First|Second|Third|Then|Finally|Lastly),?\s+(?=(?:I|we|my|our|the|a|an|this|that|it|they|each|every)\b)/i;
 
+/** An opening that is only a label for what follows. */
+const LABEL_RE = /^(?:for|on|about|regarding|as for|as to|in terms of|when it comes to)\s/i;
+/** "The situation was that …": the sentence after it stands alone. */
+const STORY_THAT_RE = /^The (?:task|situation|challenge|context|background|goal) (?:was|is) that\s+/i;
+const OPENING_RE = /^([^,]{2,80}),\s+(.+)$/;
+
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** The sentence with the opening phrase the files give its line, when the
+ *  main model swapped that opening for another or put a label there. Null
+ *  when nothing is to change or the files do not say for sure. */
+function feedOpening(feed: Feed, body: string): string | null {
+  const m = OPENING_RE.exec(body);
+  if (!m || m[1].includes("**")) return null;
+  const [, opening, rest] = m;
+  if (wordCount(opening) > 8 || wordCount(rest) < 5) return null;
+  // An opening phrase leads into a sentence with its own subject; a first
+  // clause ("I chair it, because…") is not one.
+  if (/^(?:I|we|he|she|they|it|my|our)\b/i.test(opening) || !SUBJECT_START.test(rest)) return null;
+  const want = fold(rest);
+  // Every opening the files give this line ("" when it has none).
+  const found = new Map<string, string>();
+  for (const s of feed.sentences) {
+    if (s.fold === want) {
+      found.set("", "");
+      continue;
+    }
+    if (!s.fold.endsWith(` ${want}`)) continue;
+    for (let i = s.raw.indexOf(","); i >= 0; i = s.raw.indexOf(",", i + 1)) {
+      if (fold(s.raw.slice(i + 1)) === want) {
+        const own = s.raw.slice(0, i).trim();
+        found.set(fold(own), own);
+        break;
+      }
+    }
+  }
+  if (found.size !== 1) return null;
+  const [[ownFold, own]] = [...found];
+  if (ownFold === fold(opening)) return null;
+  if (!ownFold) return LABEL_RE.test(opening) ? capitalise(rest) : null;
+  return `${capitalise(own)}, ${rest}`;
+}
 const evenBold = (s: string) => (s.match(/\*\*/g)?.length ?? 0) % 2 === 0;
 
 /** One sentence, tidied. `changed` counts the changes made. */
@@ -261,7 +338,19 @@ function tidySentence(
     body = capitalise(body.slice(ordinal[0].length));
     changed.n++;
   }
+  const story = STORY_THAT_RE.exec(body);
+  const told = story ? body.slice(story[0].length) : "";
+  if (story && SUBJECT_START.test(told) && wordCount(told) >= 4) {
+    body = capitalise(told);
+    changed.n++;
+  }
   if (!feed) return body + end;
+
+  const opened = feedOpening(feed, body);
+  if (opened !== null) {
+    body = opened;
+    changed.n++;
+  }
 
   const added = ADDED_CLAUSE_RE.exec(body);
   if (added && wordCount(added[1]) >= 5 && evenBold(added[1]) && newToFeed(feed, added[3])) {

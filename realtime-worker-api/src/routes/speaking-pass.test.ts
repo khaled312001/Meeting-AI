@@ -175,7 +175,12 @@ One switch day puts every call on one day.
 Here, a software vendor sells the right to use its software. The licence sets what the customer may use.
 At UBS, acceptance criteria are written with the business and signed before an item enters a sprint.
 I approve every release on my own, because I chair the change forum.
-My team would say I give them real decisions, and I back them.`,
+My team would say I give them real decisions, and I back them.
+- When the operation moved onto the platform, I designed and ran the training for every agent.
+- **For my self-service launch,** I cut call volume by a third.
+I ran the pricing study with the product team in Zurich.
+In 2021, I led the move to one release a month.
+In 2023, I led the move to one release a month.`,
   "Background: ".padEnd(400, "x"),
 ]);
 
@@ -289,6 +294,70 @@ test("pass: an added clause is gone before the pass sees the answer", async () =
   assert.doesNotMatch(c.seen[0], /argument/);
   assert.doesNotMatch(r.text, /argument/);
   assert.equal(r.factGuard, "pass");
+});
+
+// ── Notes for the developer of 12 November ─────────────────────────────
+
+test("tidy: a swapped opening phrase gets the files' own opening back", () => {
+  const screen = "- For my self-service launch, I designed and ran the training for every agent.";
+  assert.equal(
+    tidyForSpeaking(screen, { feed: FEED }).text,
+    "- When the operation moved onto the platform, I designed and ran the training for every agent.",
+  );
+  // The files' own opening, or no files: left alone.
+  const own = "When the operation moved onto the platform, I designed and ran the training for every agent.";
+  assert.equal(tidyForSpeaking(own, { feed: FEED }).text, own);
+  assert.equal(tidyForSpeaking(screen).text, screen);
+});
+
+test("tidy: an opening is not changed when the files give it two openings or none", () => {
+  const two = "Back then, I led the move to one release a month.";
+  assert.equal(tidyForSpeaking(two, { feed: FEED }).text, two);
+  const added = "At UBS, I ran the pricing study with the product team in Zurich.";
+  assert.equal(tidyForSpeaking(added, { feed: FEED }).text, added);
+  // A first clause before a comma is not an opening phrase.
+  const clause = "I sign every release myself, because I chair the change forum.";
+  assert.equal(tidyForSpeaking(clause, { feed: FEED }).text, clause);
+});
+
+test("tidy: a label in front of a feed line is removed", () => {
+  assert.equal(
+    tidyForSpeaking("- For positioning, I ran the pricing study with the product team in Zurich.", { feed: FEED }).text,
+    "- I ran the pricing study with the product team in Zurich.",
+  );
+  assert.equal(
+    tidyForSpeaking("On the one-date question, I ran the pricing study with the product team in Zurich.", { feed: FEED }).text,
+    "I ran the pricing study with the product team in Zurich.",
+  );
+});
+
+test("tidy: a story label before a whole sentence is removed", () => {
+  assert.equal(
+    tidyForSpeaking("- The situation was that the bank had no single view of each case.").text,
+    "- The bank had no single view of each case.",
+  );
+  const to = "The task was to cut the time to a decision.";
+  assert.equal(tidyForSpeaking(to).text, to); // no sentence after it: the guard sends it back
+});
+
+test("speaking guard: a pronoun opening that points back, and story labels", () => {
+  assert.equal(speakingFailures("**Title**\nIt brings the evidence into one view.").length, 0);
+  assert.equal(speakingFailures("I own the platform.\nIt brings the evidence into one view.").length, 1);
+  assert.equal(speakingFailures("I own the platform. Its users sign every case.").length, 1);
+  assert.equal(speakingFailures("I own the platform.\n- They sign every case.").length, 1);
+  assert.equal(speakingFailures("I own the platform.\n- There is one view for each case.").length, 0);
+  assert.equal(speakingFailures("I own the platform.\n- There I built one view for each case.").length, 1);
+  assert.equal(speakingFailures("I own the platform, and it brings the evidence into one view.").length, 0);
+  assert.equal(speakingFailures("The task was to cut the time to a decision.").length, 1);
+  assert.equal(speakingFailures("- The situation was a backlog of cases.").length, 1);
+});
+
+test("the pass prompt carries the new rules", () => {
+  const p = speakingPassSystem("T");
+  assert.match(p, /10\. Every sentence must make sense on its own screen line/);
+  assert.match(p, /11\. Remove a label at the front of a line/);
+  assert.match(p, /12\. Every "the" thing in a bullet or in the close/);
+  assert.doesNotMatch(p, /replies\. It brings/);
 });
 
 /** The log fields a stub pass result needs. */
