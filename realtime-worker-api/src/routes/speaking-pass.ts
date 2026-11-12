@@ -10,8 +10,9 @@
  *    - shape guard: no answer lost and no line, bullet or sentence added, or
  *      the draft is shown;
  *    - against the candidate's files: a line whose opening phrase was
- *      swapped gets the files' own opening back, and a label put in front
- *      of a file line is removed.
+ *      swapped gets the files' own opening back (a tie such as "For
+ *      example," or "At UBS," is never swapped);
+ *    - "Here, " opens only the first of several bullets in a row.
  *  One call, no second run. The whole step has a time limit; after it the
  *  draft is shown. */
 
@@ -43,13 +44,14 @@ Keep the shape:
 Fix words only:
 4. Replace a word that is hard to say aloud with the everyday word, keeping the meaning.
 5. When a sentence opens with "It", "Its", "They", "Their", "This", "That", "These", "Those" or "There" and points to something in another line, put the name of that thing in its place. A pronoun that points to a name inside its own sentence stays.
-6. When a line opens with a label, such as "Task:", "The situation was", "Result:" or a part of the question such as "On the one-date question,", remove the label and keep the sentence after it.
+6. When a line opens with a label, such as "Task:", "The situation was", "Result:" or a part of the question such as "On the one-date question,", remove the label and keep the sentence after it. Keep the words that tie a line to the line before, such as For example, Then, So, After that, Before go-live, Here, At UBS or At McKinsey. Only a label that names a part of a story or of the question is removed.
 7. When the draft changed the opening phrase of a line taken from the feed, and the change moves the fact to another project or time, put the feed's own opening phrase back.
 8. Keep every name exactly as the draft writes it: products, companies, systems, places and people. A name is never replaced with a description.
-9. When a line or a close came from another answer and names a "the" thing that is neither on this screen nor in the question, drop that line. For a dropped close, the screen ends on its last bullet.
+9. When a line or a close came from another answer and names a "the" thing that is neither on this screen nor in the question, drop that line. For a dropped close, the screen ends on its last bullet. A line that says I mentioned, or names a thing with the words I mentioned, stays, because it points to an earlier answer on purpose.
+10. When a bullet says again what the opening or another bullet already says, drop that bullet. Dropping is the only change; nothing is added in its place.
 
 Keep the facts:
-10. Every number, name, tense and employer stays as the draft has it. No fact is added.
+11. Every number, name, tense and employer stays as the draft has it. No fact is added.
 </instructions>
 
 <examples>
@@ -305,14 +307,14 @@ export function keepsShape(draft: string, pass: string): boolean {
 }
 
 // ── Against the candidate's files ──────────────────────────────────────
-// Two word fixes that code can make once it has the files the answer is
-// written from (the "feed"):
-//   - the opening phrase of a feed line swapped for another ("For my
-//     self-service launch," for "When the operation moved onto the
-//     platform,"): the feed's own opening is put back;
-//   - a label put in front of a feed line ("For positioning,"): removed.
-// And one that needs no files: "The situation was that" before a whole
-// sentence is removed.
+// One word fix that code can make once it has the files the answer is
+// written from (the "feed"): the opening phrase of a feed line swapped for
+// another ("For my self-service launch," for "When the operation moved
+// onto the platform,") gets the feed's own opening back. Words that tie a
+// line to the one before ("For example,", "Then,", "At UBS,") are kept.
+// And two that need no files: "The situation was that" before a whole
+// sentence is removed, and "Here, " is dropped from a bullet when the
+// bullet right above also opens with it.
 
 /** The candidate's files, folded for matching. */
 export interface Feed {
@@ -348,8 +350,12 @@ export function buildFeed(texts: Array<string | null | undefined>): Feed | null 
 /** Words a sentence can start with as its subject. */
 const SUBJECT_START =
   /^(?:I|we|he|she|they|it|my|our|his|her|their|its|the|a|an|this|that|these|those|each|every|one|two|three|four|five|here|there|no|all|most|some|\p{Lu}[\p{L}\p{N}'’&.-]*)\b/u;
-/** An opening that is only a label for what follows. */
-const LABEL_RE = /^(?:for|on|about|regarding|as for|as to|in terms of|when it comes to)\s/i;
+/** An opening that ties a line to the line before ("For example,",
+ *  "Then,", "At UBS,"): kept as the model wrote it. */
+const TIE_RE =
+  /^(?:for example|for instance|then|so|after that|before that|before go-live|after go-live|here|also|and|but|now|today|in short|in practice|in fact|at \p{Lu}[\p{L}\p{N}&.'’-]*(?: \p{Lu}[\p{L}\p{N}&.'’-]*)*)$/iu;
+/** A bullet opening with "Here, ". */
+const HERE_BULLET_RE = /^(\s*[-•*]\s+)Here,\s+(?=\S)/;
 /** "The situation was that …": the sentence after it stands alone. */
 const STORY_THAT_RE = /^The (?:task|situation|challenge|context|background|goal) (?:was|is) that\s+/i;
 const OPENING_RE = /^([^,]{2,80}),\s+(.+)$/;
@@ -364,6 +370,8 @@ function feedOpening(feed: Feed, body: string): string | null {
   if (!m || m[1].includes("**")) return null;
   const [, opening, rest] = m;
   if (wordCount(opening) > 8 || wordCount(rest) < 5) return null;
+  // Words that tie a line to the line before are never swapped.
+  if (TIE_RE.test(opening.trim())) return null;
   // An opening phrase leads into a sentence with its own subject; a first
   // clause ("I chair it, because…") is not one.
   if (/^(?:I|we|he|she|they|it|my|our)\b/i.test(opening) || !SUBJECT_START.test(rest)) return null;
@@ -386,8 +394,9 @@ function feedOpening(feed: Feed, body: string): string | null {
   }
   if (found.size !== 1) return null;
   const [[ownFold, own]] = [...found];
-  if (ownFold === fold(opening)) return null;
-  if (!ownFold) return LABEL_RE.test(opening) ? capitalise(rest) : null;
+  // The files give no opening (a tie or label the model put there stays:
+  // the step's prompt decides on labels), or the same one.
+  if (!ownFold || ownFold === fold(opening)) return null;
   return `${capitalise(own)}, ${rest}`;
 }
 
@@ -414,7 +423,15 @@ function tidySentence(sentence: string, feed: Feed | null, changed: { n: number 
  *  as they are. */
 export function tidyForSpeaking(text: string, opts: { feed?: Feed | null } = {}): { text: string; changed: number } {
   const changed = { n: 0 };
-  const lines = text.split("\n").map((line) => {
+  const written = text.split("\n");
+  const lines = written.map((line, i) => {
+    // "Here, " opens only the first of several bullets in a row.
+    if (i > 0 && HERE_BULLET_RE.test(line) && HERE_BULLET_RE.test(written[i - 1])) {
+      line = line.replace(HERE_BULLET_RE, "$1");
+      const lead = /^\s*[-•*]\s+/.exec(line)?.[0] ?? "";
+      line = lead + capitalise(line.slice(lead.length));
+      changed.n++;
+    }
     if (BOLD_LINE_RE.test(line) || PART_LINE_RE.test(line)) return line;
     const lead = /^\s*(?:[-•*]\s+)?/.exec(line)?.[0] ?? "";
     const body = line.slice(lead.length);

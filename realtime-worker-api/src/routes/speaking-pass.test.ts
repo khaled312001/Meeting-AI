@@ -167,19 +167,50 @@ test("tidy: an opening is left alone when the files give two openings, none, or 
   }
 });
 
-test("tidy: a label in front of a file line is removed, and a story label before a whole sentence", () => {
-  assert.equal(
-    tidyForSpeaking("- For positioning, I ran the pricing study with the product team in Zurich.", { feed: FEED }).text,
-    "- I ran the pricing study with the product team in Zurich.",
-  );
-  assert.equal(
-    tidyForSpeaking("On the one-date question, I ran the pricing study with the product team in Zurich.", { feed: FEED }).text,
-    "I ran the pricing study with the product team in Zurich.",
-  );
+test("tidy: words that tie a line to the one before stay, even before a file line", () => {
+  for (const line of [
+    "- For example, I ran the pricing study with the product team in Zurich.",
+    "- For influence, I ran the pricing study with the product team in Zurich.",
+    "- On cost, I ran the pricing study with the product team in Zurich.",
+    "- Then, I designed and ran the training for every agent.",
+    "- At McKinsey, I designed and ran the training for every agent.",
+    "- For example, I designed and ran the training for every agent.",
+  ]) {
+    assert.equal(tidyForSpeaking(line, { feed: FEED }).text, line);
+  }
+});
+
+test("tidy: a story label before a whole sentence is removed", () => {
   assert.equal(
     tidyForSpeaking("- The situation was that the bank had no single view of each case.").text,
     "- The bank had no single view of each case.",
   );
+});
+
+test("tidy: Here opens only the first of several bullets in a row", () => {
+  const draft = [
+    "**My first 90 days**",
+    "Here, I would listen first.",
+    "- Here, I meet every product lead in the first month.",
+    "- Here, I map where the money goes today.",
+    "- Here, we agree one template for every case.",
+    "- I set the first review for day 90.",
+    "- Here, I report back to the steering committee.",
+  ].join("\n");
+  const r = tidyForSpeaking(draft);
+  assert.equal(
+    r.text,
+    [
+      "**My first 90 days**",
+      "Here, I would listen first.",
+      "- Here, I meet every product lead in the first month.",
+      "- I map where the money goes today.",
+      "- We agree one template for every case.",
+      "- I set the first review for day 90.",
+      "- Here, I report back to the steering committee.",
+    ].join("\n"),
+  );
+  assert.equal(r.changed, 2);
 });
 
 test("tidy: never splits a sentence or adds a line", () => {
@@ -196,7 +227,11 @@ test("the prompt is the note's own: shape kept, words fixed, facts kept", () => 
   assert.match(SPEAKING_PASS_SYSTEM, /^You are the speaking step of a live interview assistant\./);
   assert.match(SPEAKING_PASS_SYSTEM, /1\. Keep every bullet as one bullet, on its own line, in the same order\./);
   assert.match(SPEAKING_PASS_SYSTEM, /3\. Show at most 5 bullets per answer, or 6 for an answer about the candidate's background\./);
-  assert.match(SPEAKING_PASS_SYSTEM, /10\. Every number, name, tense and employer stays as the draft has it\. No fact is added\./);
+  assert.match(SPEAKING_PASS_SYSTEM, /11\. Every number, name, tense and employer stays as the draft has it\. No fact is added\./);
+  // The notes collected after each test (pending list, 13 November).
+  assert.match(SPEAKING_PASS_SYSTEM, /Only a label that names a part of a story or of the question is removed\./);
+  assert.match(SPEAKING_PASS_SYSTEM, /A line that says I mentioned, or names a thing with the words I mentioned, stays/);
+  assert.match(SPEAKING_PASS_SYSTEM, /10\. When a bullet says again what the opening or another bullet already says, drop that bullet\./);
   assert.match(SPEAKING_PASS_SYSTEM, /no line is only a few words with no fact\.$/);
   assert.doesNotMatch(SPEAKING_PASS_SYSTEM, /\{\{name\}\}|becomes its own sentence/);
 });

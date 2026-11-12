@@ -73,6 +73,9 @@ import {
   splitInstructionDocs,
 } from "./knowledge";
 
+/** How often a silent answer stream sends a keep-alive comment. */
+const KEEP_ALIVE_MS = 15_000;
+
 export async function handleCompletion(
   request: Request,
   env: Env,
@@ -498,6 +501,14 @@ export async function handleCompletion(
         trackedUser,
       );
 
+  // A long Ask AI answer can think for a minute before its first word. The
+  // proxy in front of the server cuts a response that sends nothing for
+  // about that long (the app then shows "took too long"), so a comment
+  // line (": …", which SSE readers skip) goes out every 15 seconds.
+  const keepAlive = setInterval(() => {
+    writer.write(encoder.encode(": keep-alive\n\n")).catch(() => {});
+  }, KEEP_ALIVE_MS);
+
   const pump = completionFn
     .catch(async (error: unknown) => {
       const message =
@@ -513,6 +524,7 @@ export async function handleCompletion(
       );
     })
     .finally(async () => {
+      clearInterval(keepAlive);
       try {
         // A stopped or replaced answer is not charged.
         if (request.signal.aborted) streamError ??= "client_aborted";
