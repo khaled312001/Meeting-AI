@@ -8,7 +8,7 @@
  *  followed by `[DONE]`. */
 
 import { encoder } from "../lib/http";
-import { runSpeakingPass, type SpeakingPassResult } from "./speaking-pass";
+import { type Feed, runSpeakingPass, type SpeakingPassResult } from "./speaking-pass";
 
 /** The app's limit for a question line (lib/live-answer.ts). */
 const QUESTION_LINE_MAX_CHARS = 400;
@@ -23,6 +23,8 @@ export interface SpeakingHoldOptions {
   /** The question as heard, when the reply has no question line. */
   question: string;
   shown: string[];
+  /** The candidate's files, for the checks made in code. */
+  feed?: Feed | null;
   signal?: AbortSignal;
   /** For tests: replaces the model call. */
   pass?: typeof runSpeakingPass;
@@ -112,6 +114,7 @@ export function createSpeakingHold(opts: SpeakingHoldOptions) {
       question,
       answer: body,
       shown: opts.shown,
+      feed: opts.feed,
       signal: opts.signal,
     });
     if (opts.signal?.aborted) return result;

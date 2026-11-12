@@ -30,7 +30,7 @@ You receive three things in the user message:
 <instructions>
 1. Read the answer one sentence at a time and rewrite only the sentences that break a rule below. Leave every other sentence word for word.
 2. Give each sentence one subject. Say the subject first, then the verb. When the sentence is about his own work, make the subject "I". When a second person or team appears, give them their own sentence: "I own how the model is used. The data science team builds it."
-3. Keep every sentence at 20 words or fewer. Split a long sentence at its natural joint, usually ", and", ", so", ", because" or ", with". Two sentences are the normal result. Every new sentence has its own subject and verb and at least 6 words.
+3. Keep every sentence at 20 words or fewer. Split a long sentence at its natural joint, usually ", and", ", so", ", because" or ", with". Two sentences are the normal result. Every new sentence has its own subject and verb and at least 6 words. Apply this to every sentence, whatever its length: a second subject or a "because" clause becomes its own sentence. Only when the interviewer asked for one sentence, leave that sentence as it is.
 4. Say each list once, with three items at most.
 5. Say the thing itself, never a count of its parts. Never start a line with "The first", "The second" or "The last".
 6. Use plain words he can say at once. Move a phrase that hangs at the end, such as ", end to end" or ", with the team building it", into its own sentence or to the front.
@@ -142,7 +142,9 @@ export function passesFactGuard(main: string, pass: string): boolean {
 
 const COUNTED_RE =
   /\b(two|three|four|five) (decisions|kinds|ways|things|checks|parts|points|reasons|steps|levels)\b/i;
-const ORDINAL_LINE_RE = /^- (The )?(first|second|third|fourth|last)\b/i;
+/** A sentence that opens with an ordinal, at the start of a line or not,
+ *  with or without a bullet or "The". */
+const ORDINAL_LINE_RE = /^(?:[-•*]\s+)?(?:the\s+)?(first|second|third|fourth|then|finally|last)\b/i;
 const MY_PART_RE = /\bMy (part|task|role|job) (was|is)\b/;
 const HANGING_RE = /, with ([^,]*)$/;
 const DASH_RE = /[–—]/;
@@ -164,12 +166,18 @@ function wordCount(sentence: string): number {
   return (sentence.match(/[\p{L}0-9%']+/gu) ?? []).length;
 }
 
+/** The interviewer asked for the answer in one sentence: that sentence may
+ *  be long, and it is not split. */
+export function asksOneSentence(question: string): boolean {
+  return /\b(?:one|a single|single|1)\s+sentence\b|\bin a sentence\b/i.test(question);
+}
+
 /** Each sentence that breaks a speaking rule, once per rule it breaks. */
-export function speakingFailures(text: string): string[] {
+export function speakingFailures(text: string, opts: { oneSentence?: boolean } = {}): string[] {
   const out: string[] = [];
   for (const s of sentences(text)) {
     const bare = s.replace(/[.?!]+$/, "");
-    if (wordCount(s) > 20) out.push(s);
+    if (!opts.oneSentence && wordCount(s) > 20) out.push(s);
     if (COUNTED_RE.test(s)) out.push(s);
     if (ORDINAL_LINE_RE.test(s)) out.push(s);
     if (MY_PART_RE.test(s)) out.push(s);
@@ -178,6 +186,122 @@ export function speakingFailures(text: string): string[] {
     if (DASH_RE.test(s)) out.push(s);
   }
   return out;
+}
+
+// ── Tidy in code, against the candidate's files ────────────────────────
+// Two things the models keep doing that code can see once it has the files
+// the answer is written from (the "feed"):
+//   - two feed lines joined into one sentence with ", and" / ", because"…:
+//     split back into the two lines;
+//   - a "so" / "because" / "which" clause added at the end of a sentence
+//     whose words are nowhere in the files: removed.
+// Plus one rule that needs no files: a sentence opening with "First",
+// "Then" or "Finally" before its subject loses that word.
+
+/** The candidate's files, folded for matching. */
+export interface Feed {
+  norm: string;
+}
+
+/** A feed under this many folded characters is too small to judge by. */
+const MIN_FEED_CHARS = 300;
+
+function fold(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\*\*/g, "")
+    .replace(/[’‘]/g, "'")
+    .replace(/[^\p{L}\p{N}%']+/gu, " ")
+    .trim();
+}
+
+export function buildFeed(texts: Array<string | null | undefined>): Feed | null {
+  const norm = fold(texts.filter(Boolean).join("\n"));
+  return norm.length >= MIN_FEED_CHARS ? { norm: ` ${norm} ` } : null;
+}
+
+function inFeed(feed: Feed, text: string): boolean {
+  const f = fold(text);
+  return !!f && feed.norm.includes(` ${f} `);
+}
+
+/** True when no run of four words of `text` is in the files. */
+function newToFeed(feed: Feed, text: string): boolean {
+  const words = fold(text).split(" ").filter(Boolean);
+  if (words.length < 4) return false;
+  for (let i = 0; i + 4 <= words.length; i++) {
+    if (feed.norm.includes(` ${words.slice(i, i + 4).join(" ")} `)) return false;
+  }
+  return true;
+}
+
+/** Words a sentence can start with as its subject. */
+const SUBJECT_START =
+  /^(?:I|we|he|she|they|it|my|our|his|her|their|its|the|a|an|this|that|these|those|each|every|one|two|three|four|five|here|there|no|all|most|some|\p{Lu}[\p{L}\p{N}'’&.-]*)\b/u;
+const JOINT_RE = /,\s+(and|because|so|but)\s+/gi;
+const ADDED_CLAUSE_RE = /^(.*\S),\s+(so|because|which)\s+([^,]+)$/i;
+const ORDINAL_WORD_RE =
+  /^(First|Second|Third|Then|Finally|Lastly),?\s+(?=(?:I|we|my|our|the|a|an|this|that|it|they|each|every)\b)/i;
+
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const evenBold = (s: string) => (s.match(/\*\*/g)?.length ?? 0) % 2 === 0;
+
+/** One sentence, tidied. `changed` counts the changes made. */
+function tidySentence(
+  sentence: string,
+  feed: Feed | null,
+  oneSentence: boolean,
+  changed: { n: number },
+): string {
+  const end = /[.?!]+$/.exec(sentence)?.[0] ?? "";
+  let body = sentence.slice(0, sentence.length - end.length);
+
+  const ordinal = ORDINAL_WORD_RE.exec(body);
+  if (ordinal && wordCount(body.slice(ordinal[0].length)) >= 3) {
+    body = capitalise(body.slice(ordinal[0].length));
+    changed.n++;
+  }
+  if (!feed) return body + end;
+
+  const added = ADDED_CLAUSE_RE.exec(body);
+  if (added && wordCount(added[1]) >= 5 && evenBold(added[1]) && newToFeed(feed, added[3])) {
+    body = added[1];
+    changed.n++;
+  }
+
+  if (!oneSentence && !inFeed(feed, body)) {
+    for (const m of body.matchAll(JOINT_RE)) {
+      const a = body.slice(0, m.index);
+      const b = body.slice((m.index ?? 0) + m[0].length);
+      if (wordCount(a) < 5 || wordCount(b) < 5 || !evenBold(a)) continue;
+      if (!SUBJECT_START.test(b) || !inFeed(feed, a) || !inFeed(feed, b)) continue;
+      changed.n++;
+      return `${a}. ${tidySentence(capitalise(b) + (end || "."), feed, oneSentence, changed)}`;
+    }
+  }
+  return body + end;
+}
+
+/** The answer with joined feed lines split, added clauses removed and
+ *  ordinal openings dropped. Bold lines (title, close) and part lines are
+ *  left as they are. */
+export function tidyForSpeaking(
+  text: string,
+  opts: { feed?: Feed | null; oneSentence?: boolean } = {},
+): { text: string; changed: number } {
+  const changed = { n: 0 };
+  const lines = text.split("\n").map((line) => {
+    if (/^\s*\*\*[^*]+\*\*\s*$/.test(line) || /^\s*\[\d+\/\d+[^\]]*\]\s*$/.test(line)) return line;
+    const lead = /^\s*(?:[-•*]\s+)?/.exec(line)?.[0] ?? "";
+    const body = line.slice(lead.length);
+    if (!body.trim()) return line;
+    const tidied = body
+      .split(/(?<=[.?!])\s+/)
+      .map((s) => tidySentence(s, opts.feed ?? null, !!opts.oneSentence, changed))
+      .join(" ");
+    return lead + tidied;
+  });
+  return { text: lines.join("\n"), changed: changed.n };
 }
 
 // ── The pass ───────────────────────────────────────────────────────────
@@ -190,6 +314,8 @@ export interface SpeakingPassInput {
   answer: string;
   /** Screens already shown in this interview, oldest first. */
   shown: string[];
+  /** The candidate's files the answer is written from (see buildFeed). */
+  feed?: Feed | null;
   signal?: AbortSignal;
   deadlineMs?: number;
   model?: string;
@@ -203,6 +329,15 @@ export interface SpeakingPassResult {
   source: "main" | "pass" | "retry";
   reason: string;
   ms: number;
+  /** The step finished before its time limit. */
+  inTime: boolean;
+  /** The fact guard on the first pass; "none" when no pass came back. */
+  factGuard: "pass" | "fail" | "none";
+  /** Speaking-guard failures in the first pass, and in the text shown. */
+  failsFirst: number | null;
+  failsShown: number;
+  /** Sentences changed in code (split, clause removed, ordinal dropped). */
+  tidied: number;
 }
 
 function userMessage(question: string, answer: string, shown: string[], failing?: string[]): string {
@@ -273,10 +408,27 @@ export async function runSpeakingPass(input: SpeakingPassInput): Promise<Speakin
   const call = input.call ?? anthropicCall(input.apiKey, input.model ?? SPEAKING_PASS_MODEL);
   const main = input.answer;
   const system = speakingPassSystem(input.name);
-  let best: SpeakingPassResult = { text: main, source: "main", reason: "", ms: 0 };
-  const done = (r: Omit<SpeakingPassResult, "ms">): SpeakingPassResult => {
+  const oneSentence = asksOneSentence(input.question);
+  const tidy = (text: string) => tidyForSpeaking(text, { feed: input.feed, oneSentence });
+  const fails = (text: string) => speakingFailures(text, { oneSentence });
+  let factGuard: SpeakingPassResult["factGuard"] = "none";
+  let failsFirst: number | null = null;
+  // Until a pass passes the fact guard, the main answer (tidied) is the one to show.
+  const tidyMain = tidy(main);
+  let best = { text: tidyMain.text, source: "main" as SpeakingPassResult["source"], changed: tidyMain.changed };
+  const done = (r: { text: string; source: SpeakingPassResult["source"]; reason: string; changed: number }) => {
     clearTimeout(timer);
-    return { ...r, ms: Date.now() - started };
+    return {
+      text: r.text,
+      source: r.source,
+      reason: r.reason,
+      ms: Date.now() - started,
+      inTime: !deadline.signal.aborted,
+      factGuard,
+      failsFirst,
+      failsShown: fails(r.text).length,
+      tidied: r.changed,
+    } satisfies SpeakingPassResult;
   };
   // A deadline that fires mid-call rejects at once, not when the call ends.
   const raced = <T>(p: Promise<T>) =>
@@ -289,24 +441,34 @@ export async function runSpeakingPass(input: SpeakingPassInput): Promise<Speakin
     ]);
 
   try {
-    const first = await raced(call(system, userMessage(input.question, main, input.shown), signal));
-    if (!passesFactGuard(main, first)) {
-      return done({ text: main, source: "main", reason: "fact guard" });
+    const raw1 = await raced(call(system, userMessage(input.question, main, input.shown), signal));
+    if (!passesFactGuard(main, raw1)) {
+      factGuard = "fail";
+      return done({ ...best, reason: "fact guard" });
     }
-    const firstFails = speakingFailures(first);
-    best = { text: first, source: "pass", reason: firstFails.length ? "" : "clean", ms: 0 };
-    if (!firstFails.length) return done({ text: first, source: "pass", reason: "clean" });
+    factGuard = "pass";
+    const first = tidy(raw1);
+    const firstFails = fails(first.text);
+    failsFirst = firstFails.length;
+    best = { text: first.text, source: "pass", changed: first.changed };
+    if (!firstFails.length) return done({ ...best, reason: "clean" });
 
-    const second = await raced(
-      call(system, userMessage(input.question, first, input.shown, firstFails), signal),
+    const raw2 = await raced(
+      call(system, userMessage(input.question, first.text, input.shown, firstFails), signal),
     );
-    if (!passesFactGuard(main, second)) {
-      return done({ text: first, source: "pass", reason: "retry failed the fact guard" });
+    if (!passesFactGuard(main, raw2)) {
+      return done({ ...best, reason: "retry failed the fact guard" });
     }
-    const secondFails = speakingFailures(second);
+    const second = tidy(raw2);
+    const secondFails = fails(second.text);
     return secondFails.length < firstFails.length
-      ? done({ text: second, source: "retry", reason: `${secondFails.length} left (was ${firstFails.length})` })
-      : done({ text: first, source: "pass", reason: `retry not better (${secondFails.length} vs ${firstFails.length})` });
+      ? done({
+          text: second.text,
+          source: "retry",
+          changed: second.changed,
+          reason: `${secondFails.length} left (was ${firstFails.length})`,
+        })
+      : done({ ...best, reason: `retry not better (${secondFails.length} vs ${firstFails.length})` });
   } catch (err) {
     const why = deadline.signal.aborted
       ? "deadline"
@@ -315,6 +477,6 @@ export async function runSpeakingPass(input: SpeakingPassInput): Promise<Speakin
         : err instanceof Error
           ? err.message.slice(0, 120)
           : "error";
-    return done({ text: best.text, source: best.source, reason: why });
+    return done({ ...best, reason: why });
   }
 }

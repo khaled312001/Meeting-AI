@@ -4,7 +4,10 @@ import { test } from "node:test";
 import { encoder } from "../lib/http.js";
 import { createSpeakingHold } from "./speaking-hold.js";
 import {
+  asksOneSentence,
+  buildFeed,
   passesFactGuard,
+  tidyForSpeaking,
   speakingPassSystem,
   runSpeakingPass,
   sentences,
@@ -161,6 +164,125 @@ test("pass: a failing model call shows the main answer", async () => {
   assert.equal(r.text, MAIN);
 });
 
+// ── Defects of 12 November: tidy against the files, wider guard, log ───
+
+/** Feed lines from the defect note, plus padding so the feed is big enough. */
+const FEED = buildFeed([
+  `I know the other side of that talk.
+At UBS, I am project owner of my platform, and deputy product owner of its core team.
+At UBS, I change people on their own cycle rather than on my calendar.
+One switch day puts every call on one day.
+Here, a software vendor sells the right to use its software. The licence sets what the customer may use.
+At UBS, acceptance criteria are written with the business and signed before an item enters a sprint.
+I approve every release on my own, because I chair the change forum.
+My team would say I give them real decisions, and I back them.`,
+  "Background: ".padEnd(400, "x"),
+]);
+
+test("tidy: two feed lines joined into one sentence are split again", () => {
+  const q14 = "I know the other side of that talk, because I am project owner of my platform, and deputy product owner of its core team.";
+  assert.equal(
+    tidyForSpeaking(q14, { feed: FEED }).text,
+    "I know the other side of that talk. I am project owner of my platform, and deputy product owner of its core team.",
+  );
+  const q7 = "- I change people on their own cycle rather than on my calendar, because one switch day puts every call on one day.";
+  assert.equal(
+    tidyForSpeaking(q7, { feed: FEED }).text,
+    "- I change people on their own cycle rather than on my calendar. One switch day puts every call on one day.",
+  );
+  const q1 = "Here, a software vendor sells the right to use its software, and the licence sets what the customer may use.";
+  assert.equal(
+    tidyForSpeaking(q1, { feed: FEED }).text,
+    "Here, a software vendor sells the right to use its software. The licence sets what the customer may use.",
+  );
+});
+
+test("tidy: a feed line as written is left whole", () => {
+  for (const line of [
+    "At UBS, I am project owner of my platform, and deputy product owner of its core team.",
+    "My team would say I give them real decisions, and I back them.",
+    "I approve every release on my own, because I chair the change forum.",
+  ]) {
+    assert.deepEqual(tidyForSpeaking(line, { feed: FEED }), { text: line, changed: 0 });
+  }
+});
+
+test("tidy: an added clause whose words are not in the files is removed", () => {
+  const q14 = "- Acceptance criteria are written with the business and signed before an item enters a sprint, so the argument happens before the build.";
+  assert.equal(
+    tidyForSpeaking(q14, { feed: FEED }).text,
+    "- Acceptance criteria are written with the business and signed before an item enters a sprint.",
+  );
+  // A reason that is in the files stays.
+  const kept = "I sign every release myself, because I chair the change forum.";
+  assert.equal(tidyForSpeaking(kept, { feed: FEED }).text, kept);
+});
+
+test("tidy: nothing is split or removed without files, or for a one-sentence question", () => {
+  const q1 = "Here, a software vendor sells the right to use its software, and the licence sets what the customer may use.";
+  assert.equal(tidyForSpeaking(q1).text, q1);
+  assert.equal(tidyForSpeaking(q1, { feed: FEED, oneSentence: true }).text, q1);
+  assert.equal(buildFeed(["too short"]), null);
+});
+
+test("tidy: an opening First, Then or Finally before the subject is dropped", () => {
+  const q11 = "First I read adoption every week.\n- Then I read the calls from the floor.\n- Finally, I read revenue against plan.";
+  assert.equal(
+    tidyForSpeaking(q11).text,
+    "I read adoption every week.\n- I read the calls from the floor.\n- I read revenue against plan.",
+  );
+  // Bold title and close lines are left alone.
+  assert.equal(tidyForSpeaking("**First I read adoption**").text, "**First I read adoption**");
+});
+
+test("speaking guard: First, Then and counted openings anywhere, one-sentence questions", () => {
+  assert.equal(speakingFailures("First I read adoption.").length, 1);
+  assert.equal(speakingFailures("I read it. Then I read the calls.").length, 1);
+  assert.equal(speakingFailures("- the second is revenue.").length, 1);
+  assert.equal(speakingFailures("Finally, I read revenue.").length, 1);
+  assert.equal(
+    speakingFailures("My work across countries, and my AI work at Meta, are two parts we have not covered.").length,
+    1,
+  );
+  assert.equal(speakingFailures("I weigh three things before I hire.").length, 1);
+  const long = "I " + "really ".repeat(20) + "led it.";
+  assert.equal(asksOneSentence("Describe yourself in one sentence."), true);
+  assert.equal(asksOneSentence("Tell me about a project."), false);
+  assert.equal(speakingFailures(long, { oneSentence: true }).length, 0);
+});
+
+test("pass: the result says whether it ran in time and what the guards found", async () => {
+  const clean = await runSpeakingPass({ apiKey: "x", name: "T", question: "q", answer: MAIN, shown: [], call: call([RESHAPED]).fn });
+  assert.equal(clean.inTime, true);
+  assert.equal(clean.factGuard, "pass");
+  assert.equal(clean.failsFirst, 0);
+  assert.equal(clean.failsShown, 0);
+
+  const bad = await runSpeakingPass({ apiKey: "x", name: "T", question: "q", answer: MAIN, shown: [], call: call([RESHAPED.replace("UBS", "HSBC")]).fn });
+  assert.equal(bad.factGuard, "fail");
+  assert.ok(bad.failsShown > 0); // the main answer, with its counted opening
+
+  const slow = async () => new Promise<string>((resolve) => setTimeout(() => resolve(RESHAPED), 200));
+  const late = await runSpeakingPass({ apiKey: "x", name: "T", question: "q", answer: MAIN, shown: [], call: slow, deadlineMs: 30 });
+  assert.equal(late.inTime, false);
+  assert.equal(late.factGuard, "none");
+});
+
+test("pass: the shown text is tidied against the files too", async () => {
+  const joined =
+    "**Talking to the business**\nI know the other side of that talk, because I am project owner of my platform, and deputy product owner of its core team.";
+  const r = await runSpeakingPass({ apiKey: "x", name: "T", question: "q", answer: joined, shown: [], feed: FEED, call: call([joined, joined]).fn });
+  assert.equal(
+    r.text,
+    "**Talking to the business**\nI know the other side of that talk. I am project owner of my platform, and deputy product owner of its core team.",
+  );
+  assert.equal(r.tidied, 1);
+  assert.equal(r.failsShown, 0);
+});
+
+/** The log fields a stub pass result needs. */
+const LOG = { inTime: true, factGuard: "pass", failsFirst: 0, failsShown: 0, tidied: 0 } as const;
+
 // ── The hold ───────────────────────────────────────────────────────────
 
 function sink() {
@@ -186,7 +308,7 @@ test("hold: the question line goes through at once, the answer after the pass", 
     out, apiKey: "x", name: "Test Person", questionLine: true, question: "heard", shown: ["a1"],
     pass: async (i) => {
       asked = { question: i.question, answer: i.answer, shown: i.shown };
-      return { text: "Reshaped.", source: "pass", reason: "clean", ms: 1 };
+      return { text: "Reshaped.", source: "pass", reason: "clean", ms: 1, ...LOG };
     },
   });
   await hold.writer.write(sse({ text: "**Decis" }));
@@ -207,7 +329,7 @@ test("hold: an error is passed on and the pass does not run", async () => {
   let ran = false;
   const hold = createSpeakingHold({
     out, apiKey: "x", name: "Test Person", questionLine: false, question: "q", shown: [],
-    pass: async () => { ran = true; return { text: "", source: "main", reason: "", ms: 0 }; },
+    pass: async () => { ran = true; return { text: "", source: "main", reason: "", ms: 0, ...LOG }; },
   });
   await hold.writer.write(sse({ text: "Half an ans" }));
   await hold.writer.write(sse({ error: "Anthropic declined to answer this request." }));
@@ -220,7 +342,7 @@ test("hold: without a question line the whole reply is the answer", async () => 
   const { frames, out } = sink();
   const hold = createSpeakingHold({
     out, apiKey: "x", name: "Test Person", questionLine: false, question: "heard q", shown: [],
-    pass: async (i) => ({ text: i.answer.toUpperCase(), source: "pass", reason: "clean", ms: 1 }),
+    pass: async (i) => ({ text: i.answer.toUpperCase(), source: "pass", reason: "clean", ms: 1, ...LOG }),
   });
   await hold.writer.write(sse({ text: "line one\nline two" }));
   await hold.writer.write(sse("[DONE]"));

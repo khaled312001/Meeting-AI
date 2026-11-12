@@ -63,6 +63,7 @@ import {
 import { streamGeminiCompletion } from "./completion-gemini";
 import { streamOpenAICompatibleCompletion } from "./completion-openai";
 import { streamAnthropicCompletion } from "./completion-anthropic";
+import { buildFeed } from "./speaking-pass";
 import { createSpeakingHold } from "./speaking-hold";
 import {
   loadEnabledKnowledgeDocs,
@@ -390,13 +391,20 @@ export async function handleCompletion(
   // Speaking pass (set per user by an admin): a live answer to a heard
   // question is held back and reshaped for reading aloud before it shows.
   // Screenshot answers (code) and typed chats are left as they are.
+  const speakingSkip = !modelParams.speakingPass || payload.flag !== FLAGS.ASSISTANT
+    ? null
+    : !useAnthropic
+      ? "provider is not Anthropic"
+      : payload.answerOnly !== true
+        ? "not an answer-only reply"
+        : hasChatHistory
+          ? "typed chat"
+          : totalImages > 0
+            ? "screenshot answer"
+            : "";
+  if (speakingSkip) console.log("[speaking-pass]", JSON.stringify({ ran: false, why: speakingSkip }));
   const speakingHold =
-    useAnthropic &&
-    !!modelParams.speakingPass &&
-    payload.flag === FLAGS.ASSISTANT &&
-    payload.answerOnly === true &&
-    !hasChatHistory &&
-    totalImages === 0
+    speakingSkip === ""
       ? createSpeakingHold({
           out: trackingWriter,
           apiKey: cfg.anthropicKey,
@@ -404,6 +412,9 @@ export async function handleCompletion(
           questionLine: payload.questionLine === true,
           question: (payload.question ?? basePrompt).trim(),
           shown: payload.previousAnswers ?? [],
+          // The files the answer is written from, to check joined lines and
+          // added clauses against.
+          feed: buildFeed([...knowledgeDocs.map((d) => d.content), payload.bg]),
           signal: request.signal,
         })
       : null;
@@ -428,9 +439,22 @@ export async function handleCompletion(
       }).then(async () => {
         const result = await speakingHold?.finish();
         if (result) {
+          // One line per answer: did the step run in time, did the fact
+          // guard pass, how many guard failures were found and are left.
           console.log(
             "[speaking-pass]",
-            JSON.stringify({ source: result.source, reason: result.reason, ms: result.ms }),
+            JSON.stringify({
+              ran: true,
+              user: trackedUser.id,
+              source: result.source,
+              reason: result.reason,
+              ms: result.ms,
+              inTime: result.inTime,
+              factGuard: result.factGuard,
+              failsFirst: result.failsFirst,
+              failsShown: result.failsShown,
+              tidied: result.tidied,
+            }),
           );
         }
       })

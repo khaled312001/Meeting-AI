@@ -73,6 +73,8 @@ function filesRuleSystem(
 
 The candidate's instructions (<candidate_instructions>) set every rule for the answer: its length, its parts, its figures, what may be repeated, and what is and is not said. Follow them exactly. The attached files are the candidate's material.
 
+When you use a line from the files, say it as it is written: one line stays its own sentence, not joined to another line with "and", "because" or "so", and no reason or result of your own is added at its end.
+
 The input:
 - <transcript>: live speech-to-text of the call. "Interviewer:" lines are the call audio, the other side; "Me:" lines are the candidate's microphone.
 - <interview_so_far>: every question asked and answer given so far in this meeting, in order (Q1 and A1, Q2 and A2, …).
