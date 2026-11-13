@@ -80,7 +80,8 @@ function readAnswerMeta(): AnswerMeta {
       at: typeof parsed.at === "number" ? parsed.at : null,
       kind: parsed.kind === "review" ? "review" : "answer",
       n: typeof parsed.n === "number" ? parsed.n : undefined,
-      question: typeof parsed.question === "string" ? parsed.question : undefined,
+      question:
+        typeof parsed.question === "string" ? parsed.question : undefined,
       updated: parsed.updated === true,
     };
   } catch {
@@ -153,26 +154,47 @@ type AssistantSessionValue = {
   clearAnswers: () => void;
 };
 
-
-const AssistantSessionContext = createContext<AssistantSessionValue | null>(null);
-
+const AssistantSessionContext = createContext<AssistantSessionValue | null>(
+  null,
+);
 
 function readOutputMode(): CompactOutputMode {
   const stored = readAppSession(APP_SESSION_KEYS.outputMode);
   return stored === "chat" ? "chat" : "transcript";
 }
 
-export function AssistantSessionProvider({ children }: { children: ReactNode }) {
-  const [completion, setCompletion] = useState("");
-  const [citations, setCitations] = useState<AnswerCitation[]>([]);
+export function AssistantSessionProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [completion, setCompletionState] = useState("");
+  const [citations, setCitationsState] = useState<AnswerCitation[]>([]);
   const [flag, setFlag] = useState<FLAGS>(FLAGS.ASSISTANT);
   const [outputMode, setOutputMode] = useState<CompactOutputMode>("transcript");
   const [pastAnswers, setPastAnswers] = useState<PastAnswer[]>([]);
   // Read by startNewAnswer so it stays stable for the generate callbacks.
+  // The refs follow every change at once, not at the next render: typed
+  // questions run back to back, and the next one files the answer before
+  // it starts, so the answer's last words must already be here.
   const completionRef = useRef(completion);
-  completionRef.current = completion;
   const citationsRef = useRef(citations);
-  citationsRef.current = citations;
+  const setCompletion = useCallback<Dispatch<SetStateAction<string>>>(
+    (value) => {
+      completionRef.current =
+        typeof value === "function" ? value(completionRef.current) : value;
+      setCompletionState(completionRef.current);
+    },
+    [],
+  );
+  const setCitations = useCallback<Dispatch<SetStateAction<AnswerCitation[]>>>(
+    (value) => {
+      citationsRef.current =
+        typeof value === "function" ? value(citationsRef.current) : value;
+      setCitationsState(citationsRef.current);
+    },
+    [],
+  );
 
   const [answerMeta, setAnswerMeta] = useState<AnswerMeta>({
     at: null,
@@ -220,7 +242,9 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
 
   const getAnswerLog = useCallback((since = 0) => {
     const entries: AnswerLogEntry[] = pastAnswersRef.current
-      .filter((a) => a.kind !== "review" && a.text.trim() && (a.at ?? 0) >= since)
+      .filter(
+        (a) => a.kind !== "review" && a.text.trim() && (a.at ?? 0) >= since,
+      )
       .map((a) => ({
         n: a.n,
         question: a.question,
@@ -229,7 +253,11 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
         updated: a.updated === true,
       }));
     const meta = answerMetaRef.current;
-    if (completionRef.current.trim() && meta.kind !== "review" && (meta.at ?? 0) >= since) {
+    if (
+      completionRef.current.trim() &&
+      meta.kind !== "review" &&
+      (meta.at ?? 0) >= since
+    ) {
       entries.push({
         n: meta.n,
         question: meta.question,
@@ -248,8 +276,17 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
       let past = pastAnswersRef.current;
       let n: number | undefined;
       if (opts?.numbered) {
-        const latest = Math.max(0, current.n ?? 0, ...past.map((a) => a.n ?? 0));
-        n = opts.replace && current.n ? current.n : opts.sameNumber && latest ? latest : latest + 1;
+        const latest = Math.max(
+          0,
+          current.n ?? 0,
+          ...past.map((a) => a.n ?? 0),
+        );
+        n =
+          opts.replace && current.n
+            ? current.n
+            : opts.sameNumber && latest
+              ? latest
+              : latest + 1;
       }
       if (text.trim() && !opts?.replace) {
         const entry: PastAnswer = {
@@ -275,7 +312,8 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
         n,
         question: opts?.question,
         // A replaced answer that was updated stays marked as updated.
-        updated: opts?.updated || (opts?.replace && current.updated) || undefined,
+        updated:
+          opts?.updated || (opts?.replace && current.updated) || undefined,
       };
       answerMetaRef.current = meta;
       setAnswerMeta(meta);
@@ -285,7 +323,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
         .map((a) => a.text.trim().slice(0, MAX_REMEMBERED_CHARS));
       return { previous, n };
     },
-    [],
+    [setCitations, setCompletion],
   );
 
   const clearAnswers = useCallback(() => {
@@ -300,7 +338,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     const meta: AnswerMeta = { at: null, kind: "answer" };
     answerMetaRef.current = meta;
     setAnswerMeta(meta);
-  }, []);
+  }, [setCitations, setCompletion]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -316,7 +354,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
       /* storage unavailable — keep Auto */
     }
     setReady(true);
-  }, []);
+  }, [setCompletion]);
 
   useEffect(() => {
     if (!ready) return;
